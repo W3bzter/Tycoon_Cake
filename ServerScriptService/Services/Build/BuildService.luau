@@ -149,7 +149,7 @@ end
 
 function BuildService.CanPlace(player: Player, plot: Model, id: string, gx: number, gz: number, rot: number, ignoreUid: string?): (boolean, string?)
 	local rect = BuildRules.Place(BuildModels.Footprint(id), gx, gz, rot)
-	return BuildRules.Check(rect, BuildArea.Reserved(plot, player), placedRects(player, ignoreUid), BuildArea.Bounds(plot, player))
+	return BuildRules.Check(rect, BuildArea.Reserved(plot, player), placedRects(player, ignoreUid), BuildArea.Areas(plot, player))
 end
 
 local function blocked(model: Model, action: string): string?
@@ -371,8 +371,11 @@ local function growToFit(player: Player, plot: Model, b: any)
 		if BuildCatalog.Find(record.Id) then
 			local rect = BuildRules.Place(BuildModels.Footprint(record.Id), record.GX, record.GZ, record.Rot)
 			while need < stages do
-				local bounds = BuildRules.StageBounds(need)
-				if rect.X0 >= bounds.MinX - 0.05 and rect.X1 <= bounds.MaxX + 0.05 and rect.Z0 >= bounds.MinZ - 0.05 and rect.Z1 <= bounds.MaxZ + 0.05 then
+				local fits = false
+				for _, area in BuildRules.StageAreas(need) do
+					fits = fits or BuildRules.Inside(rect, area)
+				end
+				if fits then
 					break
 				end
 				need += 1

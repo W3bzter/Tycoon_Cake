@@ -100,11 +100,11 @@ function BuildGhost.Reserved(plot: Model): { BuildRules.Rect }
 	return rects
 end
 
--- Where you may place things: your bakery's current size stage (BuildStage, set by
--- the server's Build/BuildArea) plus the patio.
-function BuildGhost.Bounds(plot: Model): BuildRules.Bounds
+-- Where you may place things: inside your bakery's current size stage (BuildStage,
+-- set by the server's Build/BuildArea) and the front patio. [1] = inside.
+function BuildGhost.Areas(plot: Model): { BuildRules.Bounds }
 	local stage = plot:GetAttribute("BuildStage")
-	return BuildRules.StageBounds(if typeof(stage) == "number" then stage else 1)
+	return BuildRules.StageAreas(if typeof(stage) == "number" then stage else 1)
 end
 
 -- Same check the server runs: (ok, reason, rect).
@@ -114,7 +114,7 @@ function BuildGhost.Check(plot: Model, id: string, gx: number, gz: number, rot: 
 		return false, "still loading", nil
 	end
 	local rect = BuildRules.Place(foot, gx, gz, rot)
-	local ok, reason = BuildRules.Check(rect, BuildGhost.Reserved(plot), placedRects(plot, ignore), BuildGhost.Bounds(plot))
+	local ok, reason = BuildRules.Check(rect, BuildGhost.Reserved(plot), placedRects(plot, ignore), BuildGhost.Areas(plot))
 	return ok, reason, rect
 end
 
@@ -194,32 +194,34 @@ end
 local function drawOverlay(plot: Model, folder: Folder)
 	folder:ClearAllChildren()
 	local floor = BuildRules.Floor(plot)
-	local b = BuildGhost.Bounds(plot)
 	local g = Config.Build.Grid
-	local w, d = b.MaxX - b.MinX, b.MaxZ - b.MinZ
-	local cx, cz = (b.MinX + b.MaxX) / 2, (b.MinZ + b.MaxZ) / 2
-	-- Lines sit on cell edges: items pivot on cell centres (multiples of Grid).
-	for x = (math.ceil(b.MinX / g - 0.5) + 0.5) * g, b.MaxX, g do
-		local line = visualPart(GRID_COLOR, 0.8)
-		line.Size = Vector3.new(0.08, 0.04, d)
-		line.CFrame = floor * CFrame.new(x, 0.04, cz)
-		line.Parent = folder
-	end
-	for z = (math.ceil(b.MinZ / g - 0.5) + 0.5) * g, b.MaxZ, g do
-		local line = visualPart(GRID_COLOR, 0.8)
-		line.Size = Vector3.new(w, 0.04, 0.08)
-		line.CFrame = floor * CFrame.new(cx, 0.04, z)
-		line.Parent = folder
-	end
-	for _, r in BuildGhost.Reserved(plot) do
-		-- Clip to the buildable area so plates outside it don't clutter the view.
-		local x0, x1 = math.max(r.X0, b.MinX), math.min(r.X1, b.MaxX)
-		local z0, z1 = math.max(r.Z0, b.MinZ), math.min(r.Z1, b.MaxZ)
-		if x1 > x0 and z1 > z0 then
-			local plate = visualPart(BAD_COLOR, 0.75)
-			plate.Size = Vector3.new(math.max(x1 - x0, 0.1), 0.06, math.max(z1 - z0, 0.1))
-			plate.CFrame = floor * CFrame.new((x0 + x1) / 2, 0.05, (z0 + z1) / 2)
-			plate.Parent = folder
+	local reserved = BuildGhost.Reserved(plot)
+	for _, b in BuildGhost.Areas(plot) do
+		local w, d = b.MaxX - b.MinX, b.MaxZ - b.MinZ
+		local cx, cz = (b.MinX + b.MaxX) / 2, (b.MinZ + b.MaxZ) / 2
+		-- Lines sit on cell edges: items pivot on cell centres (multiples of Grid).
+		for x = (math.ceil(b.MinX / g - 0.5) + 0.5) * g, b.MaxX, g do
+			local line = visualPart(GRID_COLOR, 0.8)
+			line.Size = Vector3.new(0.08, 0.04, d)
+			line.CFrame = floor * CFrame.new(x, 0.04, cz)
+			line.Parent = folder
+		end
+		for z = (math.ceil(b.MinZ / g - 0.5) + 0.5) * g, b.MaxZ, g do
+			local line = visualPart(GRID_COLOR, 0.8)
+			line.Size = Vector3.new(w, 0.04, 0.08)
+			line.CFrame = floor * CFrame.new(cx, 0.04, z)
+			line.Parent = folder
+		end
+		for _, r in reserved do
+			-- Clip to the buildable area so plates outside it don't clutter the view.
+			local x0, x1 = math.max(r.X0, b.MinX), math.min(r.X1, b.MaxX)
+			local z0, z1 = math.max(r.Z0, b.MinZ), math.min(r.Z1, b.MaxZ)
+			if x1 > x0 and z1 > z0 then
+				local plate = visualPart(BAD_COLOR, 0.75)
+				plate.Size = Vector3.new(math.max(x1 - x0, 0.1), 0.06, math.max(z1 - z0, 0.1))
+				plate.CFrame = floor * CFrame.new((x0 + x1) / 2, 0.05, (z0 + z1) / 2)
+				plate.Parent = folder
+			end
 		end
 	end
 end

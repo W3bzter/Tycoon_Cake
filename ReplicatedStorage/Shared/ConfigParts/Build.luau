@@ -39,7 +39,7 @@ Config.Building = B
 
 Config.Build = {
 	Grid = 2, -- studs per grid cell
-	Bounds = { MinX = -B.HalfX + 0.5, MaxX = B.HalfX - 0.5, MinZ = B.BackZ + 0.5, MaxZ = B.FrontZ }, -- largest area; per stage see Shared/BuildRules.StageBounds
+	Bounds = { MinX = -B.HalfX + 0.5, MaxX = B.HalfX - 0.5, MinZ = B.BackZ + 0.5, MaxZ = B.FrontZ }, -- largest area; per stage see Shared/BuildRules.StageAreas
 	MaxPlaced = 90, -- placed items per bakery
 	ActionCooldown = 0.25, -- seconds between build requests
 	-- Kept clear for customers (in addition to the footprints of

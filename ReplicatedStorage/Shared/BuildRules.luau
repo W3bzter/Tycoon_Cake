@@ -59,16 +59,31 @@ function BuildRules.Stage(hasUnlock: (string) -> boolean): number
 	return math.min(stage, #Config.Building.Stages)
 end
 
--- Where items may be placed at a stage: inside the walls plus the patio in front.
-function BuildRules.StageBounds(stage: number): Bounds
-	local st = Config.Building.Stages[math.clamp(stage, 1, #Config.Building.Stages)]
-	return { MinX = -st.HalfX + 0.5, MaxX = st.HalfX - 0.5, MinZ = st.BackZ + 0.5, MaxZ = Config.Building.FrontZ }
+-- Where items may be placed at a stage: inside the current walls, and the front
+-- patio across the whole plot width (it never changes: walls only grow sideways
+-- and back). An item must fit inside one of the areas.
+function BuildRules.StageAreas(stage: number): { Bounds }
+	local B = Config.Building
+	local st = B.Stages[math.clamp(stage, 1, #B.Stages)]
+	return {
+		{ MinX = -st.HalfX + 0.5, MaxX = st.HalfX - 0.5, MinZ = st.BackZ + 0.5, MaxZ = B.FacadeZ + 0.5 }, -- inside
+		{ MinX = -B.HalfX + 0.5, MaxX = B.HalfX - 0.5, MinZ = B.FacadeZ + 0.5, MaxZ = B.FrontZ }, -- patio
+	}
 end
 
--- Is `rect` inside `bounds` (default: the largest area) and clear of every reserved / other rect?
-function BuildRules.Check(rect: Rect, reserved: { Rect }, others: { Rect }, bounds: Bounds?): (boolean, string?)
-	local b = bounds or Config.Build.Bounds
-	if rect.X0 < b.MinX - EPS or rect.X1 > b.MaxX + EPS or rect.Z0 < b.MinZ - EPS or rect.Z1 > b.MaxZ + EPS then
+local function inside(rect: Rect, b: Bounds): boolean
+	return rect.X0 >= b.MinX - EPS and rect.X1 <= b.MaxX + EPS and rect.Z0 >= b.MinZ - EPS and rect.Z1 <= b.MaxZ + EPS
+end
+BuildRules.Inside = inside
+
+-- Is `rect` inside one of `areas` (default: the whole buildable plot) and clear of
+-- every reserved / other rect?
+function BuildRules.Check(rect: Rect, reserved: { Rect }, others: { Rect }, areas: { Bounds }?): (boolean, string?)
+	local fits = false
+	for _, b in areas or { Config.Build.Bounds } do
+		fits = fits or inside(rect, b)
+	end
+	if not fits then
 		return false, "outside your bakery"
 	end
 	for _, r in reserved do

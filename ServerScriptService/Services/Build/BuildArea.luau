@@ -4,7 +4,7 @@
 --     automation machines...), found automatically from the built plot
 --     (only the owner's size stage of staged items like the walls)
 --   * Config.Build.Reserved (the entrance path for customers, the annex doorway)
--- and where they MAY: BuildRules.StageBounds(stage) for the owner's bakery size.
+-- and where they MAY: BuildRules.StageAreas(stage) (inside the walls + the front patio).
 -- Both are mirrored to plot attributes (BuildReserved as JSON, BuildStage) so the
 -- client's preview uses exactly the same rules.
 
@@ -86,9 +86,9 @@ function BuildArea.Reserved(plot: Model, owner: Player?): { BuildRules.Rect }
 	return table.clone(staticRects(plot, TycoonButtons.Stage(owner)))
 end
 
--- Where the owner may place things (their bakery's current size + patio).
-function BuildArea.Bounds(_plot: Model, owner: Player?): BuildRules.Bounds
-	return BuildRules.StageBounds(TycoonButtons.Stage(owner))
+-- Where the owner may place things (inside their bakery's current size + the patio).
+function BuildArea.Areas(_plot: Model, owner: Player?): { BuildRules.Bounds }
+	return BuildRules.StageAreas(TycoonButtons.Stage(owner))
 end
 
 -- Mirrors the reserved rects to the plot for the client preview.

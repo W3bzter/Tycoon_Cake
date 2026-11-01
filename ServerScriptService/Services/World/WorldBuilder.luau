@@ -114,11 +114,11 @@ local function buildFloor(parent: Instance, floor: CFrame, halfX: number, backZ:
 	end
 	tiles.Parent = parent
 
-	-- Low picket fence along the patio sides.
+	-- Low picket fence along the patio sides (plot edges, every stage).
 	local fence = Instance.new("Model")
 	fence.Name = "Fence"
 	local z0, z1 = B.FacadeZ + 0.5, B.FrontZ
-	for _, x in { -(halfX - 0.4), halfX - 0.4 } do
+	for _, x in { -(B.HalfX - 0.4), B.HalfX - 0.4 } do -- the patio is always full plot width
 		for z = z0, z1, 4 do
 			Style.RoundedBox("Picket", Vector3.new(0.8, 3, 0.8), floor * CFrame.new(x, 1.5, z), P.White, fence, 0.35)
 		end
