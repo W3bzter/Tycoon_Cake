@@ -83,10 +83,48 @@ Skins.Defs = {
 	},
 } :: { [string]: Def }
 
-local function template(id: string): Instance?
+-- The folder holding the imported models. ServerStorage.Assets.Models is the
+-- intended spot, but any container named "Models" that holds at least one known
+-- item model is accepted (ServerStorage, ReplicatedStorage or Workspace), so a
+-- slightly different layout still works.
+local ReplicatedStorageService = game:GetService("ReplicatedStorage")
+local modelsFolder: Instance? = nil
+local searched = false
+
+local function holdsAModel(container: Instance): boolean
+	for id in Skins.Defs do
+		if container:FindFirstChild(id) then
+			return true
+		end
+	end
+	return false
+end
+
+local function findModelsFolder(): Instance?
+	if searched then
+		return modelsFolder
+	end
+	searched = true
 	local assets = ServerStorage:FindFirstChild("Assets")
-	local models = assets and assets:FindFirstChild("Models")
-	return models and models:FindFirstChild(id)
+	local preferred = assets and assets:FindFirstChild("Models")
+	if preferred then
+		modelsFolder = preferred
+		return preferred
+	end
+	for _, root in { ServerStorage, ReplicatedStorageService, workspace } do
+		for _, d in root:GetDescendants() do
+			if d.Name == "Models" and holdsAModel(d) then
+				modelsFolder = d
+				return d
+			end
+		end
+	end
+	return nil
+end
+
+local function template(id: string): Instance?
+	local folder = findModelsFolder()
+	return folder and folder:FindFirstChild(id)
 end
 
 function Skins.Has(id: string): boolean
@@ -135,11 +173,29 @@ end
 
 -- Prints which detailed models the place file has (called once at startup).
 function Skins.Report()
-	local assets = ServerStorage:FindFirstChild("Assets")
-	local models = assets and assets:FindFirstChild("Models")
+	local models = findModelsFolder()
 	if not models then
-		warn("[Skins] no ServerStorage.Assets.Models folder: items keep their block models (see Art/README.md)")
+		-- Say what IS there, so a misplaced folder is easy to spot.
+		local seen = {}
+		for _, root in { ServerStorage, ReplicatedStorageService, workspace } do
+			for _, d in root:GetDescendants() do
+				local related = d.Name == "Models" or d.Name == "Assets" or Skins.Defs[d.Name] ~= nil
+				if related and not d:FindFirstAncestor("BuildTemplates") and not d:FindFirstAncestor("Plots") then
+					table.insert(seen, d:GetFullName())
+				end
+			end
+		end
+		local top = {}
+		for _, child in ServerStorage:GetChildren() do
+			table.insert(top, child.Name)
+		end
+		warn("[Skins] no Models folder with item models found: items keep their block models (see Art/README.md)")
+		warn(`[Skins] ServerStorage contains: {if #top > 0 then table.concat(top, ", ") else "nothing"}`)
+		warn(`[Skins] related things found: {if #seen > 0 then table.concat(seen, ", ") else "none"}`)
 		return
+	end
+	if models:GetFullName() ~= "ServerStorage.Assets.Models" then
+		warn(`[Skins] using models from {models:GetFullName()} (works; ServerStorage > Assets > Models is the tidy spot)`)
 	end
 	local found, missing = {}, {}
 	for id in Skins.Defs do
