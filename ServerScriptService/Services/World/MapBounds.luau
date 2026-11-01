@@ -63,8 +63,12 @@ local function buildCliffs(xEdge: number, zMin: number, zMax: number)
 			local p = from:Lerp(to, i / math.max(steps, 1))
 			local top = p + Vector3.new(0, h + rng:NextNumber(-4, 8), 0) + inward * rng:NextNumber(-10, 10)
 			terrain:FillBall(top, rng:NextNumber(10, 20), materials[rng:NextInteger(1, #materials)])
-			local foot = p + inward * (t / 2 + rng:NextNumber(0, 4)) + Vector3.new(0, rng:NextNumber(2, 10), 0)
-			terrain:FillBall(foot, rng:NextNumber(5, 11), materials[rng:NextInteger(1, #materials)])
+			-- Rubble at the foot, but none near the road (the tunnel mouths).
+			local nearRoad = math.abs(p.Z - (ROAD_MIN + ROAD_MAX) / 2) < TUNNEL_W
+			if not nearRoad then
+				local foot = p + inward * (t / 2 + rng:NextNumber(0, 4)) + Vector3.new(0, rng:NextNumber(2, 10), 0)
+				terrain:FillBall(foot, rng:NextNumber(5, 11), materials[rng:NextInteger(1, #materials)])
+			end
 		end
 	end
 	lumps(Vector3.new(-outerX, 0, zMin - t / 2), Vector3.new(outerX, 0, zMin - t / 2), Vector3.new(0, 0, 1))
@@ -78,7 +82,10 @@ local function buildTunnel(side: number, xEdge: number, parent: Instance)
 	local terrain = workspace.Terrain
 	local zMid = (ROAD_MIN + ROAD_MAX) / 2
 	local depth = CLIFF_THICK - 6
-	-- Carve the tube (stops short of the far side of the cliff, so it's a dead end).
+	-- Clear a corridor in front of the mouth (no stray rock on the road), then carve
+	-- the tube (it stops short of the far side of the cliff, so it's a dead end).
+	local approach = 30
+	terrain:FillBlock(CFrame.new(side * (xEdge - approach / 2), (TUNNEL_H + 6) / 2, zMid), Vector3.new(approach + 2, TUNNEL_H + 6, TUNNEL_W + 8), Enum.Material.Air)
 	terrain:FillBlock(CFrame.new(side * (xEdge + depth / 2), TUNNEL_H / 2, zMid), Vector3.new(depth + 2, TUNNEL_H, TUNNEL_W), Enum.Material.Air)
 	terrain:FillBall(Vector3.new(side * (xEdge + depth / 2), TUNNEL_H - 2, zMid), TUNNEL_W / 2, Enum.Material.Air)
 
