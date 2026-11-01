@@ -181,6 +181,7 @@ function Style.Billboard(adornee: BasePart, lines: { string }, opts: { [string]:
 	gui.StudsOffsetWorldSpace = o.Offset or Vector3.new(0, 4, 0)
 	gui.MaxDistance = o.MaxDistance or 70
 	gui.LightInfluence = 0
+	gui.AlwaysOnTop = o.AlwaysOnTop == true
 	gui.Parent = adornee
 
 	local frame = Instance.new("Frame")

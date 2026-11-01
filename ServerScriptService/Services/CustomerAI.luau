@@ -8,7 +8,9 @@ local PathfindingService = game:GetService("PathfindingService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared:WaitForChild("Config"))
+local Recipes = require(Shared:WaitForChild("Recipes"))
 
 local BakingPipeline = require(script.Parent.BakingPipeline)
 local DataManager = require(script.Parent.DataManager)
@@ -198,15 +200,17 @@ local function celebrate(npc: Model)
 end
 
 local function defaultPurchase(npc: Model, plot: Model, slot: BasePart)
-	if not BakingPipeline.TakeCake(plot, slot) then
+	local ok, cakeType = BakingPipeline.TakeCake(plot, slot)
+	if not ok then
 		return
 	end
+	local cake = Recipes.Cakes[cakeType or "Vanilla"] or Recipes.Cakes.Vanilla
 	local owner = PlotManager.GetOwner(plot)
 	if owner then
-		DataManager.AddCash(owner, Config.CakePrice)
+		DataManager.AddCash(owner, cake.Price)
 	end
 	playSound(npc.PrimaryPart :: BasePart, Config.Sounds.Sale)
-	popText(npc, `+${Config.CakePrice}`, Color3.fromRGB(120, 255, 120))
+	popText(npc, `+${cake.Price}`, Color3.fromRGB(120, 255, 120))
 	celebrate(npc)
 end
 

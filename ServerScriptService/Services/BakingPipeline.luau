@@ -1,27 +1,33 @@
 --!strict
--- Crate -> Ingredient, Mixer (3 Ingredient) -> RawBatter, Oven (timer) -> FinishedCake,
--- Display Counter: cake goes on a slot and is marked ForSale.
+-- Pantry bins -> Ingredient tools; Mixer -> typed RawBatter (best unlocked recipe
+-- the held ingredients satisfy); Oven (timer) -> typed FinishedCake; Display
+-- Counter: the cake model goes on a slot and is marked ForSale.
 -- Every interaction is validated on the server: plot owner, machine unlocked,
 -- player close enough, and holding the right items.
 --
 -- State lives in attributes so other services (CustomerAI, AnomalyManager) can read it:
---   Oven model:   OvenState = "Idle" | "Baking" | "Ready", BakeRemaining, Blocked
---   Slot part:    HasCake, ForSale, Reserved
+--   Oven model:   OvenState = "Idle" | "Baking" | "Ready", BakeRemaining, Blocked, CakeType
+--   Slot part:    HasCake, ForSale, Reserved, CakeType
+--   Player:       UnlockedRecipes = "Vanilla,Chocolate" (for the client's mixer preview)
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared:WaitForChild("Config"))
+local Recipes = require(Shared:WaitForChild("Recipes"))
 
+local Assets = require(script.Parent.Assets)
 local DataManager = require(script.Parent.DataManager)
 local PlotManager = require(script.Parent.PlotManager)
 local Remotes = require(script.Parent.Remotes)
 local ToolFactory = require(script.Parent.ToolFactory)
+local TycoonButtons = require(script.Parent.TycoonButtons)
+local WorldBuilder = require(script.Parent.WorldBuilder)
 
 local BakingPipeline = {}
 
 local OVEN_IDS = { "Oven", "Oven2" }
 local MACHINE_PART = {
-	IngredientCrate = "Crate",
 	Mixer = "Body",
 	Oven = "Body",
 	Oven2 = "Body",
@@ -37,7 +43,7 @@ local function getItem(plot: Model, id: string): Model?
 	return items and items:FindFirstChild(id) :: Model?
 end
 
-local function getPrompt(item: Model): ProximityPrompt?
+local function getPrompt(item: Instance): ProximityPrompt?
 	return item:FindFirstChild("Prompt", true) :: ProximityPrompt?
 end
 
@@ -48,6 +54,17 @@ local function isNear(player: Player, part: BasePart, prompt: ProximityPrompt): 
 		return false
 	end
 	return (root.Position - part.Position).Magnitude <= prompt.MaxActivationDistance + Config.InteractSlack
+end
+
+local function hasUnlockFn(player: Player): (string) -> boolean
+	return function(id)
+		return DataManager.HasUnlock(player, id)
+	end
+end
+
+local function cakeName(cakeType: string?): string
+	local cake = cakeType and Recipes.Cakes[cakeType]
+	return if cake then cake.DisplayName else "Cake"
 end
 
 -- Ovens ----------------------------------------------------------------------
@@ -74,7 +91,7 @@ local function setOvenState(oven: Model, state: string)
 		prompt.ActionText = "Baking..."
 	elseif state == "Ready" then
 		prompt.ActionText = "Collect Cake"
-		prompt.ObjectText = "Oven (ready!)"
+		prompt.ObjectText = `{cakeName(oven:GetAttribute("CakeType") :: string?)} ready!`
 	end
 end
 
@@ -131,10 +148,8 @@ function BakingPipeline.SetOvenBlocked(oven: Model, blocked: boolean)
 				s.Opacity = 0.6
 				s.Parent = body
 			end
-		else
-			if smoke then
-				smoke:Destroy()
-			end
+		elseif smoke then
+			smoke:Destroy()
 		end
 	end
 
@@ -144,9 +159,6 @@ function BakingPipeline.SetOvenBlocked(oven: Model, blocked: boolean)
 			prompt.ObjectText = "Oven (OVERHEATED)"
 		else
 			setOvenState(oven, oven:GetAttribute("OvenState") :: string)
-			if oven:GetAttribute("OvenState") == "Idle" then
-				prompt.ObjectText = "Oven"
-			end
 		end
 	end
 end
@@ -190,18 +202,13 @@ local function cakesFolder(plot: Model): Folder
 	return folder :: Folder
 end
 
-local function placeCake(plot: Model, slot: BasePart)
-	local cake = Instance.new("Part")
-	cake.Name = slot.Name
-	cake.Shape = Enum.PartType.Cylinder
-	cake.Size = Vector3.new(1.5, 2.4, 2.4) -- cylinder axis is X; rotated upright below
-	cake.CFrame = slot.CFrame * CFrame.new(0, 0.75, 0) * CFrame.Angles(0, 0, math.rad(90))
-	cake.Color = Color3.fromRGB(150, 90, 60)
-	cake.Material = Enum.Material.SmoothPlastic
-	cake.Anchored = true
-	cake.CanCollide = false
-	cake.Parent = cakesFolder(plot)
+local function placeCake(plot: Model, slot: BasePart, cakeType: string)
+	local model = Assets.Clone("Cakes", cakeType)
+	model.Name = slot.Name
+	model:SetAttribute("CakeType", cakeType)
+	Assets.Anchor(model, slot.CFrame * CFrame.new(0, slot.Size.Y / 2, 0), cakesFolder(plot))
 
+	slot:SetAttribute("CakeType", cakeType)
 	slot:SetAttribute("HasCake", true)
 	slot:SetAttribute("ForSale", true)
 	slot:SetAttribute("Reserved", false)
@@ -230,11 +237,12 @@ function BakingPipeline.ReleaseSlot(slot: BasePart)
 	slot:SetAttribute("Reserved", false)
 end
 
--- Removes the cake from a slot. Returns true if there was one.
-function BakingPipeline.TakeCake(plot: Model, slot: BasePart): boolean
+-- Removes the cake from a slot. Returns true and its type if there was one.
+function BakingPipeline.TakeCake(plot: Model, slot: BasePart): (boolean, string?)
 	if not slot:GetAttribute("HasCake") then
-		return false
+		return false, nil
 	end
+	local cakeType = slot:GetAttribute("CakeType") :: string?
 	local cake = cakesFolder(plot):FindFirstChild(slot.Name)
 	if cake then
 		cake:Destroy()
@@ -242,28 +250,71 @@ function BakingPipeline.TakeCake(plot: Model, slot: BasePart): boolean
 	slot:SetAttribute("HasCake", false)
 	slot:SetAttribute("ForSale", false)
 	slot:SetAttribute("Reserved", false)
-	return true
+	slot:SetAttribute("CakeType", nil)
+	return true, cakeType or "Vanilla"
+end
+
+-- Pantry ---------------------------------------------------------------------------
+
+local function getBin(plot: Model, ingredient: string): Model?
+	local pantry = getItem(plot, "IngredientCrate")
+	local bins = pantry and pantry:FindFirstChild("Bins")
+	return bins and bins:FindFirstChild(ingredient) :: Model?
+end
+
+-- Shows only the bins whose ingredient some unlocked recipe uses, and mirrors the
+-- unlocked recipe list onto the player for the client-side mixer preview.
+function BakingPipeline.RefreshPantry(plot: Model)
+	local owner = PlotManager.GetOwner(plot)
+	local pantry = getItem(plot, "IngredientCrate")
+	if owner then
+		owner:SetAttribute("UnlockedRecipes", table.concat(Recipes.Unlocked(hasUnlockFn(owner)), ","))
+	end
+	if not pantry or not pantry:GetAttribute("Visible") then
+		return
+	end
+	local needed = if owner then Recipes.NeededIngredients(hasUnlockFn(owner)) else {}
+	for _, ingredient in Recipes.IngredientOrder do
+		local bin = getBin(plot, ingredient)
+		if bin then
+			WorldBuilder.SetVisible(bin, needed[ingredient] == true)
+		end
+	end
 end
 
 -- Interactions -------------------------------------------------------------------
 
-local handlers: { [string]: (Player, Model, Model) -> () } = {}
+local handlers: { [string]: (Player, Model, Model, string?) -> () } = {}
 
-handlers.IngredientCrate = function(player)
+handlers.IngredientCrate = function(player, _plot, _item, ingredient)
+	if not ingredient then
+		return
+	end
 	if ToolFactory.Count(player, "Ingredient") >= Config.MaxIngredientsHeld then
 		notify(player, `You can only carry {Config.MaxIngredientsHeld} ingredients.`)
 		return
 	end
-	ToolFactory.Give(player, "Ingredient")
+	ToolFactory.Give(player, "Ingredient", ingredient)
 end
 
 handlers.Mixer = function(player)
-	local need = Config.IngredientsPerBatter
-	if not ToolFactory.Take(player, "Ingredient", need) then
-		notify(player, `The mixer needs {need} ingredients.`)
+	local held: { [string]: number } = {}
+	for _, tool in ToolFactory.Find(player, "Ingredient") do
+		local name = tool:GetAttribute("Variant") :: string?
+		if name then
+			held[name] = (held[name] or 0) + 1
+		end
+	end
+	local cakeType = Recipes.BestRecipe(held, hasUnlockFn(player))
+	if not cakeType then
+		notify(player, "No recipe matches! Vanilla needs 🌾 Flour, 🥚 Eggs and 🍬 Sugar.")
 		return
 	end
-	ToolFactory.Give(player, "RawBatter")
+	for _, ingredient in Recipes.Cakes[cakeType].Ingredients do
+		ToolFactory.Take(player, "Ingredient", 1, ingredient)
+	end
+	ToolFactory.Give(player, "RawBatter", cakeType)
+	notify(player, `Mixed {cakeName(cakeType)} batter!`)
 end
 
 local function ovenHandler(player: Player, _plot: Model, oven: Model)
@@ -273,14 +324,18 @@ local function ovenHandler(player: Player, _plot: Model, oven: Model)
 	end
 	local state = oven:GetAttribute("OvenState")
 	if state == "Idle" then
-		if not ToolFactory.Take(player, "RawBatter", 1) then
+		local batter = ToolFactory.Find(player, "RawBatter")[1]
+		if not batter then
 			notify(player, "You need Raw Batter from the mixer.")
 			return
 		end
+		oven:SetAttribute("CakeType", batter:GetAttribute("Variant") or "Vanilla")
+		batter:Destroy()
 		task.spawn(runBake, oven)
 	elseif state == "Ready" then
+		local cakeType = (oven:GetAttribute("CakeType") :: string?) or "Vanilla"
 		setOvenState(oven, "Idle")
-		ToolFactory.Give(player, "FinishedCake")
+		ToolFactory.Give(player, "FinishedCake", cakeType)
 	end
 end
 handlers.Oven = ovenHandler
@@ -298,15 +353,19 @@ handlers.DisplayCounter = function(player, plot)
 		notify(player, "The display counter is full.")
 		return
 	end
-	if not ToolFactory.Take(player, "FinishedCake", 1) then
+	local cake = ToolFactory.Find(player, "FinishedCake")[1]
+	if not cake then
 		notify(player, "You need a finished cake from the oven.")
 		return
 	end
-	placeCake(plot, free :: BasePart)
+	local cakeType = (cake:GetAttribute("Variant") :: string?) or "Vanilla"
+	cake:Destroy()
+	placeCake(plot, free :: BasePart, cakeType)
 end
 
 -- Single validated entry point (prompts call this; tests can too via DebugBridge).
-function BakingPipeline.Interact(player: Player, plot: Model, machineId: string): boolean
+-- `arg` is the ingredient name for the pantry.
+function BakingPipeline.Interact(player: Player, plot: Model, machineId: string, arg: string?): boolean
 	local handler = handlers[machineId]
 	local item = getItem(plot, machineId)
 	if not handler or not item then
@@ -318,47 +377,79 @@ function BakingPipeline.Interact(player: Player, plot: Model, machineId: string)
 	if not DataManager.HasUnlock(player, machineId) or not item:GetAttribute("Visible") then
 		return false
 	end
-	local part = item:FindFirstChild(MACHINE_PART[machineId]) :: BasePart?
-	local prompt = getPrompt(item)
+
+	local target: Instance? = item
+	local part: BasePart?
+	if machineId == "IngredientCrate" then
+		local bin = arg and getBin(plot, arg)
+		if not bin or not bin:GetAttribute("Visible") then
+			return false -- unknown ingredient or not unlocked yet
+		end
+		target = bin
+		part = bin:FindFirstChild("Bin") :: BasePart?
+	else
+		part = item:FindFirstChild(MACHINE_PART[machineId]) :: BasePart?
+	end
+	local prompt = target and getPrompt(target)
 	if not part or not prompt or not isNear(player, part, prompt) then
 		return false
 	end
-	handler(player, plot, item)
+	handler(player, plot, item, arg)
 	return true
 end
 
 -- Setup ------------------------------------------------------------------------
 
 local PROMPT_TEXT = {
-	IngredientCrate = { "Take Ingredient", "Ingredient Crate" },
 	Mixer = { "Mix Batter", "Mixer" },
 	Oven = { "Bake Batter", "Oven" },
 	Oven2 = { "Bake Batter", "Oven" },
 	DisplayCounter = { "Display Cake", "Display Counter" },
 }
 
+local function makePrompt(parent: BasePart, action: string, object: string, visible: boolean, distance: number?): ProximityPrompt
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.Name = "Prompt"
+	prompt.ActionText = action
+	prompt.ObjectText = object
+	prompt.MaxActivationDistance = distance or 10
+	prompt.HoldDuration = 0.2
+	prompt.RequiresLineOfSight = false
+	prompt.Enabled = visible
+	prompt.Parent = parent
+	return prompt
+end
+
 local function setupPlot(plot: Model)
 	for machineId, partName in MACHINE_PART do
 		local item = getItem(plot, machineId)
 		local part = item and item:FindFirstChild(partName) :: BasePart?
 		if item and part then
-			local prompt = Instance.new("ProximityPrompt")
-			prompt.Name = "Prompt"
-			prompt.ActionText = PROMPT_TEXT[machineId][1]
-			prompt.ObjectText = PROMPT_TEXT[machineId][2]
-			prompt.MaxActivationDistance = 10
-			prompt.HoldDuration = 0.2
-			prompt.RequiresLineOfSight = false
-			prompt.Enabled = item:GetAttribute("Visible") == true
-			prompt.Parent = part
+			local text = PROMPT_TEXT[machineId]
+			local prompt = makePrompt(part, text[1], text[2], item:GetAttribute("Visible") == true)
 			prompt.Triggered:Connect(function(player)
 				BakingPipeline.Interact(player, plot, machineId)
 			end)
-
 			if machineId == "Oven" or machineId == "Oven2" then
 				item:SetAttribute("IsOven", true)
 				item:SetAttribute("Blocked", false)
 				setOvenState(item, "Idle")
+			end
+		end
+	end
+
+	-- One prompt per pantry bin.
+	local pantry = getItem(plot, "IngredientCrate")
+	if pantry then
+		for _, ingredient in Recipes.IngredientOrder do
+			local bin = getBin(plot, ingredient)
+			local binPart = bin and bin:FindFirstChild("Bin") :: BasePart?
+			if bin and binPart then
+				local info = Recipes.Ingredients[ingredient]
+				local prompt = makePrompt(binPart, `Take {info.DisplayName}`, `{info.Icon} Pantry`, bin:GetAttribute("Visible") == true, 6)
+				prompt.Triggered:Connect(function(player)
+					BakingPipeline.Interact(player, plot, "IngredientCrate", ingredient)
+				end)
 			end
 		end
 	end
@@ -407,6 +498,19 @@ function BakingPipeline.Init()
 		end
 	end
 	PlotManager.PlotReleased:Connect(resetPlot)
+
+	-- TycoonButtons shows/hides whole items; defer so the bin filter runs after it.
+	PlotManager.PlotClaimed:Connect(function(_player, plot)
+		task.defer(BakingPipeline.RefreshPantry, plot)
+	end)
+	TycoonButtons.UpgradeUnlocked:Connect(function(_player, plot)
+		task.defer(BakingPipeline.RefreshPantry, plot)
+	end)
+	for _, plot in (workspace:WaitForChild("Plots") :: Folder):GetChildren() do
+		if plot:IsA("Model") and PlotManager.GetOwner(plot) then
+			task.defer(BakingPipeline.RefreshPantry, plot)
+		end
+	end
 end
 
 return BakingPipeline

@@ -36,6 +36,11 @@ if RunService:IsStudio() then
 	bridge.Name = "DebugBridge"
 	bridge.OnInvoke = function(serviceName: string, method: string, ...)
 		local service = loaded[serviceName]
+		if not service then
+			-- Helper modules without Init (Assets, ToolFactory, Style...) aren't in ORDER.
+			local module = Services:FindFirstChild(serviceName)
+			service = module and module:IsA("ModuleScript") and (require(module) :: any)
+		end
 		assert(service, `DebugBridge: unknown service {serviceName}`)
 		local fn = service[method]
 		assert(type(fn) == "function", `DebugBridge: {serviceName}.{method} is not a function`)

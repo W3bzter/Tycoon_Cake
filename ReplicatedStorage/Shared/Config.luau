@@ -13,14 +13,12 @@ Config.StartingCash = 250 -- enough to buy the core pipeline (Walls..DisplayCoun
 Config.ButtonCooldown = 1 -- seconds between purchase attempts per player
 
 -- Baking ---------------------------------------------------------------------
-Config.MaxIngredientsHeld = 6
-Config.IngredientsPerBatter = 3
+Config.MaxIngredientsHeld = 8 -- recipes and prices live in Shared/Recipes
 Config.BakeTime = 8 -- seconds in the oven
 Config.DisplaySlots = 3 -- cakes per display counter
 Config.InteractSlack = 6 -- extra studs allowed beyond a prompt's range (lag tolerance)
 
 -- Customers ------------------------------------------------------------------
-Config.CakePrice = 25
 Config.CustomerInterval = 5 -- seconds between spawn checks
 Config.MaxCustomers = 6
 Config.CustomerWalkSpeed = 18

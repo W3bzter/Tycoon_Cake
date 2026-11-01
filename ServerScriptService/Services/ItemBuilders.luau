@@ -4,6 +4,10 @@
 -- Part names BakingPipeline depends on: IngredientCrate.Crate, Mixer.Body,
 -- Oven(2).Body + Door, DisplayCounter.Counter.
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Recipes = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Recipes"))
+local Assets = require(script.Parent.Assets)
 local Style = require(script.Parent.Style)
 
 local P = Style.Palette
@@ -74,29 +78,47 @@ ItemBuilders.Walls = function(floor, item)
 	glow.Material = Enum.Material.Neon
 end
 
+-- Pantry bin positions on the shelves (x, shelf-top y), in Recipes.IngredientOrder.
+local BIN_SPOTS = {
+	Flour = { -32, 0.4 },
+	Eggs = { -28, 0.4 },
+	Sugar = { -24, 0.4 },
+	Butter = { -30.5, 3.3 },
+	Milk = { -25.5, 3.3 },
+	Strawberries = { -30.5, 6.2 },
+	Chocolate = { -25.5, 6.2 },
+}
+
 ItemBuilders.IngredientCrate = function(floor, item)
-	-- Pantry shelf against the back wall. "Crate" is the interact part.
-	local cabinet = Style.RoundedBox("Crate", Vector3.new(12, 8, 3), at(floor, -28, 4, -37.4), P.Peach, item, 0.5)
-	for i, y in { 2.4, 4.9, 7.4 } do
-		Style.Trim(`Shelf{i}`, Vector3.new(12.4, 0.4, 3.6), at(floor, -28, y, -36.6), P.Vanilla, item)
+	-- Pantry shelf against the back wall, one bin per ingredient. BakingPipeline
+	-- adds a prompt to each Bins/<Ingredient>/Bin part and hides locked ones.
+	local cabinet = Style.RoundedBox("Crate", Vector3.new(13, 9, 3), at(floor, -28, 4.5, -37.4), P.Peach, item, 0.5)
+	for i, y in { 3.1, 6 } do
+		Style.Trim(`Shelf{i}`, Vector3.new(13.4, 0.4, 3.8), at(floor, -28, y, -36.4), P.Vanilla, item)
 	end
-	local goods = {
-		{ -32, 3.2, P.White, Enum.PartType.Ball }, -- flour
-		{ -28, 3.2, P.Cream, Enum.PartType.Block }, -- eggs
-		{ -24, 3.2, P.Pink, Enum.PartType.Block }, -- sugar
-		{ -31, 5.7, P.Butter, Enum.PartType.Block }, -- butter
-		{ -25, 5.7, P.White, Enum.PartType.Cylinder }, -- milk
-	}
-	for _, g in goods do
-		Style.Part({
-			Name = "Goods",
-			Shape = g[4],
-			Size = Vector3.new(1.6, 1.6, 1.6),
-			CFrame = at(floor, g[1], g[2], -36.2),
-			Color = g[3],
-			Parent = item,
+
+	local bins = Instance.new("Folder")
+	bins.Name = "Bins"
+	for _, ingredient in Recipes.IngredientOrder do
+		local spot = BIN_SPOTS[ingredient]
+		local info = Recipes.Ingredients[ingredient]
+		local binModel = Instance.new("Model")
+		binModel.Name = ingredient
+		local binPart = Style.RoundedBox("Bin", Vector3.new(3.4, 0.8, 2.6), at(floor, spot[1], spot[2] + 0.4, -35.6), P.Cream, binModel, 0.4)
+		local art = Assets.Clone("Ingredients", ingredient)
+		Assets.Anchor(art, binPart.CFrame * CFrame.new(0, 0.4, 0), binModel)
+		Style.Billboard(binPart, { `{info.Icon} {info.DisplayName}` }, {
+			Name = "BinLabel",
+			Width = 3.2,
+			Height = 0.8,
+			-- In front of the shelf edge and below the shelf above, so nothing clips it.
+			Offset = Vector3.new(0, 1.5, 2.4),
+			MaxDistance = 28,
+			Stroke = P.DeepMint,
 		})
+		binModel.Parent = bins
 	end
+	bins.Parent = item
 	Style.MachineSign(item, cabinet, "🥚", "Pantry")
 end
 
