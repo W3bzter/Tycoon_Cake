@@ -121,13 +121,58 @@ local function isKept(inst: Instance, item: Model, keep: { string }): boolean
 	return false
 end
 
--- Dresses `item` (catalog id `id`, built but not yet pivoted) in its detailed
--- model if one is imported. Returns true if it did.
-function Skins.Apply(item: Model, id: string): boolean
+local reported: { [string]: boolean } = {}
+local function reportOnce(id: string, message: string, isWarning: boolean?)
+	if not reported[id] then
+		reported[id] = true
+		if isWarning then
+			warn(`[Skins] {id}: {message}`)
+		else
+			print(`[Skins] {id}: {message}`)
+		end
+	end
+end
+
+-- Prints which detailed models the place file has (called once at startup).
+function Skins.Report()
+	local assets = ServerStorage:FindFirstChild("Assets")
+	local models = assets and assets:FindFirstChild("Models")
+	if not models then
+		warn("[Skins] no ServerStorage.Assets.Models folder: items keep their block models (see Art/README.md)")
+		return
+	end
+	local found, missing = {}, {}
+	for id in Skins.Defs do
+		table.insert(if models:FindFirstChild(id) then found else missing, id)
+	end
+	local extra = {}
+	for _, child in models:GetChildren() do
+		if not Skins.Defs[child.Name] then
+			table.insert(extra, child.Name)
+		end
+	end
+	print(`[Skins] models found: {if #found > 0 then table.concat(found, ", ") else "none"}`)
+	if #missing > 0 then
+		warn(`[Skins] not imported yet: {table.concat(missing, ", ")}`)
+	end
+	if #extra > 0 then
+		warn(`[Skins] in Assets.Models but not a known item name (check spelling): {table.concat(extra, ", ")}`)
+	end
+end
+
+local function apply(item: Model, id: string): boolean
 	local def = Skins.Defs[id]
+	if not def then
+		return false
+	end
 	local source = template(id)
-	local anchor = item:FindFirstChild(def and def.Anchor or "", true) :: BasePart?
-	if not def or not source or not anchor then
+	if not source then
+		reportOnce(id, `no model at ServerStorage.Assets.Models.{id}, keeping the block model`)
+		return false
+	end
+	local anchor = item:FindFirstChild(def.Anchor, true) :: BasePart?
+	if not anchor then
+		reportOnce(id, `the block model has no part named {def.Anchor}, can't place the detailed model`, true)
 		return false
 	end
 
@@ -200,7 +245,32 @@ function Skins.Apply(item: Model, id: string): boolean
 		end
 	end
 	skin.Parent = item
+	local meshes = 0
+	for _, d in skin:GetDescendants() do
+		meshes += if d:IsA("BasePart") then 1 else 0
+	end
+	if meshes == 0 then
+		reportOnce(id, `ServerStorage.Assets.Models.{id} has no parts in it (was the .fbx imported into it?)`, true)
+	else
+		reportOnce(id, `using the detailed model ({meshes} meshes)`)
+	end
 	return true
+end
+
+-- Dresses `item` (catalog id `id`, built but not yet pivoted) in its detailed
+-- model if one is imported. Returns true if it did. Never throws: a broken model
+-- is reported and the item keeps its block model.
+function Skins.Apply(item: Model, id: string): boolean
+	local ok, result = pcall(apply, item, id)
+	if not ok then
+		reportOnce(id, `couldn't apply the detailed model: {result}`, true)
+		local skin = item:FindFirstChild("Skin")
+		if skin then
+			skin:Destroy()
+		end
+		return false
+	end
+	return result
 end
 
 return Skins

@@ -92,6 +92,7 @@ function BuildModels.PlaceAt(model: Model, plot: Model, gx: number, gz: number, 
 end
 
 function BuildModels.Init()
+	Skins.Report()
 	local folder = Instance.new("Folder")
 	folder.Name = "BuildTemplates"
 	for _, entry in BuildCatalog.List do
