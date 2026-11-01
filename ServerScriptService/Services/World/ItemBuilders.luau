@@ -395,6 +395,7 @@ ItemBuilders.OvenRack4 = noModel
 -- expansions only change which stage shows (TycoonButtons).
 ItemBuilders.BakeryExpansion1 = noModel
 ItemBuilders.BakeryExpansion2 = noModel
+ItemBuilders.AutoRoller = noModel -- Baking/AutoRoll; its on/off prompt sits on the pantry
 
 ItemBuilders.BigMixer = function(floor, item)
 	local bowl = Style.Cylinder("BigBowl", 3, 5.6, at(floor, -12, 5.3, -35), P.Steel, item)

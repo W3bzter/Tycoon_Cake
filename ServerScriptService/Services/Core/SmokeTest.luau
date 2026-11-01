@@ -153,6 +153,17 @@ function SmokeTest.Run(player: Player, withAnomalies: boolean?): string
 		assert(racksIn(oven, "Idle") + racksIn(oven, "Baking") + racksIn(oven, "Ready") == 4, "rack instances missing")
 		return `{oven:GetAttribute("CatalogId")}: {racks} racks`
 	end)
+	step("auto-roll", function()
+		local data = DataManager.Get(player)
+		local before = #data.Bag
+		data.Settings.AutoRoll = nil -- on
+		task.wait(Config.Rolling.Cooldown * 2 + 0.6)
+		local after = #data.Bag
+		data.Settings.AutoRoll = false -- off, so the manual roll checks below get the cooldown
+		assert(after > before or not Inventory.RollFits(player), "auto-roll didn't roll")
+		task.wait(Config.Rolling.Cooldown + 0.1)
+		return `+{after - before} ingredients`
+	end)
 	step("roll ingredients", function()
 		for _ = 1, 3 do
 			assert(Inventory.Roll(player), "roll refused")

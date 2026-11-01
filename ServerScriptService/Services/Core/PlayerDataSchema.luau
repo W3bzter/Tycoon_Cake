@@ -19,7 +19,7 @@ export type PlayerData = {
 	MixRecipe: string,
 	GemUpgrades: { [string]: number },
 	Receipts: { string },
-	Settings: { AutoDelete: { [string]: number }, KeepSpecial: boolean },
+	Settings: { AutoDelete: { [string]: number }, KeepSpecial: boolean, AutoRoll: boolean? }, -- AutoRoll: Auto-Roller on/off (nil = on)
 	Storage: { [string]: number },
 	LinesEnabled: { boolean },
 	LineRecipes: { string },

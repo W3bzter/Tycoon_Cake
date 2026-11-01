@@ -28,6 +28,7 @@ local PlotLayout = {}
 
 PlotLayout.Upgrades = {
 	-- Tier 0: Hand tools (a new plot starts as bare floor; the Pantry is placed from the Build shop) ---
+	{ Id = "AutoRoller", DisplayName = "Auto-Roller", Icon = "🎲", Category = "Kitchen", Tier = 0, Price = 50, Requires = { "IngredientCrate" } },
 	{ Id = "Walls", DisplayName = "Bakery Building", Icon = "🏠", Category = "Build", Tier = 0, Price = 75, Requires = { "DisplayCounter" } },
 
 	-- Tier 1: Manual machines (each replaces its hand tool in the same spot) -----------

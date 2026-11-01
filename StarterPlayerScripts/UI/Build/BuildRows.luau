@@ -106,7 +106,9 @@ local function describe(upgrade: PlotLayout.Upgrade): string
 			table.insert(parts, `+{value} storage slots`)
 		end
 	end
-	if upgrade.Id == "FactoryAnnex" then
+	if upgrade.Id == "AutoRoller" then
+		return "Rolls ingredients for you. T at the pantry: on/off."
+	elseif upgrade.Id == "FactoryAnnex" then
 		return "A factory room behind your bakery for automation."
 	elseif string.sub(upgrade.Id, 1, 15) == "BakeryExpansion" then
 		return "Moves your walls out: more room to build."
