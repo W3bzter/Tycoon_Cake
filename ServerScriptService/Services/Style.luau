@@ -180,9 +180,11 @@ function Style.Billboard(adornee: BasePart, lines: { string }, opts: { [string]:
 	gui.Name = o.Name or "Label"
 	gui.Size = UDim2.fromScale(o.Width or 7, o.Height or 2.4) -- studs
 	gui.StudsOffsetWorldSpace = o.Offset or Vector3.new(0, 4, 0)
-	gui.MaxDistance = o.MaxDistance or 70
+	-- Labels are never hidden behind walls/equipment: always on top by default,
+	-- with a short MaxDistance so labels from other rooms/plots don't clutter.
+	gui.MaxDistance = o.MaxDistance or 40
 	gui.LightInfluence = 0
-	gui.AlwaysOnTop = o.AlwaysOnTop == true
+	gui.AlwaysOnTop = o.AlwaysOnTop ~= false
 	gui.Parent = adornee
 
 	local frame = Instance.new("Frame")
@@ -218,13 +220,16 @@ function Style.Billboard(adornee: BasePart, lines: { string }, opts: { [string]:
 	return gui
 end
 
-function Style.MachineSign(item: Model, anchor: BasePart, emoji: string, text: string)
+-- `lift` = studs above the anchor's top. Back-wall machines use a high lift and
+-- front-row (automation) machines a low one, so their always-on-top signs don't
+-- line up on screen when one machine stands in front of another.
+function Style.MachineSign(item: Model, anchor: BasePart, emoji: string, text: string, lift: number?)
 	Style.Billboard(anchor, { `{emoji} {text}` }, {
 		Name = "MachineSign",
 		Width = 6,
 		Height = 1.4,
-		Offset = Vector3.new(0, anchor.Size.Y / 2 + 3, 0),
-		MaxDistance = 45,
+		Offset = Vector3.new(0, anchor.Size.Y / 2 + (lift or 4), 0),
+		MaxDistance = 35,
 	})
 	CollectionService:AddTag(item, "Interactable")
 end

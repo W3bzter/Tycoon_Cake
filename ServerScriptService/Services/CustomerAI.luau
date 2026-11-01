@@ -174,8 +174,9 @@ local function setBubble(npc: Model, text: string?)
 	gui.Name = "WantBubble"
 	gui.Size = UDim2.fromScale(5, 1.6)
 	gui.StudsOffset = Vector3.new(0, 3.2, 0)
-	gui.MaxDistance = 80
+	gui.MaxDistance = 60
 	gui.LightInfluence = 0
+	gui.AlwaysOnTop = true
 	local frame = Instance.new("Frame")
 	frame.Size = UDim2.fromScale(1, 1)
 	frame.BackgroundColor3 = Color3.new(1, 1, 1)
@@ -206,8 +207,10 @@ local function popText(npc: Model, text: string, color: Color3)
 	end
 	local gui = Instance.new("BillboardGui")
 	gui.Size = UDim2.fromScale(5, 1.6)
-	gui.StudsOffset = Vector3.new(0, 5, 0)
+	gui.StudsOffset = Vector3.new(0, 5, 0) -- above the want/thanks bubble (offset 3.2)
 	gui.AlwaysOnTop = true
+	gui.LightInfluence = 0
+	gui.MaxDistance = 60
 	local label = Instance.new("TextLabel")
 	label.Size = UDim2.fromScale(1, 1)
 	label.BackgroundTransparency = 1

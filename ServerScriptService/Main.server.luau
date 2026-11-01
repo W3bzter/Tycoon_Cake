@@ -18,6 +18,7 @@ local ORDER = {
 	"AutoProduction",
 	"AnomalyManager",
 	"GemShop",
+	"DevTools",
 }
 
 local loaded: { [string]: any } = {}

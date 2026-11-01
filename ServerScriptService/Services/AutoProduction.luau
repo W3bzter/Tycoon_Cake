@@ -106,15 +106,18 @@ end
 
 -- Visuals -------------------------------------------------------------------------------
 
-local function statusGui(part: BasePart): TextLabel
+-- `lift`: the hopper's status sits above its own machine sign (which is low);
+-- production-unit panels have no sign of their own, so theirs sits just above.
+local function statusGui(part: BasePart, lift: number): TextLabel
 	local gui = part:FindFirstChild("LineStatus") :: BillboardGui?
 	if not gui then
 		local created = Instance.new("BillboardGui")
 		created.Name = "LineStatus"
 		created.Size = UDim2.fromScale(7, 1.2)
-		created.StudsOffsetWorldSpace = Vector3.new(0, part.Size.Y / 2 + 1.6, 0)
-		created.MaxDistance = 45
+		created.StudsOffsetWorldSpace = Vector3.new(0, part.Size.Y / 2 + lift, 0)
+		created.MaxDistance = 35
 		created.LightInfluence = 0
+		created.AlwaysOnTop = true
 		local label = Instance.new("TextLabel")
 		label.Name = "Text"
 		label.Size = UDim2.fromScale(1, 1)
@@ -284,7 +287,7 @@ local function updatePrompts(plot: Model, owner: Player, line: Line)
 			status ..= ` | 🔥 {if line.bakeRemaining then `{math.ceil(line.bakeRemaining)}s` else "-"} | 🍰 {#line.tray}`
 		end
 	end
-	statusGui(part).Text = status
+	statusGui(part, if line.unitId then 1.6 else 3.2).Text = status
 
 	local recipePrompt = part:FindFirstChild("RecipePrompt") :: ProximityPrompt?
 	if recipePrompt then

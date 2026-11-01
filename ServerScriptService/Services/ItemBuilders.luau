@@ -113,7 +113,7 @@ ItemBuilders.IngredientCrate = function(floor, item)
 			Height = 0.8,
 			-- In front of the shelf edge and below the shelf above, so nothing clips it.
 			Offset = Vector3.new(0, 1.5, 2.4),
-			MaxDistance = 28,
+			MaxDistance = 22,
 			Stroke = P.DeepMint,
 		})
 		binModel.Parent = bins
@@ -303,8 +303,7 @@ end
 
 ItemBuilders.BigMixer = function(floor, item)
 	local bowl = Style.Cylinder("BigBowl", 3, 5.6, at(floor, -12, 5.3, -35), P.Steel, item)
-	bowl.Material = Enum.Material.Metal
-	Style.Billboard(bowl, { "XL" }, { Name = "XL", Width = 1.6, Height = 1, Offset = Vector3.new(0, 2.4, 0), MaxDistance = 40, Stroke = P.DeepMint })
+	bowl.Material = Enum.Material.Metal -- (no extra label: it would overlap the Mixer's sign)
 end
 
 ItemBuilders.GoldenOven = function(floor, item)
@@ -398,7 +397,7 @@ ItemBuilders.IngredientConveyor = function(floor, item)
 	})
 	tube.Material = Enum.Material.Glass
 	belt("Belt", Vector3.new(-22, 0, -18), Vector3.new(-14.5, 0, -18), floor, item)
-	Style.MachineSign(item, hopper, "📦", "Line 1 Hopper")
+	Style.MachineSign(item, hopper, "📦", "Line 1 Hopper", 1.4)
 end
 
 ItemBuilders.AutoMixer = function(floor, item)
@@ -406,7 +405,7 @@ ItemBuilders.AutoMixer = function(floor, item)
 	Style.Cylinder("Bowl", 2.2, 4, at(floor, -12, 5.1, -18), P.Steel, item).Material = Enum.Material.Metal
 	Style.Ball("Light", 0.8, at(floor, -12, 3, -15.4), P.DeepMint, item).Material = Enum.Material.Neon
 	belt("Belt", Vector3.new(-9.5, 0, -18), Vector3.new(1, 0, -18), floor, item)
-	Style.MachineSign(item, body, "🤖", "Auto-Mixer")
+	Style.MachineSign(item, body, "🤖", "Auto-Mixer", 1.4)
 end
 
 ItemBuilders.AutoOven = function(floor, item)
@@ -421,14 +420,14 @@ ItemBuilders.AutoOven = function(floor, item)
 		Parent = item,
 	})
 	Style.Cylinder("Chimney", 2.4, 1, at(floor, 5.5, 7, -19), P.Steel, item)
-	Style.MachineSign(item, body, "🤖", "Auto-Oven")
+	Style.MachineSign(item, body, "🤖", "Auto-Oven", 1.4)
 end
 
 ItemBuilders.CounterConveyor = function(floor, item)
 	belt("Belt", Vector3.new(4, 0, -15), Vector3.new(4, 0, 27), floor, item)
 	belt("BeltTurn", Vector3.new(5, 0, 27), Vector3.new(9, 0, 27), floor, item)
 	local chute = Style.RoundedBox("Chute", Vector3.new(2.4, 3, 2.4), at(floor, 9, 1.5, 27.5), P.Lilac, item, 0.6)
-	Style.MachineSign(item, chute, "➡️", "To Counter")
+	Style.MachineSign(item, chute, "➡️", "To Counter", 1.4)
 end
 
 ItemBuilders.AutoRestock = function(floor, item)
@@ -447,7 +446,7 @@ ItemBuilders.AutoRestock = function(floor, item)
 		end
 	end
 	slots.Parent = item
-	Style.MachineSign(item, rack, "🗄️", "Restock Rack")
+	Style.MachineSign(item, rack, "🗄️", "Restock Rack", 1.4)
 end
 
 local function productionUnit(z: number, label: string)
@@ -466,7 +465,7 @@ local function productionUnit(z: number, label: string)
 		local panelPart = panel("Panel", Vector3.new(2.6, 2, 0.3), at(floor, 16.5, 3.4, z + 2.6), P.Charcoal, "🏭", P.White, item)
 		panelPart:SetAttribute("Role", "RecipePanel")
 		Style.Cylinder("Chimney", 2.4, 1, at(floor, 23.5, 7, z - 1), P.Steel, item)
-		Style.MachineSign(item, body, "🏭", label)
+		Style.MachineSign(item, body, "🏭", label, 1.4)
 	end
 end
 ItemBuilders.ProductionLine2 = productionUnit(-4, "Production Line 2")

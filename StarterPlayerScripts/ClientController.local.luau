@@ -40,6 +40,40 @@ player:GetAttributeChangedSignal("DevMode"):Connect(function()
 	devTag.Visible = player:GetAttribute("DevMode") == true
 end)
 
+-- Studio-only "reset my data" button (two clicks to confirm).
+local resetButton = Instance.new("TextButton")
+resetButton.Name = "DevResetButton"
+resetButton.AnchorPoint = Vector2.new(0.5, 0)
+resetButton.Position = UDim2.new(0.5, 0, 0, 38)
+resetButton.Size = UDim2.fromOffset(220, 26)
+resetButton.BackgroundColor3 = Color3.fromRGB(70, 70, 90)
+resetButton.TextColor3 = Color3.new(1, 1, 1)
+resetButton.Font = Enum.Font.FredokaOne
+resetButton.TextScaled = true
+resetButton.Text = "🔄 Reset my data"
+resetButton.Visible = player:GetAttribute("StudioSession") == true
+resetButton.Parent = screen
+Instance.new("UICorner").Parent = resetButton
+player:GetAttributeChangedSignal("StudioSession"):Connect(function()
+	resetButton.Visible = player:GetAttribute("StudioSession") == true
+end)
+local armedUntil = 0
+resetButton.Activated:Connect(function()
+	if os.clock() < armedUntil then
+		armedUntil = 0
+		resetButton.Text = "🔄 Reset my data"
+		Remotes:WaitForChild("DevResetData"):FireServer()
+	else
+		armedUntil = os.clock() + 3
+		resetButton.Text = "⚠️ Click again to confirm"
+		task.delay(3, function()
+			if os.clock() >= armedUntil then
+				resetButton.Text = "🔄 Reset my data"
+			end
+		end)
+	end
+end)
+
 CurrencyDisplay.Mount(screen, player)
 Toast.Mount(screen)
 AnomalyAlert.Mount(screen)

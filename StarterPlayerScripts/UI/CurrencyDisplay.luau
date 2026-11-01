@@ -5,7 +5,15 @@ local TweenService = game:GetService("TweenService")
 
 local CurrencyDisplay = {}
 
+local SUFFIXES = { { 1e15, "Q" }, { 1e12, "T" }, { 1e9, "B" }, { 1e6, "M" } }
+
 local function formatNumber(n: number): string
+	-- Big numbers are abbreviated so they always fit the panel (1.25M, 1.00T).
+	for _, entry in SUFFIXES do
+		if n >= entry[1] then
+			return string.format("%.2f%s", n / entry[1], entry[2])
+		end
+	end
 	local s = tostring(math.floor(n))
 	local formatted = s:reverse():gsub("(%d%d%d)", "%1,"):reverse()
 	return (formatted:gsub("^,", ""))

@@ -117,6 +117,7 @@ Config.RemoteNames = {
 	"AnomalyStarted", -- server -> client: (name: string, duration: number)
 	"AnomalyEnded", -- server -> client: (name: string)
 	"BuyGemItem", -- client -> server: (itemId: "Shield" | "Boost")
+	"DevResetData", -- client -> server, Studio only: reset your save to a new player
 }
 
 return Config

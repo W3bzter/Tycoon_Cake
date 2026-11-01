@@ -42,6 +42,8 @@ local sessions: { [Player]: Session } = {}
 
 local loadedEvent = Instance.new("BindableEvent")
 DataManager.PlayerLoaded = loadedEvent.Event -- (player, data)
+local resetEvent = Instance.new("BindableEvent")
+DataManager.PlayerReset = resetEvent.Event -- (player) after a Studio data reset
 
 -- Helpers --------------------------------------------------------------------
 
@@ -256,6 +258,39 @@ function DataManager.RecordSale(player: Player)
 	if data then
 		data.Stats.CakesSold += 1
 	end
+end
+
+-- Studio-only: wipe this session's save back to a brand-new player (DevMode
+-- still tops up Cash/Gems; with DevMode off this resets your real save).
+function DataManager.ResetToNew(player: Player): boolean
+	if not RunService:IsStudio() then
+		return false
+	end
+	local session = sessions[player]
+	if not session then
+		return false
+	end
+	local data = deepCopy(TEMPLATE)
+	if DEV_ACTIVE then
+		data.Cash = Config.DevModeAmount
+		data.Gems = Config.DevModeAmount
+	end
+	session.data = data
+	updateLeaderstat(player, "Cash", data.Cash)
+	updateLeaderstat(player, "Gems", data.Gems)
+	player:SetAttribute("ShieldCharges", data.ShieldCharges)
+	player:SetAttribute("BoostEndsAt", data.BoostEndsAt)
+	for _, container in { player:FindFirstChildOfClass("Backpack"), player.Character } do
+		for _, tool in (if container then container:GetChildren() else {}) do
+			if tool:IsA("Tool") then
+				tool:Destroy()
+			end
+		end
+	end
+	DataManager.Save(player)
+	print(`[DataManager] Studio reset: {player.Name} is now a brand-new player ({keyFor(player)})`)
+	resetEvent:Fire(player)
+	return true
 end
 
 function DataManager.Unlock(player: Player, upgradeId: string)

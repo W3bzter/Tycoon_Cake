@@ -128,10 +128,10 @@ local function buildButton(upgrade: PlotLayout.Upgrade, floor: CFrame, buttons: 
 	local priceText = if currency == "Gems" then `💎 {upgrade.Price}` else `${upgrade.Price}`
 	local gui = Style.Billboard(pad, { `{upgrade.Icon} {upgrade.DisplayName}`, priceText }, {
 		Name = "PriceTag",
-		Width = 7,
-		Height = 2.6,
-		Offset = Vector3.new(0, 3.6, 0),
-		MaxDistance = 60,
+		Width = 6, -- buttons are >= 8 studs apart, so tags never overlap
+		Height = 2.2,
+		Offset = Vector3.new(0, 3.2, 0),
+		MaxDistance = 40,
 		Stroke = color,
 	})
 	local priceLabel = gui:FindFirstChild("Line2", true) :: TextLabel?
@@ -154,6 +154,12 @@ local function buildUpgrades(plot: Model, floor: CFrame)
 			builder(floor, item)
 		else
 			warn(`[WorldBuilder] No ItemBuilder for upgrade {upgrade.Id}`)
+		end
+		if upgrade.Id == "Walls" then
+			-- A new plot is just the bare floor: tiles, fence and entrance arch
+			-- arrive with the building.
+			buildFloor(item, floor)
+			buildEntrance(item, floor)
 		end
 		item.Parent = items
 		WorldBuilder.SetVisible(item, false)
@@ -191,8 +197,20 @@ local function buildPlot(index: number, parent: Folder)
 		folder.Parent = plot
 	end
 
-	buildFloor(plot, floor)
-	buildEntrance(plot, floor)
+	-- Floating owner tag over the spawn pad (always visible, even on a bare plot).
+	local tag = Style.Billboard(spawnPad, { "Unclaimed Bakery" }, {
+		Name = "OwnerTag",
+		Width = 12,
+		Height = 1.8,
+		Offset = Vector3.new(0, 7, 0),
+		MaxDistance = 150,
+		Stroke = P.Lilac,
+	})
+	local tagLabel = tag:FindFirstChild("Line1", true)
+	if tagLabel then
+		tagLabel.Name = "OwnerLabel"
+	end
+
 	buildUpgrades(plot, floor)
 
 	plot.Parent = parent

@@ -10,6 +10,7 @@ local Remotes = require(script.Parent.Remotes)
 local PlotManager = {}
 
 local plotOf: { [Player]: Model } = {}
+local respawnConn: { [Player]: RBXScriptConnection } = {}
 
 local claimedEvent = Instance.new("BindableEvent")
 PlotManager.PlotClaimed = claimedEvent.Event -- (player, plot)
@@ -20,10 +21,12 @@ local function plotsFolder(): Folder
 	return workspace:WaitForChild("Plots") :: Folder
 end
 
+-- Updates every owner label on the plot (floating tag + entrance sign).
 local function setSign(plot: Model, text: string)
-	local label = plot:FindFirstChild("OwnerLabel", true) :: TextLabel?
-	if label then
-		label.Text = text
+	for _, d in plot:GetDescendants() do
+		if d:IsA("TextLabel") and d.Name == "OwnerLabel" then
+			d.Text = text
+		end
 	end
 end
 
@@ -65,9 +68,11 @@ local function claim(player: Player)
 	player:SetAttribute("PlotName", plot.Name)
 	setSign(plot, `{player.DisplayName}'s Bakery`)
 
-	player.CharacterAdded:Connect(function(character)
-		moveToPlot(player, character)
-	end)
+	if not respawnConn[player] then -- claim can run again after a data reset
+		respawnConn[player] = player.CharacterAdded:Connect(function(character)
+			moveToPlot(player, character)
+		end)
+	end
 	if player.Character then
 		task.spawn(moveToPlot, player, player.Character)
 	end
@@ -102,7 +107,18 @@ end
 
 function PlotManager.Init()
 	DataManager.PlayerLoaded:Connect(claim)
-	Players.PlayerRemoving:Connect(release)
+	Players.PlayerRemoving:Connect(function(player)
+		release(player)
+		if respawnConn[player] then
+			respawnConn[player]:Disconnect()
+			respawnConn[player] = nil
+		end
+	end)
+	-- Studio data reset: rebuild the plot exactly as a brand-new player sees it.
+	DataManager.PlayerReset:Connect(function(player)
+		release(player)
+		claim(player)
+	end)
 	-- Players whose data loaded before this service connected.
 	for _, player in Players:GetPlayers() do
 		if DataManager.IsLoaded(player) then
