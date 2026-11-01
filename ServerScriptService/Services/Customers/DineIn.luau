@@ -122,7 +122,7 @@ function DineIn.TrySit(npc: Model, plot: Model, paid: number, cakeType: string?,
 		end
 		CustomerLook.SetBubble(npc, "😊 Delicious!")
 		CustomerLook.PopText(npc, `+${tip} tip!`, Color3.fromRGB(255, 220, 120))
-		CustomerLook.PlaySound(root, Config.Sounds.Sale)
+		CustomerLook.PlaySound(root, Config.Sounds.Tip)
 		task.wait(1.2)
 	end
 	if tracks.sit then

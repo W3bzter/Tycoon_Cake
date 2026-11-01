@@ -19,6 +19,7 @@ local Config = require(Shared:WaitForChild("Config"))
 local PlotLayout = require(Shared:WaitForChild("PlotLayout"))
 
 local Services = script:FindFirstAncestor("Services") :: Folder
+local Audio = require(Services.Core.Audio)
 local BuildArea = require(Services.Build.BuildArea)
 local BuildModels = require(Services.Build.BuildModels)
 local DataManager = require(Services.Core.DataManager)
@@ -40,6 +41,14 @@ BuildService.ItemMoved = movedEvent.Event -- (plot, model) after it moved/rotate
 BuildService.Blockers = {} :: { (model: Model, action: string) -> string? }
 
 local lastAction: { [Player]: number } = {}
+
+-- A build sound at the player (Core/Audio, SFX volume).
+local function sfx(player: Player, key: string, speed: number?)
+	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+	if root then
+		Audio.PlayAt(root, Config.Sounds[key], speed, 0.7)
+	end
+end
 
 local function notify(player: Player, message: string)
 	Remotes.Get("Notify"):FireClient(player, message)
@@ -226,6 +235,7 @@ function BuildService.Buy(player: Player, id: string, uid: string?): (boolean, s
 	end
 	grantUnlocks(player, plot, entry, count + 1)
 	sync(player)
+	sfx(player, "Purchase")
 	return true
 end
 
@@ -255,6 +265,7 @@ function BuildService.Place(player: Player, id: string, gx: number, gz: number, 
 	b.Placed[uid] = { Id = id, GX = gx, GZ = gz, Rot = rot % 4 }
 	spawn(plot, uid, b.Placed[uid])
 	sync(player)
+	sfx(player, "Place")
 	return true
 end
 
@@ -278,6 +289,7 @@ function BuildService.Move(player: Player, uid: string, gx: number, gz: number, 
 	BuildModels.PlaceAt(model, plot, gx, gz, record.Rot)
 	movedEvent:Fire(plot, model)
 	sync(player)
+	sfx(player, "Place", 1.15)
 	return true
 end
 
@@ -298,6 +310,7 @@ function BuildService.Store(player: Player, uid: string): (boolean, string?)
 	removedEvent:Fire(plot, model)
 	model:Destroy()
 	sync(player)
+	sfx(player, "Store")
 	return true
 end
 
@@ -318,6 +331,7 @@ function BuildService.BuyUpgrade(player: Player, id: string): (boolean, string?)
 	local ok, reason = TycoonButtons.TryPurchase(player, plot, id)
 	if ok then
 		notify(player, `✅ {upgrade.Icon} {upgrade.DisplayName} bought!`)
+		sfx(player, "Purchase")
 		return true
 	elseif reason == "insufficient cash" or reason == "insufficient gems" then
 		return false, if reason == "insufficient gems" then `You need 💎 {upgrade.Price}.` else `You need ${upgrade.Price}.`

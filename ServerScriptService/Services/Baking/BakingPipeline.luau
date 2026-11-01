@@ -18,6 +18,7 @@ local Rarity = require(Shared:WaitForChild("Rarity"))
 local Recipes = require(Shared:WaitForChild("Recipes"))
 
 local Services = script:FindFirstAncestor("Services") :: Folder
+local Audio = require(Services.Core.Audio)
 local BakeUtil = require(Services.Baking.BakeUtil)
 local DataManager = require(Services.Core.DataManager)
 local BuildService = require(Services.Build.BuildService)
@@ -198,6 +199,7 @@ handlers.Counter = function(player, plot, counter)
 	local info = ToolFactory.GetCakeInfo(cake)
 	cake:Destroy()
 	Display.Place(plot, free :: BasePart, info)
+	Audio.PlayAt(free :: BasePart, Config.Sounds.Display, 1.2, 0.6)
 end
 
 -- Single validated entry point (prompts call this; tests can too via DebugBridge).

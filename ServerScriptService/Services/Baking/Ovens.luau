@@ -16,9 +16,11 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local CakeData = require(Shared:WaitForChild("CakeData"))
+local Config = require(Shared:WaitForChild("Config"))
 local Rarity = require(Shared:WaitForChild("Rarity"))
 
 local Services = script:FindFirstAncestor("Services") :: Folder
+local Audio = require(Services.Core.Audio)
 local BakeUtil = require(Services.Baking.BakeUtil)
 local DataManager = require(Services.Core.DataManager)
 local PlotManager = require(Services.Core.PlotManager)
@@ -251,6 +253,7 @@ local function runBake(oven: Model, rack: Instance, plot: Model)
 	CakeData.Write(rack, info)
 	rack:SetAttribute("State", "Ready")
 	refresh(oven)
+	Audio.PlayAt(oven:FindFirstChild("Body") or oven, Config.Sounds.BakeDone, 1.4, 0.8) -- ding!
 end
 
 -- The first rack in `state` ("Idle" = free, "Ready" = a cake to collect).

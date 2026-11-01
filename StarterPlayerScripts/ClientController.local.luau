@@ -139,6 +139,7 @@ end
 
 if Audio then
 	safe("Audio", Audio.Mount, player)
+	safe("Audio clicks", Audio.HookClicks, screen)
 end
 safe("CurrencyDisplay", CurrencyDisplay.Mount, screen, player)
 safe("Toast", Toast.Mount, screen)
