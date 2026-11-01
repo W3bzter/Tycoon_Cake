@@ -197,7 +197,7 @@ end
 
 -- Where a creature enters a plot from the street: just outside the front door.
 function Common.streetPoint(plot: Model, x: number?): Vector3
-	return (Common.floor(plot) * CFrame.new(x or 0, 0, 46)).Position
+	return (Common.floor(plot) * CFrame.new(x or 0, 0, Config.Building.FrontZ + 6)).Position -- the sidewalk in front of the plot
 end
 
 return Common

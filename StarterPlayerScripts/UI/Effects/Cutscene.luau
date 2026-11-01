@@ -129,9 +129,11 @@ local function playSting()
 end
 
 -- Camera keyframes { cframe, time } for a style around `focus`.
-local function shots(style: string, focus: Vector3, from: CFrame): { { cf: CFrame, t: number } }
+-- Offsets are in the plot's frame (+Z = towards the street), so far-row plots,
+-- which face the other way, get the same shots. `basis` = the plot's rotation.
+local function shots(style: string, focus: Vector3, from: CFrame, basis: CFrame): { { cf: CFrame, t: number } }
 	local function look(offset: Vector3, at: Vector3?): CFrame
-		return CFrame.lookAt(focus + offset, at or focus)
+		return CFrame.lookAt(focus + basis:VectorToWorldSpace(offset), at or focus)
 	end
 	local L = Config.Cutscene.Length
 	if style == "low" then
@@ -155,7 +157,7 @@ local function shots(style: string, focus: Vector3, from: CFrame): { { cf: CFram
 	return { { cf = look(Vector3.new(0, 8, 24)), t = 0.5 }, { cf = look(Vector3.new(0, 4, 11)), t = L - 1 } }
 end
 
-function Cutscene.Play(name: string, focus: Vector3?, _plotName: string?)
+function Cutscene.Play(name: string, focus: Vector3?, plotName: string?)
 	local cfg = Config.Anomalies[name]
 	local shot = Config.Cutscene.Shots[name] or { Style = "push", Tint = Color3.fromRGB(255, 120, 120) }
 	local camera = workspace.CurrentCamera
@@ -233,7 +235,11 @@ function Cutscene.Play(name: string, focus: Vector3?, _plotName: string?)
 		end)
 	end
 
-	for _, key in shots(shot.Style, target, from) do
+	local plots = workspace:FindFirstChild("Plots")
+	local plot = plotName and plots and plots:FindFirstChild(plotName)
+	local base = plot and plot:IsA("Model") and plot.PrimaryPart
+	local basis = if base then base.CFrame.Rotation else CFrame.identity
+	for _, key in shots(shot.Style, target, from, basis) do
 		if skipped or mine ~= token then
 			break
 		end

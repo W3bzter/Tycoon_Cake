@@ -12,6 +12,7 @@ local ORDER = {
 	"Prompts",
 	"LightingSetup",
 	"WorldBuilder",
+	"MapBounds",
 	"DataManager",
 	"GamePasses",
 	"PlotManager",

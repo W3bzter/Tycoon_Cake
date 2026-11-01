@@ -22,7 +22,9 @@ Config.StartingCash = 100 -- covers the hand-tool start (Pantry..Display Counter
 Config.ButtonCooldown = 1 -- seconds between purchase attempts per player
 
 -- World ----------------------------------------------------------------------
-Config.PlotCount = 4
+Config.PlotCount = 4 -- bakeries per side of the street
+Config.PlotRows = 2 -- 1 = one side only; 2 = a second row across the street, facing it
+Config.PlotRowZB = 100 -- far row centres (fronts at world Z 40, behind the far sidewalk)
 Config.PlotSize = Vector3.new(120, 1, 120) -- building size: Config.Building (ConfigParts/Build)
 Config.PlotSpacing = 140 -- distance between plot centres along X
 Config.PlotRowZ = -70 -- plot centres sit behind the street; fronts at world Z -10 (PlotRowZ + PlotSize.Z / 2)

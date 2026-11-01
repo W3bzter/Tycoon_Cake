@@ -152,9 +152,22 @@ local function buildUpgrades(plot: Model, floor: CFrame)
 	end
 end
 
+-- Plot `index` (1..PlotCount*PlotRows): the near row faces +Z, the far row
+-- (indices after PlotCount) faces -Z; both face the street. Everything on a plot
+-- is built relative to its floor, so it works either way round.
+local function plotCFrame(index: number): CFrame
+	local column = (index - 1) % Config.PlotCount + 1
+	local x = (column - (Config.PlotCount + 1) / 2) * Config.PlotSpacing
+	local y = Config.PlotSize.Y / 2
+	if index <= Config.PlotCount then
+		return CFrame.new(x, y, Config.PlotRowZ)
+	end
+	return CFrame.new(x, y, Config.PlotRowZB) * CFrame.Angles(0, math.pi, 0)
+end
+WorldBuilder.PlotCFrame = plotCFrame
+
 local function buildPlot(index: number, parent: Folder)
 	local size = Config.PlotSize
-	local x = (index - (Config.PlotCount + 1) / 2) * Config.PlotSpacing
 
 	local plot = Instance.new("Model")
 	plot.Name = `Plot{index}`
@@ -163,7 +176,7 @@ local function buildPlot(index: number, parent: Folder)
 	local base = Style.Part({
 		Name = "Base",
 		Size = size,
-		CFrame = CFrame.new(x, size.Y / 2, Config.PlotRowZ),
+		CFrame = plotCFrame(index),
 		Color = P.Vanilla,
 		Material = Enum.Material.WoodPlanks,
 		Parent = plot,
@@ -200,8 +213,9 @@ local function buildPlot(index: number, parent: Folder)
 end
 
 -- Street ------------------------------------------------------------------------
--- Plot fronts are at world Z = PlotRowZ + PlotSize.Z / 2 (-10). From there towards +Z:
--- sidewalk (-10..5), road (5..25), far sidewalk (25..35) with the bus stops.
+-- Near-row plot fronts are at world Z = PlotRowZ + PlotSize.Z / 2 (-10). From there
+-- towards +Z: sidewalk (-10..5), road (5..25), far sidewalk (25..40) with the bus
+-- stops, then the far row's fronts (Config.PlotRowZB - 60 = 40).
 
 local ROAD_MIN, ROAD_MAX = 5, 25
 
@@ -242,7 +256,7 @@ local function buildStreet()
 		Parent = street,
 	})
 	Style.Part({ Name = "Sidewalk", Size = Vector3.new(length, 0.6, 15), CFrame = CFrame.new(0, 0.3, -2.5), Color = P.Sidewalk, Parent = street })
-	Style.Part({ Name = "FarSidewalk", Size = Vector3.new(length, 0.6, 10), CFrame = CFrame.new(0, 0.3, 30), Color = P.Sidewalk, Parent = street })
+	Style.Part({ Name = "FarSidewalk", Size = Vector3.new(length, 0.6, 15), CFrame = CFrame.new(0, 0.3, 32.5), Color = P.Sidewalk, Parent = street }) -- up to the far row (z 40)
 	for _, z in { ROAD_MIN - 0.3, ROAD_MAX + 0.3 } do
 		Style.Part({ Name = "Curb", Size = Vector3.new(length, 0.7, 0.6), CFrame = CFrame.new(0, 0.35, z), Color = P.White, Parent = street })
 	end
@@ -328,7 +342,7 @@ function WorldBuilder.Init()
 
 	local plots = Instance.new("Folder")
 	plots.Name = "Plots"
-	for i = 1, Config.PlotCount do
+	for i = 1, Config.PlotCount * (Config.PlotRows or 1) do
 		buildPlot(i, plots)
 		task.wait() -- spread the build over a few frames
 	end
