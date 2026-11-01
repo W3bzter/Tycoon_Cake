@@ -3,7 +3,6 @@
 --   * every ground-level part of every fixed item (walls, pantry, stairs, the
 --     automation machines...), found automatically from the built plot
 --   * Config.Build.Reserved (the entrance path for customers)
---   * the floor buttons the owner hasn't bought yet (+ Config.Build.ButtonClearance)
 -- The result is mirrored to the plot attribute BuildReserved (JSON) so the
 -- client's preview uses exactly the same rects.
 
@@ -13,9 +12,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local BuildRules = require(Shared:WaitForChild("BuildRules"))
 local Config = require(Shared:WaitForChild("Config"))
-
-local Services = script:FindFirstAncestor("Services") :: Folder
-local DataManager = require(Services.Core.DataManager)
 
 local BuildArea = {}
 
@@ -65,21 +61,9 @@ local function staticRects(plot: Model): { BuildRules.Rect }
 	return rects
 end
 
--- All reserved rects for `plot` given its owner's purchases.
-function BuildArea.Reserved(plot: Model, owner: Player?): { BuildRules.Rect }
+-- All reserved rects for `plot` (owner kept for future per-player rules).
+function BuildArea.Reserved(plot: Model, _owner: Player?): { BuildRules.Rect }
 	local rects = table.clone(staticRects(plot))
-	local floor = BuildRules.Floor(plot)
-	local c = Config.Build.ButtonClearance
-	local buttons = plot:FindFirstChild("Buttons")
-	for _, pad in (if buttons then buttons:GetChildren() else {}) do
-		local id = pad:GetAttribute("UpgradeId")
-		if pad:IsA("BasePart") and id and not (owner and DataManager.HasUnlock(owner, id :: string)) then
-			local p = floor:PointToObjectSpace(pad.Position)
-			if p.Y < 3 then -- upstairs buttons don't block the ground floor
-				table.insert(rects, { X0 = p.X - c, X1 = p.X + c, Z0 = p.Z - c, Z1 = p.Z + c })
-			end
-		end
-	end
 	return rects
 end
 

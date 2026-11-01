@@ -1,16 +1,14 @@
 --!strict
--- Upgrade list (metadata only; geometry lives in the server's ItemBuilders and
--- effects are totalled by the server's PlotStats).
--- Offsets are plot-local: origin = centre of the floor's top surface, +Z faces the
--- street. Building x -40..40, z -40..24 (facade at z 24), patio z 24..40.
--- Floor plan: kitchen z -40..-30 | manual buttons z -24 | automation line z -18 |
--- line buttons z -12 | recipe buttons z -4 | dining z 0..20 | upstairs deck y 14.5.
--- Equipment and decor (mixing station, oven, counters, plants...) are NOT here:
--- they are bought and placed in Build mode (Shared/BuildCatalog). Their ids still
--- count as unlocks, so Requires can name them ("Mixer", "DisplayCounter2").
--- Chained upgrades (Faster Ovens I/II/III ...) reuse one button spot, since only
--- the next one in the chain is ever shown. Progression: hand tools (Tier 0) ->
--- manual machines (Tier 1, each ReplacedBy-swaps its hand tool) -> automation (Tier 4-5).
+-- Fixed upgrades: the building itself, recipes, oven upgrades and (until the
+-- Phase 5 factory annex) the automation line. They are bought from the Upgrades
+-- tab of the Build shop (Build/BuildService "upgrade" -> World/TycoonButtons.
+-- TryPurchase) and appear in a fixed spot; geometry lives in the server's
+-- ItemBuilders and effects are totalled by PlotStats.
+-- Everything else physical (pantry, mixing station, oven, counters, signs, decor)
+-- is bought and placed in Build mode (Shared/BuildCatalog). Those ids still count
+-- as unlocks, so Requires can name them ("Mixer", "DisplayCounter2", "IngredientCrate").
+-- Plot-local offsets: origin = centre of the floor's top surface, +Z faces the
+-- street; building size in Config.Building.
 
 export type Upgrade = {
 	Id: string,
@@ -23,49 +21,44 @@ export type Upgrade = {
 	Requires: { string }?, -- all must be owned before the button appears
 	ReplacedBy: string?, -- once that upgrade is owned, this item and its button are hidden
 	Effects: { [string]: number }?, -- see PlotStats
-	Button: Vector3, -- pad position (y = floor height it sits on)
 }
 
 local PlotLayout = {}
 
-local DECK_Y = 14.5
 
 PlotLayout.Upgrades = {
-	-- Tier 0: Hand tools (a new plot starts here: bare floor + the Pantry button) ---
-	{ Id = "IngredientCrate", DisplayName = "Pantry", Icon = "🥚", Category = "Kitchen", Tier = 0, Price = 10, Button = Vector3.new(-28, 0, -24) },
-	{ Id = "Walls", DisplayName = "Bakery Building", Icon = "🏠", Category = "Build", Tier = 0, Price = 75, Requires = { "DisplayCounter" }, Button = Vector3.new(-12, 0, 31) },
+	-- Tier 0: Hand tools (a new plot starts as bare floor; the Pantry is placed from the Build shop) ---
+	{ Id = "Walls", DisplayName = "Bakery Building", Icon = "🏠", Category = "Build", Tier = 0, Price = 75, Requires = { "DisplayCounter" } },
 
 	-- Tier 1: Manual machines (each replaces its hand tool in the same spot) -----------
-	{ Id = "Awning", DisplayName = "Striped Awning", Icon = "⛱️", Category = "Decor", Tier = 1, Price = 200, Requires = { "Walls" }, Button = Vector3.new(-24, 0, 31) },
+	{ Id = "Awning", DisplayName = "Striped Awning", Icon = "⛱️", Category = "Decor", Tier = 1, Price = 200, Requires = { "Walls" } },
 
 	-- Tier 2: Shopfront --------------------------------------------------------------
-	{ Id = "RecipeChocolate", DisplayName = "Chocolate Recipe", Icon = "🍫", Category = "Kitchen", Tier = 2, Price = 600, Requires = { "Oven" }, Button = Vector3.new(-30, 0, -4) },
-	{ Id = "StreetSign", DisplayName = "Street Sign", Icon = "🪧", Category = "Decor", Tier = 2, Price = 1100, Requires = { "Awning" }, Effects = { CustomerRate = 0.85 }, Button = Vector3.new(-33, 0, 28) },
-	{ Id = "FasterOvens1", DisplayName = "Faster Ovens I", Icon = "⏱️", Category = "Kitchen", Tier = 2, Price = 1500, Requires = { "Oven" }, Effects = { BakeTime = 0.8 }, Button = Vector3.new(-3, 0, -24) },
+	{ Id = "RecipeChocolate", DisplayName = "Chocolate Recipe", Icon = "🍫", Category = "Kitchen", Tier = 2, Price = 600, Requires = { "Oven" } },
+	{ Id = "FasterOvens1", DisplayName = "Faster Ovens I", Icon = "⏱️", Category = "Kitchen", Tier = 2, Price = 1500, Requires = { "Oven" }, Effects = { BakeTime = 0.8 } },
 
 	-- Tier 3: Expansion ----------------------------------------------------------------
-	{ Id = "RecipeStrawberry", DisplayName = "Strawberry Recipe", Icon = "🍓", Category = "Kitchen", Tier = 3, Price = 3000, Requires = { "RecipeChocolate", "DisplayCounter2" }, Button = Vector3.new(-20, 0, -4) },
-	{ Id = "SecondFloor", DisplayName = "Second Floor", Icon = "🪜", Category = "Build", Tier = 3, Price = 4500, Requires = { "Seating", "DisplayCounter2" }, Button = Vector3.new(26, 0, 16) },
-	{ Id = "FasterOvens2", DisplayName = "Faster Ovens II", Icon = "⏱️", Category = "Kitchen", Tier = 3, Price = 8000, Requires = { "FasterOvens1" }, Effects = { BakeTime = 0.8 }, Button = Vector3.new(-3, 0, -24) },
-	{ Id = "RadioAd", DisplayName = "Radio Ad", Icon = "📻", Category = "Decor", Tier = 3, Price = 10000, Requires = { "StreetSign" }, Effects = { CustomerRate = 0.8 }, Button = Vector3.new(34, 0, 27) },
-	{ Id = "VIPLounge", DisplayName = "VIP Lounge", Icon = "👑", Category = "Decor", Tier = 3, Price = 15000, Requires = { "SecondFloor" }, Effects = { VIPChance = 0.12 }, Button = Vector3.new(-10, DECK_Y, 10) },
+	{ Id = "RecipeStrawberry", DisplayName = "Strawberry Recipe", Icon = "🍓", Category = "Kitchen", Tier = 3, Price = 3000, Requires = { "RecipeChocolate", "DisplayCounter2" } },
+	{ Id = "SecondFloor", DisplayName = "Second Floor", Icon = "🪜", Category = "Build", Tier = 3, Price = 4500, Requires = { "Seating", "DisplayCounter2" } },
+	{ Id = "FasterOvens2", DisplayName = "Faster Ovens II", Icon = "⏱️", Category = "Kitchen", Tier = 3, Price = 8000, Requires = { "FasterOvens1" }, Effects = { BakeTime = 0.8 } },
+	{ Id = "VIPLounge", DisplayName = "VIP Lounge", Icon = "👑", Category = "Decor", Tier = 3, Price = 15000, Requires = { "SecondFloor" }, Effects = { VIPChance = 0.12 } },
 
 	-- Tier 4: Automation (production line 1, bought in order) ------------------------------
-	{ Id = "IngredientConveyor", DisplayName = "Ingredient Conveyor", Icon = "📦", Category = "Auto", Tier = 4, Price = 12000, Requires = { "RecipeStrawberry", "FasterOvens2" }, Button = Vector3.new(-24, 0, -12) },
-	{ Id = "AutoMixer", DisplayName = "Auto-Mixer", Icon = "🤖", Category = "Auto", Tier = 4, Price = 18000, Requires = { "IngredientConveyor" }, Button = Vector3.new(-12, 0, -12) },
-	{ Id = "AutoOven", DisplayName = "Auto-Oven", Icon = "🤖", Category = "Auto", Tier = 4, Price = 27000, Requires = { "AutoMixer" }, Button = Vector3.new(4, 0, -12) },
-	{ Id = "CounterConveyor", DisplayName = "Counter Conveyor", Icon = "➡️", Category = "Auto", Tier = 4, Price = 40000, Requires = { "AutoOven" }, Button = Vector3.new(10, 0, -12) },
-	{ Id = "AutoRestock", DisplayName = "Auto-Restock Rack", Icon = "🗄️", Category = "Auto", Tier = 4, Price = 60000, Requires = { "CounterConveyor" }, Effects = { StorageSlots = 6 }, Button = Vector3.new(10, 0, 14) },
+	{ Id = "IngredientConveyor", DisplayName = "Ingredient Conveyor", Icon = "📦", Category = "Auto", Tier = 4, Price = 12000, Requires = { "RecipeStrawberry", "FasterOvens2" } },
+	{ Id = "AutoMixer", DisplayName = "Auto-Mixer", Icon = "🤖", Category = "Auto", Tier = 4, Price = 18000, Requires = { "IngredientConveyor" } },
+	{ Id = "AutoOven", DisplayName = "Auto-Oven", Icon = "🤖", Category = "Auto", Tier = 4, Price = 27000, Requires = { "AutoMixer" } },
+	{ Id = "CounterConveyor", DisplayName = "Counter Conveyor", Icon = "➡️", Category = "Auto", Tier = 4, Price = 40000, Requires = { "AutoOven" } },
+	{ Id = "AutoRestock", DisplayName = "Auto-Restock Rack", Icon = "🗄️", Category = "Auto", Tier = 4, Price = 60000, Requires = { "CounterConveyor" }, Effects = { StorageSlots = 6 } },
 
 	-- Tier 5: Production lines --------------------------------------------------------------
-	{ Id = "ProductionLine2", DisplayName = "Production Line 2", Icon = "🏭", Category = "Auto", Tier = 5, Price = 90000, Requires = { "AutoRestock" }, Button = Vector3.new(9.5, 0, -4) },
-	{ Id = "FasterOvens3", DisplayName = "Faster Ovens III", Icon = "⏱️", Category = "Kitchen", Tier = 5, Price = 135000, Requires = { "FasterOvens2", "ProductionLine2" }, Effects = { BakeTime = 0.75 }, Button = Vector3.new(-3, 0, -24) },
-	{ Id = "ProductionLine3", DisplayName = "Production Line 3", Icon = "🏭", Category = "Auto", Tier = 5, Price = 200000, Requires = { "ProductionLine2" }, Button = Vector3.new(9.5, 0, 6) },
-	{ Id = "GoldenShopfront", DisplayName = "Golden Shopfront", Icon = "✨", Category = "Decor", Tier = 5, Price = 300000, Requires = { "ProductionLine3" }, Effects = { SalePrice = 1.1, VIPChance = 0.05 }, Button = Vector3.new(12, 0, 27) },
+	{ Id = "ProductionLine2", DisplayName = "Production Line 2", Icon = "🏭", Category = "Auto", Tier = 5, Price = 90000, Requires = { "AutoRestock" } },
+	{ Id = "FasterOvens3", DisplayName = "Faster Ovens III", Icon = "⏱️", Category = "Kitchen", Tier = 5, Price = 135000, Requires = { "FasterOvens2", "ProductionLine2" }, Effects = { BakeTime = 0.75 } },
+	{ Id = "ProductionLine3", DisplayName = "Production Line 3", Icon = "🏭", Category = "Auto", Tier = 5, Price = 200000, Requires = { "ProductionLine2" } },
+	{ Id = "GoldenShopfront", DisplayName = "Golden Shopfront", Icon = "✨", Category = "Decor", Tier = 5, Price = 300000, Requires = { "ProductionLine3" }, Effects = { SalePrice = 1.1, VIPChance = 0.05 } },
 
 	-- Gem upgrades -------------------------------------------------------------------------
-	{ Id = "RecipeRainbow", DisplayName = "Rainbow Recipe", Icon = "🌈", Category = "Gems", Tier = 3, Price = 25, Currency = "Gems", Requires = { "RecipeStrawberry" }, Button = Vector3.new(-10, 0, -4) },
-	{ Id = "GoldenOven", DisplayName = "Golden Oven (2x speed)", Icon = "🌟", Category = "Gems", Tier = 3, Price = 40, Currency = "Gems", Requires = { "FasterOvens1" }, Button = Vector3.new(6, 0, -24) },
+	{ Id = "RecipeRainbow", DisplayName = "Rainbow Recipe", Icon = "🌈", Category = "Gems", Tier = 3, Price = 25, Currency = "Gems", Requires = { "RecipeStrawberry" } },
+	{ Id = "GoldenOven", DisplayName = "Golden Oven (2x speed)", Icon = "🌟", Category = "Gems", Tier = 3, Price = 40, Currency = "Gems", Requires = { "FasterOvens1" } },
 } :: { Upgrade }
 
 function PlotLayout.Find(id: string): Upgrade?

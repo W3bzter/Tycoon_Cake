@@ -23,7 +23,7 @@ local notify, getItem, hasUnlockFn = BakeUtil.notify, BakeUtil.getItem, BakeUtil
 local Pantry = {}
 
 local function getBin(plot: Model, ingredient: string): Model?
-	local pantry = getItem(plot, "IngredientCrate")
+	local pantry = BakeUtil.findMachine(plot, "IngredientCrate")
 	local bins = pantry and pantry:FindFirstChild("Bins")
 	return bins and bins:FindFirstChild(ingredient) :: Model?
 end
@@ -32,7 +32,7 @@ end
 -- unlocked recipe list onto the player for the client-side mixer preview.
 function Pantry.RefreshPantry(plot: Model)
 	local owner = PlotManager.GetOwner(plot)
-	local pantry = getItem(plot, "IngredientCrate")
+	local pantry = BakeUtil.findMachine(plot, "IngredientCrate")
 	if owner then
 		owner:SetAttribute("UnlockedRecipes", table.concat(Recipes.Unlocked(hasUnlockFn(owner)), ","))
 	end
@@ -52,7 +52,7 @@ end
 -- Mythic+ also fire a pillar of light and a server-wide announcement.
 local function showPantryRoll(player: Player, items: { any })
 	local plot = PlotManager.GetPlot(player)
-	local pantry = plot and getItem(plot, "IngredientCrate")
+	local pantry = plot and BakeUtil.findMachine(plot, "IngredientCrate")
 	local crate = pantry and pantry:FindFirstChild("Crate") :: BasePart?
 	if not plot or not crate then
 		return

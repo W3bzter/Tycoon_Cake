@@ -21,7 +21,7 @@ File types: `*.server.luau` = Script, `*.local.luau` = LocalScript, plain `*.lua
 | Folder | Modules |
 |---|---|
 | `Core/` | `Remotes` (creates `Config.RemoteNames`), `Prompts` (creates every ProximityPrompt and decides when it shows), `DataManager` (load/save, stats, `ApplyReset`), `PlayerDataSchema` (data type + template), `PlotManager` (claim/release plots), `PlotStats` (totals upgrade Effects, Gem upgrades, rebirth bonus), `ToolFactory` (all Tools), `GamePasses`, `RobuxShop`, `DevTools` (Studio reset button), `SmokeTest` |
-| `World/` | `WorldBuilder` (plots, street), `ItemBuilders` (one builder per upgrade id), `Style` (palette, shapes, billboards), `Assets` (mesh templates with primitive fallbacks), `LightingSetup`, `TycoonButtons` (floor purchase pads), `Repairs` (broken machines) |
+| `World/` | `WorldBuilder` (plots, street), `ItemBuilders` (one builder per upgrade id), `Style` (palette, shapes, billboards), `Assets` (mesh templates with primitive fallbacks), `LightingSetup`, `TycoonButtons` (fixed-upgrade purchases + showing owned ones; no floor pads any more), `Repairs` (broken machines) |
 | `Baking/` | `BakingPipeline` (interactions + setup; re-exports the others), `Ovens` (oven states, `FinishBake` = bake-time rolls), `Display` (counter slots, cakes on them), `Pantry` (bins, roll pop-up), `BakeUtil`, `Inventory` (Ingredient Bag, rolls, auto-delete), `MixingGame` (minigame sessions) |
 | `Factory/` | `AutoProduction` (production lines, hoppers, Full Automation auto-load) |
 | `Customers/` | `CustomerAI` (spawn, walk, buy), `CustomerLook` (rigs, animations, bubbles), `AvatarService` (friends' avatars), `NPCKit` (walking, gliding, hit system/Frying Pan) |
@@ -30,10 +30,10 @@ File types: `*.server.luau` = Script, `*.local.luau` = LocalScript, plain `*.lua
 | `Effects/` | `VFX` (public API: ApplyCake/ApplyIngredient/Burst/Pillar), `CakeFX` (per mutation/trait/rarity look), `FxKit` (emitters, shells) |
 
 ## Shared (`ReplicatedStorage/Shared/`)
-`Config` + `ConfigParts/*`, `PlotLayout` (upgrade metadata + button spots; floor plan in its header), `Recipes`, `Rarity` (tiers, ingredient traits, MakeCake; re-exports `CakeRolls`), `CakeRolls` (cake traits, mutations, RollBake), `CakeData` (CakeInfo ⇄ attributes), `RebirthDefs`, `Achievements` (definitions).
+`Config` + `ConfigParts/*`, `PlotLayout` (fixed upgrades: building, recipes, oven upgrades, automation; bought from the Build shop's Upgrades tab), `BuildCatalog` (placeable items), `BuildRules` (grid placement rules), `Recipes`, `Rarity` (tiers, ingredient traits, MakeCake; re-exports `CakeRolls`), `CakeRolls` (cake traits, mutations, RollBake), `CakeData` (CakeInfo ⇄ attributes), `RebirthDefs`, `Achievements` (definitions).
 
 ## Client (`StarterPlayerScripts/`)
-`ClientController.local.luau` mounts everything and wires remotes. `UI/HUD/` (currency, toasts, button prices, highlighter, anomaly banner, recipe preview), `UI/Panels/` (Bag + auto-delete, Shop, Achievements, Rebirth, MixGame), `UI/Effects/` (RollReveal, Cutscene, WorldFX tag animations, ScreenShake), `UI/Hotbar/` (custom hotbar replacing Roblox's backpack bar: `Hotbar` slots/keys 1-9/overflow grid, `ItemIcon` 3D ViewportFrame icons + rarity look, `Tooltip`), `UI/Build/` (Build mode, B key: `BuildMode` state + input, `BuildGhost` ghost preview/grid/no-build overlay using `Shared/BuildRules` + the plot's `BuildReserved` attribute, `BuildMenu` catalog panel + action bar). Build mode hides ProximityPrompts (`ProximityPromptService.Enabled`) because R/Q/X double as build keys.
+`ClientController.local.luau` mounts everything and wires remotes. `UI/HUD/` (currency, toasts, highlighter, anomaly banner, recipe preview), `UI/Panels/` (Bag + auto-delete, Shop, Achievements, Rebirth, MixGame), `UI/Effects/` (RollReveal, Cutscene, WorldFX tag animations, ScreenShake), `UI/Hotbar/` (custom hotbar replacing Roblox's backpack bar: `Hotbar` slots/keys 1-9/overflow grid, `ItemIcon` 3D ViewportFrame icons + rarity look, `Tooltip`), `UI/Build/` (Build mode, B key: `BuildMode` state + input, `BuildGhost` ghost preview/grid/no-build overlay using `Shared/BuildRules` + the plot's `BuildReserved` attribute, `BuildMenu` shop panel (Kitchen / Decor / Upgrades tabs) + action bar, `BuildRows` shop rows + widgets). Build mode hides ProximityPrompts (`ProximityPromptService.Enabled`) because R/Q/X double as build keys.
 
 ## Remotes (`Config.RemoteNames`)
 Server→client: `Notify`, `BuildSync`, `AnomalyStarted/Ended`, `Cutscene`, `ScreenShake`, `RollResult`, `BagUpdate`, `MixStart`, `AchievementSync/Unlocked`.
@@ -45,7 +45,8 @@ Cash, Gems, UnlockedUpgrades, ShieldCharges, BoostEndsAt, Stats (lifetime counte
 ## Key flows
 - Cake value: ingredients (rarity × traits) → mix grade → bake rolls (cake traits, mutation) → `PlotStats.SalePrice` when sold.
 - Every bake ends in `Ovens.FinishBake` (fires `Baked`). Stats go through `DataManager.AddStat/MaxStat` → `StatChanged` → achievements.
-- Machines are found by name in `plot.Items`; `Broken`, `Visible`, `IsOven` are attributes.
+- Fixed upgrades live in `plot.Items` (by upgrade id); placed items in `plot.Placed` (`<Id>_<uid>`, attributes `CatalogId`, `Kind`, `Uid`). Find machines with `BakeUtil.findMachine(plot, idOrName)`. `Broken`, `Visible`, `IsOven` are attributes.
+- Building size: `Config.Building` (ConfigParts/Build). Walls, floor, fence, entrance, deck and placement bounds all read it; don't hard-code building edges.
 
 ## Testing
 - Stop the playtest, let Script Sync push the edits, start again (edits never reach a running test).

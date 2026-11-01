@@ -8,6 +8,8 @@
 --   counters: DisplayCounter (+ DisplayCounter2 at its old spot)
 --   Plants -> 4 potted plants, Seating -> 4 café tables (their old spots)
 --   CakeCharm -> inventory
+-- Second pass (PlayerData.Build.MigratedShop), when the floor buttons went away:
+--   Pantry (IngredientCrate), Street Sign, Radio Ad -> placed at their old spots
 
 local Services = script:FindFirstAncestor("Services") :: Folder
 local BuildModels = require(Services.Build.BuildModels)
@@ -19,13 +21,14 @@ local BuildMigration = {}
 local OLD_PLANT_SPOTS = { { -10, 27 }, { 10, 27 }, { -36, -2 }, { 36, -8 } }
 local OLD_TABLE_SPOTS = { { -28, 6 }, { -16, 6 }, { -28, 16 }, { -16, 16 } }
 
+local SHOP_ITEMS = { "IngredientCrate", "StreetSign", "RadioAd" } -- were fixed floor-button items
+
 local function migrate(player: Player, plot: Model)
 	local data = DataManager.Get(player)
 	local b = data and data.Build
-	if not data or not b or b.Migrated then
+	if not data or not b or (b.Migrated and b.MigratedShop) then
 		return
 	end
-	b.Migrated = true
 	local has = function(id: string)
 		return data.UnlockedUpgrades[id] == true
 	end
@@ -40,6 +43,19 @@ local function migrate(player: Player, plot: Model)
 			b.Owned[id] = (b.Owned[id] or 0) + 1
 		end
 	end
+
+	if not b.MigratedShop then
+		b.MigratedShop = true
+		for _, id in SHOP_ITEMS do
+			if has(id) and BuildService.CountOwned(player, id) == 0 then
+				put(id)
+			end
+		end
+	end
+	if b.Migrated then
+		return
+	end
+	b.Migrated = true
 
 	local mix = if has("BigMixer") then "BigMixer" elseif has("Mixer") then "Mixer" elseif has("PrepTable") then "PrepTable" else nil
 	if mix then

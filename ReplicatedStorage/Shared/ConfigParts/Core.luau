@@ -23,15 +23,15 @@ Config.ButtonCooldown = 1 -- seconds between purchase attempts per player
 
 -- World ----------------------------------------------------------------------
 Config.PlotCount = 4
-Config.PlotSize = Vector3.new(80, 1, 80)
-Config.PlotSpacing = 100 -- distance between plot centres along X
-Config.PlotRowZ = -50 -- plot centres sit behind the street
-Config.StreetLength = 500 -- road runs along X at world Z 5..25 (see WorldBuilder)
+Config.PlotSize = Vector3.new(120, 1, 120) -- building size: Config.Building (ConfigParts/Build)
+Config.PlotSpacing = 140 -- distance between plot centres along X
+Config.PlotRowZ = -70 -- plot centres sit behind the street; fronts at world Z -10 (PlotRowZ + PlotSize.Z / 2)
+Config.StreetLength = 640 -- road runs along X at world Z 5..25 (see WorldBuilder)
 
 -- Remotes (created by the server in ReplicatedStorage.Remotes) -----------------
 Config.RemoteNames = {
 	"Notify", -- server -> client: (message: string)
-	"BuildAction", -- client -> server: ("buy", id, uid?) | ("place", id, gx, gz, rot) | ("move", uid, gx, gz, rot) | ("store", uid)
+	"BuildAction", -- client -> server: ("buy", id, uid?) | ("place", id, gx, gz, rot) | ("move", uid, gx, gz, rot) | ("store", uid) | ("upgrade", id)
 	"BuildSync", -- server -> client: ({Owned, Counts, Unlocked})
 	"AnomalyStarted", -- server -> client: (name: string, duration: number)
 	"AnomalyEnded", -- server -> client: (name: string)

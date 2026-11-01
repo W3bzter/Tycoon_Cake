@@ -4,7 +4,7 @@
 -- it builds the model (World/ItemBuilders or World/DecorBuilders) at the chosen
 -- grid spot. Server: Build/BuildService. Client: UI/Build.
 --
---   Kind       "MixStation" | "Oven" | "Counter" | "Decor" (machines get prompts)
+--   Kind       "Pantry" | "MixStation" | "Oven" | "Counter" | "Decor" (machines get prompts)
 --   UpgradeOf  bought in place on a placed item of that id (same spot, new model)
 --   Max        how many you can own (counting placed ones)
 --   Prices     price of the 1st, 2nd, ... copy (else Price for every copy)
@@ -34,6 +34,8 @@ export type Entry = {
 local BuildCatalog = {}
 
 BuildCatalog.List = {
+	-- The pantry (where every bake starts: roll ingredients here)
+	{ Id = "IngredientCrate", Name = "Pantry", Icon = "🥚", Kind = "Pantry", Category = "Kitchen", Price = 10, Max = 1, Description = "Roll free ingredients here." },
 	-- Mixing station: bowl -> Mixer -> Big Mixer (upgrades in place)
 	{ Id = "PrepTable", Name = "Mixing Bowl & Whisk", Icon = "🥄", Kind = "MixStation", Category = "Kitchen", Price = 15, Requires = { "IngredientCrate" }, Max = 1, Description = "Mix batter by hand (harder minigame)." },
 	{ Id = "Mixer", Name = "Mixer", Icon = "🥣", Kind = "MixStation", Category = "Kitchen", Price = 150, Requires = { "Walls" }, UpgradeOf = "PrepTable", Description = "Upgrades your bowl: an easier mixing minigame." },
@@ -48,6 +50,8 @@ BuildCatalog.List = {
 	{ Id = "Rug", Name = "Cosy Rug", Icon = "🟪", Kind = "Decor", Category = "Decor", Price = 60, Requires = { "Walls" }, Max = 6, Description = "A soft round rug." },
 	{ Id = "Balloons", Name = "Balloon Bunch", Icon = "🎈", Kind = "Decor", Category = "Decor", Price = 150, Requires = { "Walls" }, Max = 6, Description = "Party balloons on a weight." },
 	{ Id = "CafeTable", Name = "Café Table", Icon = "☕", Kind = "Decor", Category = "Decor", Price = 225, Requires = { "Walls" }, Max = 8, Unlocks = { [1] = "Seating" }, Description = "A table with two chairs." },
+	{ Id = "StreetSign", Name = "Street Sign", Icon = "🪧", Kind = "Decor", Category = "Decor", Price = 1100, Requires = { "Awning" }, Max = 1, Effects = { CustomerRate = 0.85 }, Description = "Customers come 15% more often." },
+	{ Id = "RadioAd", Name = "Radio Ad", Icon = "📻", Kind = "Decor", Category = "Decor", Price = 10000, Requires = { "StreetSign" }, Max = 1, Effects = { CustomerRate = 0.8 }, Description = "Customers come 20% more often." },
 	{ Id = "CupcakeStatue", Name = "Cupcake Statue", Icon = "🧁", Kind = "Decor", Category = "Decor", Price = 5000, Requires = { "SecondFloor" }, Max = 2, Description = "A giant cupcake. Very important." },
 	{ Id = "CakeCharm", Name = "Cake Charm (+15%)", Icon = "🍀", Kind = "Decor", Category = "Decor", Price = 30, Currency = "Gems", Requires = { "DisplayCounter2" }, Max = 1, Effects = { SalePrice = 1.15 }, Description = "A lucky charm: +15% cake prices while owned." },
 } :: { Entry }

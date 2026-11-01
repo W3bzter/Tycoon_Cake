@@ -1,6 +1,6 @@
 --!strict
 -- Builds the world from code so it lives in git, not the place file.
--- Workspace.Plots.PlotN  (Base, Tiles, Fence, Entrance(Sign), Spawn, Items, Buttons)
+-- Workspace.Plots.PlotN  (Base, Tiles, Fence, Entrance(Sign), Spawn, Items, Placed)
 -- Workspace.Street       (Road, sidewalks, props, CustomerSpawn, CustomerDespawn)
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -57,11 +57,13 @@ end
 local function buildEntrance(plot: Model, floor: CFrame)
 	local entrance = Instance.new("Model")
 	entrance.Name = "Entrance"
-	for _, x in { -8, 8 } do
-		Style.Cylinder("Post", 11, 1.4, floor * CFrame.new(x, 5.5, 39), P.White, entrance)
-		Style.Ball("PostTop", 2, floor * CFrame.new(x, 11.4, 39), P.HotPink, entrance)
+	local B = Config.Building
+	local postX, z = B.DoorHalf + 2, B.FrontZ - 1
+	for _, x in { -postX, postX } do
+		Style.Cylinder("Post", 11, 1.4, floor * CFrame.new(x, 5.5, z), P.White, entrance)
+		Style.Ball("PostTop", 2, floor * CFrame.new(x, 11.4, z), P.HotPink, entrance)
 	end
-	local board = Style.RoundedBox("Sign", Vector3.new(18, 3.6, 1), floor * CFrame.new(0, 9.4, 39), P.HotPink, entrance, 0.6)
+	local board = Style.RoundedBox("Sign", Vector3.new(postX * 2 + 2, 3.6, 1), floor * CFrame.new(0, 9.4, z), P.HotPink, entrance, 0.6)
 
 	local gui = Instance.new("SurfaceGui")
 	gui.Name = "SignGui"
@@ -88,16 +90,19 @@ local function buildEntrance(plot: Model, floor: CFrame)
 end
 
 local function buildFloor(plot: Model, floor: CFrame)
-	-- Pink checker tiles inside the building footprint (x -40..40, z -40..24).
+	-- Pink checker tiles (8 studs) inside the building footprint (Config.Building).
+	local B = Config.Building
 	local tiles = Instance.new("Model")
 	tiles.Name = "Tiles"
-	for ix = 0, 9 do
-		for iz = 0, 7 do
+	local countX = math.floor(B.HalfX * 2 / 8)
+	local countZ = math.floor((B.FacadeZ + 0.5 - B.BackZ) / 8)
+	for ix = 0, countX - 1 do
+		for iz = 0, countZ - 1 do
 			if (ix + iz) % 2 == 0 then
 				Style.Part({
 					Name = "Tile",
 					Size = Vector3.new(8, 0.05, 8),
-					CFrame = floor * CFrame.new(-36 + ix * 8, 0.025, -36 + iz * 8),
+					CFrame = floor * CFrame.new(-B.HalfX + 4 + ix * 8, 0.025, B.BackZ + 4 + iz * 8),
 					Color = P.Pink,
 					CanCollide = false,
 					Parent = tiles,
@@ -110,47 +115,18 @@ local function buildFloor(plot: Model, floor: CFrame)
 	-- Low picket fence along the patio sides.
 	local fence = Instance.new("Model")
 	fence.Name = "Fence"
-	for _, x in { -39.6, 39.6 } do
-		for z = 24, 40, 4 do
+	local z0, z1 = B.FacadeZ + 0.5, B.FrontZ
+	for _, x in { -(B.HalfX - 0.4), B.HalfX - 0.4 } do
+		for z = z0, z1, 4 do
 			Style.RoundedBox("Picket", Vector3.new(0.8, 3, 0.8), floor * CFrame.new(x, 1.5, z), P.White, fence, 0.35)
 		end
-		Style.Part({ Name = "Rail", Size = Vector3.new(0.4, 0.5, 16), CFrame = floor * CFrame.new(x, 2.2, 32), Color = P.White, Parent = fence })
+		Style.Part({ Name = "Rail", Size = Vector3.new(0.4, 0.5, z1 - z0), CFrame = floor * CFrame.new(x, 2.2, (z0 + z1) / 2), Color = P.White, Parent = fence })
 	end
 	fence.Parent = plot
 end
 
-local function buildButton(upgrade: PlotLayout.Upgrade, floor: CFrame, buttons: Folder)
-	local currency = upgrade.Currency or "Cash"
-	local color = Style.CategoryColor[upgrade.Category] or P.HotPink
-	local pad = Style.Cylinder(upgrade.Id, 0.6, 5.5, floor * CFrame.new(upgrade.Button) * CFrame.new(0, 0.3, 0), color, buttons)
-	pad.Material = Enum.Material.Neon
-	pad:SetAttribute("UpgradeId", upgrade.Id)
-	pad:SetAttribute("Price", upgrade.Price)
-	pad:SetAttribute("Currency", currency)
-
-	local rim = Style.Cylinder("Rim", 0.4, 6.6, floor * CFrame.new(upgrade.Button) * CFrame.new(0, 0.2, 0), P.White, pad)
-	rim.CanTouch = false
-
-	local priceText = if currency == "Gems" then `💎 {upgrade.Price}` else `${upgrade.Price}`
-	local gui = Style.Billboard(pad, { `{upgrade.Icon} {upgrade.DisplayName}`, priceText }, {
-		Name = "PriceTag",
-		Width = 6, -- buttons are >= 8 studs apart, so tags never overlap
-		Height = 2.2,
-		Offset = Vector3.new(0, 3.2, 0),
-		MaxDistance = 40,
-		Stroke = color,
-	})
-	local priceLabel = gui:FindFirstChild("Line2", true) :: TextLabel?
-	if priceLabel then
-		priceLabel.Name = "Price"
-		priceLabel.TextColor3 = if currency == "Gems" then P.Sky else P.DeepMint
-	end
-	return pad
-end
-
 local function buildUpgrades(plot: Model, floor: CFrame)
 	local items = plot:FindFirstChild("Items") :: Folder
-	local buttons = plot:FindFirstChild("Buttons") :: Folder
 
 	for _, upgrade in PlotLayout.Upgrades do
 		local item = Instance.new("Model")
@@ -169,9 +145,6 @@ local function buildUpgrades(plot: Model, floor: CFrame)
 		end
 		item.Parent = items
 		WorldBuilder.SetVisible(item, false)
-
-		local pad = buildButton(upgrade, floor, buttons)
-		WorldBuilder.SetVisible(pad, false)
 	end
 end
 
@@ -194,10 +167,10 @@ local function buildPlot(index: number, parent: Folder)
 	plot.PrimaryPart = base
 	local floor = base.CFrame * CFrame.new(0, size.Y / 2, 0)
 
-	local spawnPad = Style.Cylinder("Spawn", 0.2, 7, floor * CFrame.new(0, 0.1, 32), P.Lilac, plot)
+	local spawnPad = Style.Cylinder("Spawn", 0.2, 7, floor * CFrame.new(0, 0.1, (Config.Building.FacadeZ + Config.Building.FrontZ) / 2), P.Lilac, plot)
 	spawnPad.CanCollide = false
 
-	for _, name in { "Items", "Buttons" } do
+	for _, name in { "Items" } do
 		local folder = Instance.new("Folder")
 		folder.Name = name
 		folder.Parent = plot
@@ -223,7 +196,7 @@ local function buildPlot(index: number, parent: Folder)
 end
 
 -- Street ------------------------------------------------------------------------
--- Plot fronts are at world Z = PlotRowZ + 40 (-10). From there towards +Z:
+-- Plot fronts are at world Z = PlotRowZ + PlotSize.Z / 2 (-10). From there towards +Z:
 -- sidewalk (-10..5), road (5..25), far sidewalk (25..35) with the bus stops.
 
 local ROAD_MIN, ROAD_MAX = 5, 25
@@ -293,16 +266,19 @@ local function buildStreet()
 
 	local props = Instance.new("Model")
 	props.Name = "Props"
-	for x = -200, 200, 100 do
-		Style.Lamp(CFrame.new(x, 0.6, -7), props) -- between plots
+	local spacing = Config.PlotSpacing
+	for i = 0, Config.PlotCount do
+		local x = (i - Config.PlotCount / 2) * spacing -- between plots (and at both ends)
+		Style.Lamp(CFrame.new(x, 0.6, -7), props)
 		Style.Tree(CFrame.new(x + 12, 0.6, 31), props)
 		Style.Bench(CFrame.new(x - 12, 0.6, 31) * CFrame.Angles(0, math.pi, 0), props)
 	end
-	for x = -150, 150, 100 do
-		Style.Lamp(CFrame.new(x - 30, 0.6, 33), props)
-		Style.Lamp(CFrame.new(x + 30, 0.6, 33), props)
+	for i = 1, Config.PlotCount do
+		local x = (i - (Config.PlotCount + 1) / 2) * spacing -- across from each plot
+		Style.Lamp(CFrame.new(x - 40, 0.6, 33), props)
+		Style.Lamp(CFrame.new(x + 40, 0.6, 33), props)
 	end
-	for _, x in { -235, 235 } do
+	for _, x in { -(half - 15), half - 15 } do
 		Style.Tree(CFrame.new(x, 0.6, -5), props, 1.3)
 	end
 	props.Parent = street

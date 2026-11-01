@@ -72,11 +72,8 @@ local PROMPT_TEXT = {
 
 local idOf = BakeUtil.idOf
 
--- "Pantry" for the fixed pantry, else the placed item's Kind.
+-- The placed item's Kind ("Pantry", "MixStation", "Oven", "Counter", "Decor").
 local function kindOf(model: Model): string?
-	if model.Name == "IngredientCrate" then
-		return "Pantry"
-	end
 	return model:GetAttribute("Kind") :: string?
 end
 
@@ -307,13 +304,12 @@ local function resetPlot(plot: Model)
 end
 
 function BakingPipeline.Init()
-	for _, plot in (workspace:WaitForChild("Plots") :: Folder):GetChildren() do
-		local pantry = plot:IsA("Model") and getItem(plot, "IngredientCrate")
-		if pantry then
-			setupMachine(plot, pantry)
+	BuildService.OnPlaced(function(plot, model)
+		setupMachine(plot, model)
+		if kindOf(model) == "Pantry" then
+			task.defer(BakingPipeline.RefreshPantry, plot) -- show only the bins your recipes use
 		end
-	end
-	BuildService.OnPlaced(setupMachine)
+	end)
 	BuildService.ItemMoved:Connect(function(plot, model)
 		if kindOf(model) == "Counter" then
 			Display.Reposition(plot, model)

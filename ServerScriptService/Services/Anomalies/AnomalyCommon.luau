@@ -68,9 +68,19 @@ function Common.floor(plot: Model): CFrame
 	return base.CFrame * CFrame.new(0, base.Size.Y / 2, 0)
 end
 
+-- A shown item by fixed upgrade id (plot.Items) or catalog id of a placed one (plot.Placed).
 function Common.item(plot: Model, id: string): Model?
 	local items = plot:FindFirstChild("Items")
 	local item = items and items:FindFirstChild(id) :: Model?
+	if not item then
+		local placed = plot:FindFirstChild("Placed")
+		for _, model in (if placed then placed:GetChildren() else {}) do
+			if model:GetAttribute("CatalogId") == id and model:IsA("Model") then
+				item = model
+				break
+			end
+		end
+	end
 	return if item and item:GetAttribute("Visible") == true then item else nil
 end
 

@@ -16,6 +16,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local BuildCatalog = require(Shared:WaitForChild("BuildCatalog"))
 local BuildRules = require(Shared:WaitForChild("BuildRules"))
 local Config = require(Shared:WaitForChild("Config"))
+local PlotLayout = require(Shared:WaitForChild("PlotLayout"))
 
 local Services = script:FindFirstAncestor("Services") :: Folder
 local BuildArea = require(Services.Build.BuildArea)
@@ -184,7 +185,6 @@ local function grantUnlocks(player: Player, plot: Model, entry: BuildCatalog.Ent
 			TycoonButtons.FireUnlocked(player, plot, id)
 		end
 	end
-	TycoonButtons.Refresh(plot, player)
 end
 
 -- Buys one `id`. Upgrades (UpgradeOf) need `uid` of the placed item to upgrade.
@@ -301,7 +301,31 @@ function BuildService.Store(player: Player, uid: string): (boolean, string?)
 	return true
 end
 
--- Remotes.BuildAction: ("buy", id, uid?) | ("place", id, gx, gz, rot) | ("move", uid, gx, gz, rot) | ("store", uid)
+-- Buys a fixed upgrade (Shared/PlotLayout: the building, recipes, oven upgrades,
+-- automation) from the Upgrades tab. It appears in its fixed spot.
+local UPGRADE_REASONS = {
+	["not owner"] = "That isn't your bakery.",
+	["already owned"] = "You already have that.",
+	locked = "That's still locked.",
+	replaced = "You already have something better.",
+}
+function BuildService.BuyUpgrade(player: Player, id: string): (boolean, string?)
+	local plot = PlotManager.GetPlot(player)
+	local upgrade = PlotLayout.Find(id)
+	if not plot or not upgrade then
+		return false, "unknown upgrade"
+	end
+	local ok, reason = TycoonButtons.TryPurchase(player, plot, id)
+	if ok then
+		notify(player, `✅ {upgrade.Icon} {upgrade.DisplayName} bought!`)
+		return true
+	elseif reason == "insufficient cash" or reason == "insufficient gems" then
+		return false, if reason == "insufficient gems" then `You need 💎 {upgrade.Price}.` else `You need ${upgrade.Price}.`
+	end
+	return false, UPGRADE_REASONS[reason or ""] or reason
+end
+
+-- Remotes.BuildAction: ("buy", id, uid?) | ("place", id, gx, gz, rot) | ("move", uid, gx, gz, rot) | ("store", uid) | ("upgrade", id)
 local function onAction(player: Player, action: any, a: any, b: any, c: any, d: any)
 	local now = os.clock()
 	if now - (lastAction[player] or 0) < Config.Build.ActionCooldown then
@@ -320,6 +344,8 @@ local function onAction(player: Player, action: any, a: any, b: any, c: any, d: 
 		ok, reason = BuildService.Move(player, a, int(b) :: number, int(c) :: number, int(d) :: number)
 	elseif action == "store" and typeof(a) == "string" then
 		ok, reason = BuildService.Store(player, a)
+	elseif action == "upgrade" and typeof(a) == "string" then
+		ok, reason = BuildService.BuyUpgrade(player, a)
 	else
 		return
 	end

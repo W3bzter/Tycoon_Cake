@@ -5,17 +5,29 @@
 
 local Config = {}
 
+-- The bakery building shell (World/ItemBuilders.Walls, WorldBuilder floor/fence/entrance,
+-- SecondFloor). Plot-local studs; the plot is Config.PlotSize (120 x 120, half = 60).
+local B = {
+	HalfX = 60, -- side walls at x ±(HalfX - 0.5)
+	BackZ = -60, -- back wall at z BackZ + 0.5
+	FacadeZ = 35.5, -- shop front; the patio runs from here to the plot front (z 60)
+	FrontZ = 60, -- plot front edge
+	DoorHalf = 8, -- the doorway is x -DoorHalf..DoorHalf
+	WallHeight = 18,
+	DeckY = 18.5, -- second-floor deck height
+}
+Config.Building = B
+
 Config.Build = {
 	Grid = 2, -- studs per grid cell
-	Bounds = { MinX = -39.5, MaxX = 39.5, MinZ = -39.5, MaxZ = 40 }, -- the plot floor (fixed walls and fences are reserved separately)
-	MaxPlaced = 60, -- placed items per bakery
+	Bounds = { MinX = -B.HalfX + 0.5, MaxX = B.HalfX - 0.5, MinZ = B.BackZ + 0.5, MaxZ = B.FrontZ }, -- the plot floor (fixed walls and fences are reserved separately)
+	MaxPlaced = 90, -- placed items per bakery
 	ActionCooldown = 0.25, -- seconds between build requests
-	-- Kept clear for customers and floor buttons (in addition to the footprints of
+	-- Kept clear for customers (in addition to the footprints of
 	-- every fixed machine/wall, which are found automatically).
 	Reserved = {
-		{ Name = "Entrance", X0 = -6, X1 = 6, Z0 = 14, Z1 = 40 },
+		{ Name = "Entrance", X0 = -B.DoorHalf, X1 = B.DoorHalf, Z0 = B.FacadeZ - 10, Z1 = B.FrontZ },
 	},
-	ButtonClearance = 3, -- studs kept clear around every floor button
 }
 
 return Config

@@ -78,7 +78,7 @@ local function runBrute(plot: Model, deadline: number)
 			defeat(npc, player)
 		end,
 	})
-	local door = (floor * CFrame.new(0, 4, 23.5)).Position
+	local door = (floor * CFrame.new(0, 4, Config.Building.FacadeZ)).Position
 	Common.cutscene("Brute", plot, door)
 
 	-- It doesn't pathfind: it's anchored and stomps in straight lines, crashing
@@ -131,7 +131,7 @@ local function runBrute(plot: Model, deadline: number)
 	end
 	-- Break in through the front door.
 	if alive() then
-		stomp((floor * CFrame.new(0, 0, 28)).Position)
+		stomp((floor * CFrame.new(0, 0, Config.Building.FacadeZ + 4.5)).Position)
 	end
 	if alive() then
 		smash(npc, door)

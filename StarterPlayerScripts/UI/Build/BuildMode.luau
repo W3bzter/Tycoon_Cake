@@ -1,8 +1,8 @@
 --!strict
 -- Build mode on the client: the state machine and input. B (or the 🔨 Build
 -- button) toggles it. While on: buy/place from the catalog panel, click a placed
--- item to move / rotate / store / upgrade it. R rotates, X stores, right-click or
--- Backspace cancels. On touch, tap the floor to move the ghost and press Place.
+-- item to move / rotate / store / upgrade it. R rotates, X stores, a quick
+-- right-click (not a camera drag) or Backspace cancels. On touch, tap the floor to move the ghost and press Place.
 -- Sends Remotes.BuildAction; the server (Build/BuildService) validates everything
 -- and answers with BuildSync (+ Notify on refusals).
 -- Uses UI/Build/BuildGhost (preview) and UI/Build/BuildMenu (screens).
@@ -34,6 +34,10 @@ local cellOk, cellReason = false, nil :: string?
 local owned: { [string]: number } = {}
 local lastSend = 0
 local lastKey = "" -- cell last checked by updateGhost
+local rightDownAt: number? = nil -- right mouse press (click = cancel, drag = camera)
+local rightMoved = 0 -- pixels the mouse moved while right is held (the cursor is locked, so count deltas)
+local RIGHT_CLICK_TIME = 0.3 -- seconds
+local RIGHT_CLICK_SLOP = 6 -- pixels
 local menu: any = nil
 local action: RemoteEvent = nil :: any
 
@@ -244,6 +248,9 @@ function BuildMode.Mount(screen: ScreenGui)
 		Buy = function(id)
 			send("buy", id)
 		end,
+		BuyUpgrade = function(id)
+			send("upgrade", id)
+		end,
 		Place = function(id)
 			startGhost(id, nil)
 		end,
@@ -264,7 +271,12 @@ function BuildMode.Mount(screen: ScreenGui)
 		end,
 	})
 
+	local hinted = false
 	remotes:WaitForChild("BuildSync").OnClientEvent:Connect(function(state)
+		if not hinted and (state.Counts or {}).IngredientCrate == 0 then
+			hinted = true -- a brand-new bakery: point at the Build shop
+			Toast.Show("🔨 Press B (or the Build button) to buy and place your Pantry!")
+		end
 		owned = table.clone(state.Owned or {})
 		lastKey = "" -- placed items / reserved spots may have changed
 		menu.Refresh(state)
@@ -295,8 +307,11 @@ function BuildMode.Mount(screen: ScreenGui)
 			rotate()
 		elseif input.KeyCode == Enum.KeyCode.X or input.KeyCode == Enum.KeyCode.Delete then
 			store()
-		elseif input.KeyCode == Enum.KeyCode.Backspace or input.UserInputType == Enum.UserInputType.MouseButton2 then
+		elseif input.KeyCode == Enum.KeyCode.Backspace then
 			cancel()
+		elseif input.UserInputType == Enum.UserInputType.MouseButton2 then
+			-- Right mouse also turns the camera: only a quick click without dragging cancels (see InputEnded).
+			rightDownAt, rightMoved = os.clock(), 0
 		elseif processed or not plot then
 			return -- clicks on the UI
 		elseif input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -315,6 +330,22 @@ function BuildMode.Mount(screen: ScreenGui)
 				end
 			else
 				selectModel(placedAt(plot, ray))
+			end
+		end
+	end)
+
+	UserInputService.InputChanged:Connect(function(input)
+		if rightDownAt and input.UserInputType == Enum.UserInputType.MouseMovement then
+			rightMoved += input.Delta.Magnitude
+		end
+	end)
+	UserInputService.InputEnded:Connect(function(input)
+		if active and input.UserInputType == Enum.UserInputType.MouseButton2 and rightDownAt then
+			local quick = os.clock() - rightDownAt < RIGHT_CLICK_TIME
+			local still = rightMoved < RIGHT_CLICK_SLOP
+			rightDownAt = nil
+			if quick and still then
+				cancel()
 			end
 		end
 	end)
