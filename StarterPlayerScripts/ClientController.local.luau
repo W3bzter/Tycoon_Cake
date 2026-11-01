@@ -83,6 +83,29 @@ resetButton.Activated:Connect(function()
 	end
 end)
 
+-- Studio-only rarity previews (visual only: DevTools.PreviewRoll).
+for i, preview in { { "Void", "🕳️ Test Void" }, { "Celestial", "✨ Test Celestial" } } do
+	local b = Instance.new("TextButton")
+	b.Name = `DevPreview{preview[1]}`
+	b.AnchorPoint = Vector2.new(0.5, 0)
+	b.Position = UDim2.new(0.5, (i - 1.5) * 112, 0, 68)
+	b.Size = UDim2.fromOffset(106, 24)
+	b.BackgroundColor3 = if preview[1] == "Void" then Color3.fromRGB(70, 30, 120) else Color3.fromRGB(200, 190, 150)
+	b.TextColor3 = Color3.new(1, 1, 1)
+	b.Font = Enum.Font.FredokaOne
+	b.TextScaled = true
+	b.Text = preview[2]
+	b.Visible = player:GetAttribute("StudioSession") == true
+	b.Parent = screen
+	Instance.new("UICorner").Parent = b
+	player:GetAttributeChangedSignal("StudioSession"):Connect(function()
+		b.Visible = player:GetAttribute("StudioSession") == true
+	end)
+	b.Activated:Connect(function()
+		Remotes:WaitForChild("DevPreviewRoll"):FireServer(preview[1])
+	end)
+end
+
 CurrencyDisplay.Mount(screen, player)
 Toast.Mount(screen)
 AnomalyAlert.Mount(screen)

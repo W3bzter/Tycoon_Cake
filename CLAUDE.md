@@ -37,7 +37,7 @@ File types: `*.server.luau` = Script, `*.local.luau` = LocalScript, plain `*.lua
 
 ## Remotes (`Config.RemoteNames`)
 Server→client: `Notify`, `BuildSync`, `AnomalyStarted/Ended`, `Cutscene`, `ScreenShake`, `RollResult`, `BagUpdate`, `MixStart`, `AchievementSync/Unlocked`.
-Client→server: `BuildAction`, `BagAction`, `Settings`, `MixSubmit`, `BuyGemItem`, `ShopAction`, `GamePassPrompt`, `Rebirth`, `DevResetData` (Studio).
+Client→server: `BuildAction`, `BagAction`, `Settings`, `MixSubmit`, `BuyGemItem`, `ShopAction`, `GamePassPrompt`, `Rebirth`, `DevResetData`, `DevPreviewRoll` (Studio).
 
 ## Player data (`Core/PlayerDataSchema`)
 Cash, Gems, UnlockedUpgrades, ShieldCharges, BoostEndsAt, Stats (lifetime counters; achievements watch them), Bag, NextItemId, MixRecipe, GemUpgrades, Receipts, Settings (auto-delete), Storage, LinesEnabled, LineRecipes, Hoppers, Rebirths, Achievements, Broken. New field = add it to the schema; `reconcile()` fills old saves.
@@ -54,5 +54,6 @@ Cash, Gems, UnlockedUpgrades, ShieldCharges, BoostEndsAt, Stats (lifetime counte
 - Smoke test (Server view): `game.ServerStorage.DebugBridge:Invoke("SmokeTest", "Run", game.Players:GetPlayers()[1], true)` → OK/FAIL per step plus logged errors. It resets the dev save. Update its steps when an API changes.
 - Call running services via `DebugBridge:Invoke("<Module>", "<Function>", ...)`; it finds any module by name. Tables returned through it are copies. `require()` from MCP gets a separate module copy.
 - `Config.DevMode` (Studio only): Cash/Gems top-up and a separate `Dev_<UserId>` save key. HUD "Reset my data" button (Studio only).
+- Rarity effects: HUD "Test Void" / "Test Celestial" buttons (Studio only), or `DebugBridge:Invoke("DevTools", "PreviewRoll", player, "<TierName>")` for any tier. Visual only (nothing added to the bag).
 - MCP screenshots don't show particles or always-on-top billboards.
 - Art meshes live in `ServerStorage.Assets` in the place file (not git): press Ctrl+S after changing them. `Lighting.Technology` must be set in Studio by hand.

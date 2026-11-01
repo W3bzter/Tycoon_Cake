@@ -37,6 +37,7 @@ Config.RemoteNames = {
 	"AnomalyEnded", -- server -> client: (name: string)
 	"BuyGemItem", -- client -> server: (itemId: "Shield" | "Boost")
 	"DevResetData", -- client -> server, Studio only: reset your save to a new player
+	"DevPreviewRoll", -- client -> server, Studio only: (rarityName) play that tier's roll reveal (visual only)
 	"RollResult", -- server -> client: (items) for the roll reveal
 	"BagUpdate", -- server -> client: ({Items, Capacity, MixRecipe})
 	"BagAction", -- client -> server: ("pin" | "discard", id) or ("recipe", name)
