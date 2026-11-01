@@ -114,7 +114,7 @@ local function buildUpgrades(plot: Model, base: Part)
 		button:SetAttribute("UpgradeId", upgrade.Id)
 
 		local gui = Instance.new("BillboardGui")
-		gui.Size = UDim2.fromOffset(160, 50)
+		gui.Size = UDim2.fromScale(7, 2.2) -- studs, so labels shrink with distance and never overlap
 		gui.StudsOffset = Vector3.new(0, 3, 0)
 		gui.MaxDistance = 60
 		gui.Parent = button

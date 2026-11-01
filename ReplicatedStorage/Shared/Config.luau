@@ -12,6 +12,13 @@ Config.StartingCash = 250 -- enough to buy the core pipeline (Walls..DisplayCoun
 -- Tycoon ---------------------------------------------------------------------
 Config.ButtonCooldown = 1 -- seconds between purchase attempts per player
 
+-- Baking ---------------------------------------------------------------------
+Config.MaxIngredientsHeld = 6
+Config.IngredientsPerBatter = 3
+Config.BakeTime = 8 -- seconds in the oven
+Config.DisplaySlots = 3 -- cakes per display counter
+Config.InteractSlack = 6 -- extra studs allowed beyond a prompt's range (lag tolerance)
+
 -- Sounds (built-in rbxasset:// files so they work without uploads; swap for
 -- rbxassetid:// IDs any time). An empty string means "silent".
 Config.Sounds = {

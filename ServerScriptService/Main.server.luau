@@ -12,6 +12,7 @@ local ORDER = {
 	"DataManager",
 	"PlotManager",
 	"TycoonButtons",
+	"BakingPipeline",
 }
 
 local loaded: { [string]: any } = {}
