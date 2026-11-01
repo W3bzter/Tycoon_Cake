@@ -110,6 +110,27 @@ function SmokeTest.Run(player: Player, withAnomalies: boolean?): string
 		task.wait(12)
 		return AutoProduction.Describe(plot):sub(1, 90)
 	end)
+	step("prompt rules (working vs broken)", function()
+		local Prompts = svc("Prompts")
+		local Repairs = svc("Repairs")
+		task.wait(0.5)
+		local lines = {}
+		for _, id in { "Mixer", "Oven", "IngredientConveyor", "ProductionLine2" } do
+			local item = plot.Items:FindFirstChild(id) :: Model
+			Prompts.Refresh(item)
+			local working = Prompts.Visible(item)
+			for _, name in working do
+				assert(not name:find("Repair"), `{id} shows Repair while working`)
+			end
+			assert(Repairs.Break(plot, id, 0.25, "test"), `could not break {id}`)
+			local broken = Prompts.Visible(item)
+			assert(#broken == 1 and broken[1]:find("RepairPrompt"), `{id} broken shows {table.concat(broken, ",")}`)
+			Repairs.ForceRepair(plot, id)
+			Prompts.Refresh(item)
+			table.insert(lines, `{id}: {table.concat(working, " ")}`)
+		end
+		return table.concat(lines, " | ")
+	end)
 	if withAnomalies then
 		local AnomalyManager = svc("AnomalyManager")
 		for name in Config.Anomalies do

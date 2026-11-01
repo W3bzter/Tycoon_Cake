@@ -26,6 +26,7 @@ local Ovens = require(Services.Baking.Ovens)
 local Pantry = require(Services.Baking.Pantry)
 local PlotManager = require(Services.Core.PlotManager)
 local PlotStats = require(Services.Core.PlotStats)
+local Prompts = require(Services.Core.Prompts)
 local ToolFactory = require(Services.Core.ToolFactory)
 local TycoonButtons = require(Services.World.TycoonButtons)
 
@@ -57,7 +58,6 @@ BakingPipeline.Mixed = mixedEvent.Event
 local OVEN_IDS = { "BasicOven", "Oven", "Oven2", "Oven3" } -- manual ovens (automated ones live in AutoProduction)
 -- Hand tools are slower than machines (Phase 4 turns mixing into a minigame).
 local BASIC_OVEN_SPEED = 2 -- bake-time multiplier
-local HAND_MIX_HOLD = 1.5 -- seconds to hold the prompt when whisking by hand
 local MACHINE_PART = {
 	IngredientCrate = "Crate", -- the roll prompt
 	PrepTable = "Body",
@@ -200,7 +200,7 @@ function BakingPipeline.Interact(player: Player, plot: Model, machineId: string,
 	end
 
 	local part = item:FindFirstChild(MACHINE_PART[machineId]) :: BasePart?
-	local prompt = part and part:FindFirstChild("Prompt") :: ProximityPrompt?
+	local prompt = Prompts.Get(item, "Prompt")
 	if not part or not prompt or not isNear(player, part, prompt) then
 		return false
 	end
@@ -221,19 +221,6 @@ local PROMPT_TEXT = {
 	DisplayCounter = { "Display Cake", "Display Counter" },
 	DisplayCounter2 = { "Display Cake", "Display Counter" },
 }
-
-local function makePrompt(parent: BasePart, action: string, object: string, visible: boolean, distance: number?): ProximityPrompt
-	local prompt = Instance.new("ProximityPrompt")
-	prompt.Name = "Prompt"
-	prompt.ActionText = action
-	prompt.ObjectText = object
-	prompt.MaxActivationDistance = distance or 10
-	prompt.HoldDuration = 0.2
-	prompt.RequiresLineOfSight = false
-	prompt.Enabled = visible
-	prompt.Parent = parent
-	return prompt
-end
 
 local function buildSlots(counter: Model, counterPart: BasePart, counterId: string)
 	local folder = Instance.new("Folder")
@@ -261,13 +248,16 @@ local function setupPlot(plot: Model)
 		local part = item and item:FindFirstChild(partName) :: BasePart?
 		if item and part then
 			local text = PROMPT_TEXT[machineId]
-			local prompt = makePrompt(part, text[1], text[2], item:GetAttribute("Visible") == true)
-			prompt.Triggered:Connect(function(player)
-				BakingPipeline.Interact(player, plot, machineId)
-			end)
-			if machineId == "PrepTable" then
-				prompt.HoldDuration = HAND_MIX_HOLD
-			end
+			Prompts.Add(item, part, {
+				Name = "Prompt",
+				Action = text[1],
+				Object = text[2],
+				Key = Config.Prompts.Keys.Main,
+				Hold = if machineId == "PrepTable" then Config.Prompts.HandMixHold else nil,
+				Trigger = function(player)
+					BakingPipeline.Interact(player, plot, machineId)
+				end,
+			})
 			if table.find(OVEN_IDS, machineId) then
 				item:SetAttribute("IsOven", true)
 				item:SetAttribute("Blocked", false)

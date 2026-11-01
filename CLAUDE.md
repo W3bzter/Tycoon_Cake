@@ -11,6 +11,7 @@ File types: `*.server.luau` = Script, `*.local.luau` = LocalScript, plain `*.lua
 - Every tunable number lives in `ReplicatedStorage/Shared/ConfigParts/<Feature>.luau`, read as `Config.<Name>` (`Shared/Config.luau` merges the parts; add a new part's name to its list).
 - Keep modules small (about 300 lines max) and in the folder of their feature. Server modules require siblings as `require(Services.<Folder>.<Module>)` with `local Services = script:FindFirstAncestor("Services")`.
 - All player actions are validated on the server (owner, distance, unlocked, not broken, rate limits).
+- Prompts: create them only with `Prompts.Add(model, part, spec)` and never set `Enabled` yourself. A rule (`Show`) decides visibility; a Broken item shows only its Repair prompt; visible prompts on one part stack via `UIOffset`. Keys: E main, F fill (hold), R recipe, T on/off, G unload, Q repair (`Config.Prompts`). MCP screenshots don't show prompt UI; check `Prompts.Visible(model)` instead.
 - Labels: every BillboardGui is `AlwaysOnTop`, `LightInfluence = 0`, short `MaxDistance` (`Style.Billboard` does this). Don't add labels that can stack on screen; reuse the machine's sign.
 - Robux: `Core/RobuxShop` is the only place that sets `ProcessReceipt`. Game Passes go through `Core/GamePasses`. Paid things never change random odds; Luck is PolicyService-gated (fails closed).
 
@@ -19,7 +20,7 @@ File types: `*.server.luau` = Script, `*.local.luau` = LocalScript, plain `*.lua
 
 | Folder | Modules |
 |---|---|
-| `Core/` | `Remotes` (creates `Config.RemoteNames`), `DataManager` (load/save, stats, `ApplyReset`), `PlayerDataSchema` (data type + template), `PlotManager` (claim/release plots), `PlotStats` (totals upgrade Effects, Gem upgrades, rebirth bonus), `ToolFactory` (all Tools), `GamePasses`, `RobuxShop`, `DevTools` (Studio reset button), `SmokeTest` |
+| `Core/` | `Remotes` (creates `Config.RemoteNames`), `Prompts` (creates every ProximityPrompt and decides when it shows), `DataManager` (load/save, stats, `ApplyReset`), `PlayerDataSchema` (data type + template), `PlotManager` (claim/release plots), `PlotStats` (totals upgrade Effects, Gem upgrades, rebirth bonus), `ToolFactory` (all Tools), `GamePasses`, `RobuxShop`, `DevTools` (Studio reset button), `SmokeTest` |
 | `World/` | `WorldBuilder` (plots, street), `ItemBuilders` (one builder per upgrade id), `Style` (palette, shapes, billboards), `Assets` (mesh templates with primitive fallbacks), `LightingSetup`, `TycoonButtons` (floor purchase pads), `Repairs` (broken machines) |
 | `Baking/` | `BakingPipeline` (interactions + setup; re-exports the others), `Ovens` (oven states, `FinishBake` = bake-time rolls), `Display` (counter slots, cakes on them), `Pantry` (bins, roll pop-up), `BakeUtil`, `Inventory` (Ingredient Bag, rolls, auto-delete), `MixingGame` (minigame sessions) |
 | `Factory/` | `AutoProduction` (production lines, hoppers, Full Automation auto-load) |

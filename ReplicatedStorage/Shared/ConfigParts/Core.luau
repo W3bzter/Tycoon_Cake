@@ -50,4 +50,25 @@ Config.RemoteNames = {
 	"AchievementUnlocked", -- server -> client: (achievementId)
 }
 
+-- Interaction prompts (Core/Prompts) ---------------------------------------------
+-- Keys are fixed per action so prompts on one machine never share a key.
+Config.Prompts = {
+	Keys = {
+		Main = Enum.KeyCode.E, -- roll, mix, bake, collect, display, load, take
+		Fill = Enum.KeyCode.F, -- hold: fill a hopper
+		Recipe = Enum.KeyCode.R,
+		Toggle = Enum.KeyCode.T, -- line on/off
+		Unload = Enum.KeyCode.G,
+		Repair = Enum.KeyCode.Q,
+	},
+	DefaultHold = 0.2,
+	HandMixHold = 1.5, -- whisking by hand takes longer
+	FillHold = 0.6,
+	RepairHold = 2,
+	Distance = 10, -- studs
+	AnchorLift = 1, -- studs above the part where prompts sit
+	StackSpacing = 78, -- pixels between stacked prompts on one part
+	RefreshInterval = 0.2, -- seconds between rule checks
+}
+
 return Config

@@ -36,6 +36,7 @@ local GamePasses = require(Services.Core.GamePasses)
 local Inventory = require(Services.Baking.Inventory)
 local PlotManager = require(Services.Core.PlotManager)
 local PlotStats = require(Services.Core.PlotStats)
+local Prompts = require(Services.Core.Prompts)
 local Remotes = require(Services.Core.Remotes)
 local ToolFactory = require(Services.Core.ToolFactory)
 local VFX = require(Services.Effects.VFX)
@@ -386,44 +387,19 @@ local function updatePrompts(plot: Model, owner: Player, line: Line)
 	end
 	statusGui(part, if line.unitId then 1.6 else 3.2).Text = status
 
-	local recipePrompt = part:FindFirstChild("RecipePrompt") :: ProximityPrompt?
+	-- Text only: Core/Prompts decides which prompts show (see setupPlot).
+	local recipePrompt = Prompts.Get(control, "RecipePrompt")
 	if recipePrompt then
 		recipePrompt.ObjectText = `{line.name}: {cake.Icon} {cake.DisplayName}`
 	end
-	local load = part:FindFirstChild("LoadPrompt") :: ProximityPrompt?
-	local fill = part:FindFirstChild("FillPrompt") :: ProximityPrompt?
-	local full = #line.hopper >= A.HopperCap
+	local load = Prompts.Get(control, "LoadPrompt")
 	if load then
-		load.Enabled = not full
 		load.ObjectText = `{line.name} hopper {#line.hopper}/{A.HopperCap}`
 	end
-	if fill then
-		fill.Enabled = not full
-	end
-	local toggle = part:FindFirstChild("TogglePrompt") :: ProximityPrompt?
+	local toggle = Prompts.Get(control, "TogglePrompt")
 	if toggle then
-		toggle.Enabled = true
 		toggle.ActionText = if enabled then "⏸ Turn Off" else "▶ Turn On"
 		toggle.ObjectText = line.name
-	end
-
-	if line.unitId then
-		return
-	end
-	-- Manual hand-offs for the steps that aren't automated yet.
-	local grab = part:FindFirstChild("GrabPrompt") :: ProximityPrompt?
-	if grab then
-		grab.Enabled = not owns(owner, "AutoMixer") and #line.hopper > 0
-	end
-	local mixer = getItem(plot, "AutoMixer")
-	local mixerPrompt = mixer and mixer:FindFirstChild("TakePrompt", true) :: ProximityPrompt?
-	if mixerPrompt then
-		mixerPrompt.Enabled = mixer:GetAttribute("Visible") == true and not owns(owner, "AutoOven") and #line.batter > 0
-	end
-	local oven = getItem(plot, "AutoOven")
-	local ovenPrompt = oven and oven:FindFirstChild("TakePrompt", true) :: ProximityPrompt?
-	if ovenPrompt then
-		ovenPrompt.Enabled = oven:GetAttribute("Visible") == true and not owns(owner, "CounterConveyor") and #line.tray > 0
 	end
 end
 
@@ -554,18 +530,14 @@ function AutoProduction.GetLine(plot: Model, lineIndex: number): Line?
 	return lineAt(plot, lineIndex)
 end
 
-local function addPrompt(part: BasePart, name: string, action: string, key: Enum.KeyCode, onTrigger: (Player) -> ())
-	local prompt = Instance.new("ProximityPrompt")
-	prompt.Name = name
-	prompt.ActionText = action
-	prompt.KeyboardKeyCode = key
-	prompt.MaxActivationDistance = 10
-	prompt.HoldDuration = 0.2
-	prompt.RequiresLineOfSight = false
-	prompt.Enabled = false
-	prompt.Parent = part
-	prompt.Triggered:Connect(onTrigger)
-	return prompt
+-- A prompt that only works for the plot owner standing near `part`.
+local function addPrompt(plot: Model, model: Model, part: BasePart, spec: { [string]: any }, action: (Player) -> ())
+	spec.Trigger = function(player: Player)
+		if canUse(player, plot, part) then
+			action(player)
+		end
+	end
+	return Prompts.Add(model, part, spec :: any)
 end
 
 local function setupPlot(plot: Model)
@@ -573,31 +545,46 @@ local function setupPlot(plot: Model)
 		lines = { newLine(1, "Line 1"), newLine(2, "Line 2", "ProductionLine2"), newLine(3, "Line 3", "ProductionLine3") },
 		storage = {},
 	}
+	local K = Config.Prompts.Keys
+	local function ownerHas(id: string): boolean
+		local owner = PlotManager.GetOwner(plot)
+		return owner ~= nil and owns(owner, id)
+	end
 
 	for index, line in states[plot].lines do
 		local control, part = controlFor(plot, line)
 		if control and part then
-			addPrompt(part, "RecipePrompt", "Change Recipe", Enum.KeyCode.R, function(player)
-				if canUse(player, plot, part) then
-					AutoProduction.CycleRecipe(player, plot, index)
-				end
+			local function hopperOpen(): boolean
+				local current = states[plot] and states[plot].lines[index]
+				return current ~= nil and #current.hopper < A.HopperCap
+			end
+			addPrompt(plot, control, part, { Name = "LoadPrompt", Action = "📥 Load Hopper", Key = K.Main, Order = 1, Show = hopperOpen }, function(player)
+				AutoProduction.Load(player, plot, index, false)
 			end)
-			addPrompt(part, "LoadPrompt", "📥 Load Hopper", Enum.KeyCode.E, function(player)
-				if canUse(player, plot, part) then
-					AutoProduction.Load(player, plot, index, false)
-				end
+			addPrompt(plot, control, part, { Name = "FillPrompt", Action = "📥 Fill Hopper", Key = K.Fill, Hold = Config.Prompts.FillHold, Order = 2, Show = hopperOpen }, function(player)
+				AutoProduction.Load(player, plot, index, true)
 			end)
-			local fill = addPrompt(part, "FillPrompt", "📥 Fill Hopper", Enum.KeyCode.F, function(player)
-				if canUse(player, plot, part) then
-					AutoProduction.Load(player, plot, index, true)
-				end
+			addPrompt(plot, control, part, { Name = "RecipePrompt", Action = "Change Recipe", Key = K.Recipe, Order = 3 }, function(player)
+				AutoProduction.CycleRecipe(player, plot, index)
 			end)
-			fill.HoldDuration = 0.6
-			addPrompt(part, "TogglePrompt", "⏸ Turn Off", Enum.KeyCode.T, function(player)
-				if canUse(player, plot, part) then
-					AutoProduction.SetEnabled(player, plot, index)
-				end
+			addPrompt(plot, control, part, { Name = "TogglePrompt", Action = "⏸ Turn Off", Key = K.Toggle, Order = 4 }, function(player)
+				AutoProduction.SetEnabled(player, plot, index)
 			end)
+			if not line.unitId then
+				-- Line 1 without an Auto-Mixer: take a loaded kit back.
+				addPrompt(plot, control, part, {
+					Name = "GrabPrompt",
+					Action = "Unload Kit",
+					Key = K.Unload,
+					Order = 5,
+					Show = function()
+						local current = states[plot] and states[plot].lines[1]
+						return current ~= nil and #current.hopper > 0 and not ownerHas("AutoMixer")
+					end,
+				}, function(player)
+					AutoProduction.GrabKit(player, plot)
+				end)
+			end
 		end
 		local oven = ovenFor(plot, line)
 		if oven then
@@ -607,30 +594,35 @@ local function setupPlot(plot: Model)
 		end
 	end
 
-	local _, hopper = controlFor(plot, states[plot].lines[1])
-	if hopper then
-		addPrompt(hopper, "GrabPrompt", "Unload Kit", Enum.KeyCode.G, function(player)
-			if canUse(player, plot, hopper) then
-				AutoProduction.GrabKit(player, plot)
-			end
-		end)
-	end
+	-- Manual hand-offs for line 1 steps that aren't automated yet.
 	local mixer = getItem(plot, "AutoMixer")
 	local mixerBody = mixer and mixer:FindFirstChild("Body") :: BasePart?
-	if mixerBody then
-		addPrompt(mixerBody, "TakePrompt", "Take Batter", Enum.KeyCode.E, function(player)
-			if canUse(player, plot, mixerBody) then
-				AutoProduction.TakeBatter(player, plot)
-			end
+	if mixer and mixerBody then
+		addPrompt(plot, mixer, mixerBody, {
+			Name = "TakePrompt",
+			Action = "Take Batter",
+			Key = K.Main,
+			Show = function()
+				local line = states[plot] and states[plot].lines[1]
+				return line ~= nil and #line.batter > 0 and not ownerHas("AutoOven")
+			end,
+		}, function(player)
+			AutoProduction.TakeBatter(player, plot)
 		end)
 	end
 	local oven = getItem(plot, "AutoOven")
 	local ovenBody = oven and oven:FindFirstChild("Body") :: BasePart?
-	if ovenBody then
-		addPrompt(ovenBody, "TakePrompt", "Take Cake", Enum.KeyCode.E, function(player)
-			if canUse(player, plot, ovenBody) then
-				AutoProduction.TakeCake(player, plot)
-			end
+	if oven and ovenBody then
+		addPrompt(plot, oven, ovenBody, {
+			Name = "TakePrompt",
+			Action = "Take Cake",
+			Key = K.Main,
+			Show = function()
+				local line = states[plot] and states[plot].lines[1]
+				return line ~= nil and #line.tray > 0 and not ownerHas("CounterConveyor")
+			end,
+		}, function(player)
+			AutoProduction.TakeCake(player, plot)
 		end)
 	end
 end

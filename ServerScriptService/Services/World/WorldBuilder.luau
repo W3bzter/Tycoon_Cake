@@ -36,7 +36,12 @@ function WorldBuilder.SetVisible(root: Instance, visible: boolean)
 	for _, d in root:GetDescendants() do
 		if d:IsA("BasePart") then
 			setPartVisible(d, visible)
-		elseif d:IsA("ProximityPrompt") or d:IsA("BillboardGui") or d:IsA("SurfaceGui") then
+		elseif d:IsA("ProximityPrompt") then
+			-- Only ever switched off here: Core/Prompts decides when each prompt shows.
+			if not visible then
+				d.Enabled = false
+			end
+		elseif d:IsA("BillboardGui") or d:IsA("SurfaceGui") then
 			d.Enabled = visible
 		elseif d:IsA("Decal") or d:IsA("Texture") then
 			d.Transparency = if visible then 0 else 1

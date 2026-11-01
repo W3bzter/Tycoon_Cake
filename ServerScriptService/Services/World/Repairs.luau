@@ -19,6 +19,7 @@ local Services = script:FindFirstAncestor("Services") :: Folder
 local BakingPipeline = require(Services.Baking.BakingPipeline)
 local DataManager = require(Services.Core.DataManager)
 local PlotManager = require(Services.Core.PlotManager)
+local Prompts = require(Services.Core.Prompts)
 local Remotes = require(Services.Core.Remotes)
 local Style = require(Services.World.Style)
 local TycoonButtons = require(Services.World.TycoonButtons)
@@ -135,11 +136,9 @@ local function setBrokenLook(item: Model, cost: number?)
 		end
 	end
 	setSignBroken(item, main, cost)
-	local prompt = main:FindFirstChild("RepairPrompt") :: ProximityPrompt?
+	local prompt = Prompts.Get(item, "RepairPrompt")
 	if not cost then
-		if prompt then
-			prompt.Enabled = false
-		end
+		Prompts.Refresh(item)
 		return
 	end
 	local smoke = Instance.new("Smoke")
@@ -165,8 +164,8 @@ local function setBrokenLook(item: Model, cost: number?)
 		local upgrade = PlotLayout.Find(item.Name)
 		prompt.ObjectText = `Broken {if upgrade then upgrade.DisplayName else item.Name}`
 		prompt.ActionText = `🔧 Repair (${cost})`
-		prompt.Enabled = true
 	end
+	Prompts.Refresh(item) -- shows only Repair now (Broken is set before this runs)
 end
 
 -- Break / repair ----------------------------------------------------------------------------
@@ -269,18 +268,17 @@ local function setupPlot(plot: Model)
 		local item = getItem(plot, id)
 		local main = item and Repairs.MainPart(item)
 		if item and main then
-			local prompt = Instance.new("ProximityPrompt")
-			prompt.Name = "RepairPrompt"
-			prompt.ActionText = "🔧 Repair"
-			prompt.KeyboardKeyCode = Enum.KeyCode.Q
-			prompt.HoldDuration = Config.Repair.HoldTime
-			prompt.MaxActivationDistance = 12
-			prompt.RequiresLineOfSight = false
-			prompt.Enabled = false
-			prompt.Parent = main
-			prompt.Triggered:Connect(function(player)
-				Repairs.Repair(player, plot, id)
-			end)
+			Prompts.Add(item, main, {
+				Name = "RepairPrompt",
+				Action = "🔧 Repair",
+				Key = Config.Prompts.Keys.Repair,
+				Hold = Config.Prompts.RepairHold,
+				Distance = 12,
+				Repair = true,
+				Trigger = function(player)
+					Repairs.Repair(player, plot, id)
+				end,
+			})
 		end
 	end
 end

@@ -94,7 +94,6 @@ Config.Cutscene = {
 Config.Repair = {
 	ExplodeFraction = 0.5, -- ovens that explode after an unchecked Overheat
 	DamageFraction = 0.25, -- machines smashed by anomalies
-	HoldTime = 2, -- seconds to hold the Repair prompt
 	OverheatWarning = 10, -- last seconds of an Overheat where ovens flash
 }
 
