@@ -55,8 +55,67 @@ function Style.Part(props: { [string]: any }): Part
 	return p
 end
 
+-- Smooth low-poly shape meshes (Art/blender/make_shapes.py -> Art/Shapes/*.fbx),
+-- imported into the place file as ServerStorage.Assets.Shapes.<RoundedBox|Cylinder|Ball>
+-- (a MeshPart, or a Model holding one). Each is 1x1x1 and gets resized here, so
+-- one mesh serves every box/cylinder/ball. Missing = the plain shapes below, so
+-- the game always works. Very stretched shapes keep the plain version (a
+-- stretched bevel would smear across the long side).
+local ServerStorage = game:GetService("ServerStorage")
+local shapeCache: { [string]: MeshPart | false } = {}
+
+local function shapeTemplate(kind: string): MeshPart?
+	local cached = shapeCache[kind]
+	if cached ~= nil then
+		return cached or nil
+	end
+	local assets = ServerStorage:FindFirstChild("Assets")
+	local shapes = assets and assets:FindFirstChild("Shapes")
+	local entry = shapes and shapes:FindFirstChild(kind)
+	local mesh: MeshPart? = nil
+	if entry and entry:IsA("MeshPart") then
+		mesh = entry
+	elseif entry then
+		mesh = entry:FindFirstChildWhichIsA("MeshPart", true)
+	end
+	shapeCache[kind] = mesh or false
+	return mesh
+end
+
+-- Bevels scale with the part, so only use the mesh when no side is much longer
+-- than the next one and nothing is huge.
+local function meshFits(size: Vector3, maxRatio: number): boolean
+	local dims = { size.X, size.Y, size.Z }
+	table.sort(dims)
+	return dims[3] <= 14 and dims[3] <= dims[2] * maxRatio
+end
+
+local function meshShape(kind: string, name: string, size: Vector3, cf: CFrame, color: Color3, parent: Instance?): MeshPart?
+	local template = shapeTemplate(kind)
+	if not template then
+		return nil
+	end
+	local m = template:Clone()
+	m.Name = name
+	m.Anchored = true
+	m.Material = Enum.Material.SmoothPlastic
+	m.Size = size
+	m.CFrame = cf
+	m.Color = color
+	for _, child in m:GetChildren() do
+		child:Destroy() -- importer leftovers (attachments, SurfaceAppearance)
+	end
+	m.Parent = parent
+	return m
+end
+
 -- A disc/cylinder standing upright (Roblox cylinders run along X, so rotate).
-function Style.Cylinder(name: string, height: number, diameter: number, cf: CFrame, color: Color3, parent: Instance?): Part
+function Style.Cylinder(name: string, height: number, diameter: number, cf: CFrame, color: Color3, parent: Instance?): BasePart
+	local size = Vector3.new(height, diameter, diameter)
+	local mesh = meshFits(size, 4) and meshShape("Cylinder", name, size, cf * CFrame.Angles(0, 0, math.rad(90)), color, parent)
+	if mesh then
+		return mesh
+	end
 	return Style.Part({
 		Name = name,
 		Shape = Enum.PartType.Cylinder,
@@ -67,7 +126,11 @@ function Style.Cylinder(name: string, height: number, diameter: number, cf: CFra
 	})
 end
 
-function Style.Ball(name: string, diameter: number, cf: CFrame, color: Color3, parent: Instance?): Part
+function Style.Ball(name: string, diameter: number, cf: CFrame, color: Color3, parent: Instance?): BasePart
+	local mesh = diameter <= 14 and meshShape("Ball", name, Vector3.one * diameter, cf, color, parent)
+	if mesh then
+		return mesh
+	end
 	return Style.Part({
 		Name = name,
 		Shape = Enum.PartType.Ball,
@@ -78,9 +141,14 @@ function Style.Ball(name: string, diameter: number, cf: CFrame, color: Color3, p
 	})
 end
 
--- Box with rounded vertical edges. Returns the core part, named `name`; the
--- extra pieces are parented to it so they move/hide/recolour together.
-function Style.RoundedBox(name: string, size: Vector3, cf: CFrame, color: Color3, parent: Instance?, radius: number?): Part
+-- Box with rounded edges: the smooth mesh if imported, else a core part with
+-- rounded vertical edges (extra pieces parented to it so they move/hide/recolour
+-- together). Either way the returned part is named `name`.
+function Style.RoundedBox(name: string, size: Vector3, cf: CFrame, color: Color3, parent: Instance?, radius: number?): BasePart
+	local mesh = meshFits(size, 5) and meshShape("RoundedBox", name, size, cf, color, parent)
+	if mesh then
+		return mesh
+	end
 	local r = math.min(radius or 0.6, size.X / 2, size.Z / 2)
 	local core = Style.Part({
 		Name = name,
@@ -105,7 +173,7 @@ function Style.RoundedBox(name: string, size: Vector3, cf: CFrame, color: Color3
 end
 
 -- Thin contrasting band, e.g. a counter top or cornice.
-function Style.Trim(name: string, size: Vector3, cf: CFrame, color: Color3, parent: Instance?): Part
+function Style.Trim(name: string, size: Vector3, cf: CFrame, color: Color3, parent: Instance?): BasePart
 	return Style.RoundedBox(name, size, cf, color, parent, math.min(0.4, size.Z / 2))
 end
 

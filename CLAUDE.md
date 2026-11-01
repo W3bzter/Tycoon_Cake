@@ -56,4 +56,4 @@ Cash, Gems, UnlockedUpgrades, ShieldCharges, BoostEndsAt, Stats (lifetime counte
 - `Config.DevMode` (Studio only): Cash/Gems top-up and a separate `Dev_<UserId>` save key. HUD "Reset my data" button (Studio only).
 - Rarity effects: HUD "Test Void" / "Test Celestial" buttons (Studio only), or `DebugBridge:Invoke("DevTools", "PreviewRoll", player, "<TierName>")` for any tier. Visual only (nothing added to the bag).
 - MCP screenshots don't show particles or always-on-top billboards.
-- Art meshes live in `ServerStorage.Assets` in the place file (not git): press Ctrl+S after changing them. `Lighting.Technology` must be set in Studio by hand.
+- Art meshes live in `ServerStorage.Assets` in the place file (not git): press Ctrl+S after changing them. Smooth low-poly base shapes: `ServerStorage.Assets.Shapes.<RoundedBox|Cylinder|Ball>` (from `Art/Shapes/*.fbx`, built by `Art/blender/make_shapes.py`; see `Art/README.md`). `Style.RoundedBox/Cylinder/Ball` use them when present (not for very stretched sizes) and fall back to plain parts, so they may return a MeshPart: type results as `BasePart`. `Lighting.Technology` must be set in Studio by hand.
