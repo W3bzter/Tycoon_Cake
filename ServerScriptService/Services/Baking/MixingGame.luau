@@ -42,7 +42,9 @@ function MixingGame.Start(player: Player, station: Model)
 	end
 	local session = { id = HttpService:GenerateGUID(false), station = station, startedAt = os.clock() }
 	sessions[player] = session
-	Remotes.Get("MixStart"):FireClient(player, session.id, station.Name, math.random(1, 1e6))
+	-- The client looks up Config.Minigame.Stations[stationId]: the hand bowl is hard, mixers are easier.
+	local stationId = if station:GetAttribute("CatalogId") == "PrepTable" then "PrepTable" else "Mixer"
+	Remotes.Get("MixStart"):FireClient(player, session.id, stationId, math.random(1, 1e6))
 	task.delay(G.Timeout, function()
 		if sessions[player] == session then
 			sessions[player] = nil -- abandoned: nothing was taken from the bag

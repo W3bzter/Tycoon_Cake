@@ -91,8 +91,9 @@ end
 -- Lifecycle ----------------------------------------------------------------------------
 
 local function counterStandPoint(slot: BasePart): Vector3
-	-- Plots face +Z (the street), so customers stand on the street side of the counter.
-	return Vector3.new(slot.Position.X, 0, slot.Position.Z + Config.CustomerStandOff)
+	-- Customers stand in front of the counter (its +Z side, whichever way it was placed).
+	local p = (slot.CFrame * CFrame.new(0, 0, Config.CustomerStandOff)).Position
+	return Vector3.new(p.X, 0, p.Z)
 end
 
 local function walkTo(npc: Model, target: Vector3): boolean

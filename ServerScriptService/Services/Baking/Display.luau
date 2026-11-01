@@ -17,22 +17,30 @@ local BakeUtil = require(Services.Baking.BakeUtil)
 local Inventory = require(Services.Baking.Inventory)
 local VFX = require(Services.Effects.VFX)
 
-local getItem = BakeUtil.getItem
 
 local Display = {}
 
-local COUNTER_IDS = { "DisplayCounter", "DisplayCounter2" }
-Display.COUNTER_IDS = COUNTER_IDS
+-- Display counters are placed items (Kind "Counter"); their slots are parts named
+-- "<counter model name>_<i>" in the counter's Slots folder.
+local function counters(plot: Model): { Model }
+	local list = {}
+	for _, model in BakeUtil.machines(plot) do
+		if model:GetAttribute("Kind") == "Counter" then
+			table.insert(list, model)
+		end
+	end
+	return list
+end
 
-local function getSlots(plot: Model, includeHidden: boolean?): { BasePart }
+-- Slots of every usable counter (`includeBroken` also lists broken ones).
+local function getSlots(plot: Model, includeBroken: boolean?): { BasePart }
 	local slots = {}
-	for _, counterId in COUNTER_IDS do
-		local counter = getItem(plot, counterId)
-		local usable = counter and counter:GetAttribute("Visible") and not counter:GetAttribute("Broken")
-		local folder = counter and (includeHidden or usable) and counter:FindFirstChild("Slots")
+	for _, counter in counters(plot) do
+		local usable = counter:GetAttribute("Visible") and not counter:GetAttribute("Broken")
+		local folder = (includeBroken or usable) and counter:FindFirstChild("Slots")
 		if folder then
 			for i = 1, Config.DisplaySlots do
-				local slot = folder:FindFirstChild(`{counterId}_{i}`) :: BasePart?
+				local slot = folder:FindFirstChild(`{counter.Name}_{i}`) :: BasePart?
 				if slot then
 					table.insert(slots, slot)
 				end
@@ -118,6 +126,7 @@ local function placeCake(plot: Model, slot: BasePart, info: Rarity.CakeInfo)
 	model:SetAttribute("CakeType", info.Type)
 	Assets.Anchor(model, slot.CFrame * CFrame.new(0, slot.Size.Y / 2, 0), cakesFolder(plot))
 	decorateCake(model, info)
+	model:SetAttribute("SlotOffset", slot.CFrame:ToObjectSpace(model:GetPivot())) -- for Reposition
 
 	CakeData.Write(slot, info)
 	slot:SetAttribute("HasCake", true)
@@ -201,5 +210,19 @@ function Display.ModifyCake(plot: Model, slot: BasePart, change: (Rarity.CakeInf
 end
 
 Display.Place = placeCake
+
+-- After a counter moved (Build mode): its cakes follow their slots.
+function Display.Reposition(plot: Model, counter: Model)
+	local slots = counter:FindFirstChild("Slots")
+	for _, slot in (if slots then slots:GetChildren() else {}) do
+		local cake = slot:IsA("BasePart") and slot:GetAttribute("HasCake") and cakesFolder(plot):FindFirstChild(slot.Name)
+		if cake and cake:IsA("Model") then
+			local offset = cake:GetAttribute("SlotOffset") :: CFrame?
+			if offset then
+				cake:PivotTo(slot.CFrame * offset)
+			end
+		end
+	end
+end
 
 return Display

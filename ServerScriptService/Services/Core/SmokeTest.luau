@@ -10,8 +10,10 @@ local LogService = game:GetService("LogService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
-local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
-local PlotLayout = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("PlotLayout"))
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local BuildCatalog = require(Shared:WaitForChild("BuildCatalog"))
+local Config = require(Shared:WaitForChild("Config"))
+local PlotLayout = require(Shared:WaitForChild("PlotLayout"))
 
 local Services = script:FindFirstAncestor("Services") :: Folder
 
@@ -29,6 +31,68 @@ local function near(player: Player, part: BasePart)
 	end
 end
 
+-- The placed model of a kind ("MixStation", "Oven", "Counter").
+local function placedOfKind(plot: Model, kind: string): Model?
+	local folder = plot:FindFirstChild("Placed")
+	for _, model in (if folder then folder:GetChildren() else {}) do
+		if model:GetAttribute("Kind") == kind then
+			return model :: Model
+		end
+	end
+	return nil
+end
+
+-- Places one owned `id` on the first free grid cell (scanning the plot).
+local function placeAnywhere(player: Player, plot: Model, id: string): boolean
+	local BuildService = svc("BuildService")
+	local b = Config.Build.Bounds
+	local g = Config.Build.Grid
+	for gz = math.ceil(b.MinZ / g), math.floor(b.MaxZ / g) do
+		for gx = math.ceil(b.MinX / g), math.floor(b.MaxX / g) do
+			if BuildService.CanPlace(player, plot, id, gx, gz, 0) then
+				return (BuildService.Place(player, id, gx, gz, 0))
+			end
+		end
+	end
+	return false
+end
+
+-- Buys every floor button and every catalog item (machines at their default
+-- spots, decor wherever it fits), repeating until nothing more can be bought.
+local function buyEverything(player: Player, plot: Model): string
+	local TycoonButtons = svc("TycoonButtons")
+	local BuildService = svc("BuildService")
+	local BuildModels = svc("BuildModels")
+	local DataManager = svc("DataManager")
+	local buttons, items = 0, 0
+	for _ = 1, 15 do
+		for _, u in PlotLayout.Upgrades do
+			if TycoonButtons.TryPurchase(player, plot, u.Id) then
+				buttons += 1
+			end
+		end
+		for _, entry in BuildCatalog.List do
+			if entry.UpgradeOf then
+				local data = DataManager.Get(player)
+				for uid, record in (if data then data.Build.Placed else {}) do
+					if record.Id == entry.UpgradeOf and BuildService.Buy(player, entry.Id, uid) then
+						items += 1
+					end
+				end
+			elseif BuildService.CountOwned(player, entry.Id) < math.min(entry.Max or 1, 2) and BuildService.Buy(player, entry.Id) then
+				items += 1
+				local gx, gz = BuildModels.Default(entry.Id)
+				if not (entry.Kind ~= "Decor" and BuildService.Place(player, entry.Id, gx, gz, 0)) then
+					placeAnywhere(player, plot, entry.Id)
+				end
+			end
+		end
+	end
+	return `{buttons} buttons, {items} build items`
+end
+
+SmokeTest.BuyEverything = buyEverything
+
 function SmokeTest.Run(player: Player, withAnomalies: boolean?): string
 	assert(RunService:IsStudio(), "Studio only")
 	local report: { string } = {}
@@ -45,9 +109,9 @@ function SmokeTest.Run(player: Player, withAnomalies: boolean?): string
 
 	local DataManager = svc("DataManager")
 	local PlotManager = svc("PlotManager")
-	local TycoonButtons = svc("TycoonButtons")
 	local Inventory = svc("Inventory")
 	local BakingPipeline = svc("BakingPipeline")
+	local BuildService = svc("BuildService")
 
 	step("reset to a new player", function()
 		assert(DataManager.ResetToNew(player))
@@ -55,16 +119,19 @@ function SmokeTest.Run(player: Player, withAnomalies: boolean?): string
 		return nil
 	end)
 	local plot = PlotManager.GetPlot(player) :: Model
-	step("buy every upgrade", function()
-		local bought = 0
-		for _ = 1, 12 do
-			for _, u in PlotLayout.Upgrades do
-				if TycoonButtons.TryPurchase(player, plot, u.Id) then
-					bought += 1
-				end
-			end
-		end
-		return `{bought} bought`
+	step("buy and place everything", function()
+		return buyEverything(player, plot)
+	end)
+	step("placement rules", function()
+		local counter = placedOfKind(plot, "Counter") :: Model
+		assert(counter, "no counter placed")
+		local data = DataManager.Get(player)
+		local record = data.Build.Placed[counter:GetAttribute("Uid")]
+		-- On top of another item / outside the plot / on the entrance path: refused.
+		assert(not BuildService.CanPlace(player, plot, "PottedPlant", record.GX, record.GZ, 0), "overlap allowed")
+		assert(not BuildService.CanPlace(player, plot, "PottedPlant", 40, 0, 0), "outside allowed")
+		assert(not BuildService.CanPlace(player, plot, "PottedPlant", 0, 15, 0), "entrance allowed")
+		return `{#plot.Placed:GetChildren()} items placed`
 	end)
 	step("roll ingredients", function()
 		for _ = 1, 3 do
@@ -74,31 +141,59 @@ function SmokeTest.Run(player: Player, withAnomalies: boolean?): string
 		return Inventory.Describe(player):sub(1, 40)
 	end)
 	step("hand mix (Perfect)", function()
-		local mixer = plot.Items:FindFirstChild("Mixer") :: Model
-		local info = BakingPipeline.Mix(player, mixer, "Perfect")
+		local station = placedOfKind(plot, "MixStation") :: Model
+		local info = BakingPipeline.Mix(player, station, "Perfect")
 		assert(info, "mix failed")
-		return `{info.Type} ${info.Value}`
+		return `{station:GetAttribute("CatalogId")}: {info.Type} ${info.Value}`
 	end)
 	step("bake and collect", function()
-		local oven = plot.Items:FindFirstChild("Oven") :: Model
+		local oven = placedOfKind(plot, "Oven") :: Model
 		near(player, oven:FindFirstChild("Body") :: BasePart)
-		assert(BakingPipeline.Interact(player, plot, "Oven"), "bake refused")
+		assert(BakingPipeline.Interact(player, plot, oven), "bake refused")
 		local deadline = os.clock() + 30
 		while oven:GetAttribute("OvenState") ~= "Ready" and os.clock() < deadline do
 			task.wait(0.5)
 		end
 		assert(oven:GetAttribute("OvenState") == "Ready", "never finished")
-		BakingPipeline.Interact(player, plot, "Oven")
+		BakingPipeline.Interact(player, plot, oven)
 		return nil
 	end)
 	step("display the cake", function()
-		local counter = plot.Items:FindFirstChild("DisplayCounter") :: Model
+		local counter = placedOfKind(plot, "Counter") :: Model
 		near(player, counter:FindFirstChild("Counter") :: BasePart)
 		for _, slot in BakingPipeline.GetSlots(plot) do
 			BakingPipeline.TakeCake(plot, slot)
 		end
-		assert(BakingPipeline.Interact(player, plot, "DisplayCounter"), "display refused")
+		assert(BakingPipeline.Interact(player, plot, counter), "display refused")
 		return `{#BakingPipeline.GetSaleSlots(plot)} for sale`
+	end)
+	step("move a counter with a cake, store refused, store decor", function()
+		local counter = placedOfKind(plot, "Counter") :: Model
+		local uid = counter:GetAttribute("Uid") :: string
+		local record = DataManager.Get(player).Build.Placed[uid]
+		local moved = false
+		for dz = -6, 6 do
+			if BuildService.Move(player, uid, record.GX, record.GZ + dz, (record.Rot + 2) % 4) then
+				moved = true
+				break
+			end
+		end
+		assert(moved, "could not move the counter anywhere nearby")
+		local slot = counter.Slots:GetChildren()[1] :: BasePart
+		if slot:GetAttribute("HasCake") then
+			local cake = plot.Cakes:FindFirstChild(slot.Name) :: Model
+			assert((cake:GetPivot().Position - slot.Position).Magnitude < 4, "cake didn't follow its counter")
+			assert(not BuildService.Store(player, uid), "stored a counter with cakes on it")
+		end
+		local decor = nil
+		for _, model in plot.Placed:GetChildren() do
+			if model:GetAttribute("Kind") == "Decor" then
+				decor = model
+			end
+		end
+		assert(decor, "no decor placed")
+		assert(BuildService.Store(player, decor:GetAttribute("Uid")), "store failed")
+		return nil
 	end)
 	step("automation line", function()
 		local AutoProduction = svc("AutoProduction")
@@ -115,19 +210,20 @@ function SmokeTest.Run(player: Player, withAnomalies: boolean?): string
 		local Repairs = svc("Repairs")
 		task.wait(0.5)
 		local lines = {}
-		for _, id in { "Mixer", "Oven", "IngredientConveyor", "ProductionLine2" } do
-			local item = plot.Items:FindFirstChild(id) :: Model
-			Prompts.Refresh(item)
-			local working = Prompts.Visible(item)
+		local targets = { placedOfKind(plot, "MixStation"), placedOfKind(plot, "Oven"), plot.Items:FindFirstChild("IngredientConveyor"), plot.Items:FindFirstChild("ProductionLine2") }
+		for _, item in targets do
+			local model = item :: Model
+			Prompts.Refresh(model)
+			local working = Prompts.Visible(model)
 			for _, name in working do
-				assert(not name:find("Repair"), `{id} shows Repair while working`)
+				assert(not name:find("Repair"), `{model.Name} shows Repair while working`)
 			end
-			assert(Repairs.Break(plot, id, 0.25, "test"), `could not break {id}`)
-			local broken = Prompts.Visible(item)
-			assert(#broken == 1 and broken[1]:find("RepairPrompt"), `{id} broken shows {table.concat(broken, ",")}`)
-			Repairs.ForceRepair(plot, id)
-			Prompts.Refresh(item)
-			table.insert(lines, `{id}: {table.concat(working, " ")}`)
+			assert(Repairs.Break(plot, model.Name, 0.25, "test"), `could not break {model.Name}`)
+			local broken = Prompts.Visible(model)
+			assert(#broken == 1 and broken[1]:find("RepairPrompt"), `{model.Name} broken shows {table.concat(broken, ",")}`)
+			Repairs.ForceRepair(plot, model.Name)
+			Prompts.Refresh(model)
+			table.insert(lines, `{model.Name}: {table.concat(working, " ")}`)
 		end
 		return table.concat(lines, " | ")
 	end)

@@ -13,6 +13,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
+local BuildCatalog = require(Shared:WaitForChild("BuildCatalog"))
 local PlotLayout = require(Shared:WaitForChild("PlotLayout"))
 local RebirthDefs = require(Shared:WaitForChild("RebirthDefs"))
 
@@ -22,6 +23,12 @@ local DataManager = require(Services.Core.DataManager)
 local PlotStats = {}
 
 local MULTIPLIERS = { BakeTime = true, CustomerRate = true, SalePrice = true }
+
+-- Everything that can carry Effects: floor upgrades and placeable items (Big Mixer, Cake Charm).
+local SOURCES: { any } = table.clone(PlotLayout.Upgrades :: any)
+for _, entry in BuildCatalog.List do
+	table.insert(SOURCES, entry)
+end
 
 export type Stats = {
 	BakeTime: number,
@@ -44,7 +51,7 @@ function PlotStats.Get(player: Player?): Stats
 	if not player then
 		return stats :: any
 	end
-	for _, upgrade in PlotLayout.Upgrades do
+	for _, upgrade in SOURCES do
 		if upgrade.Effects and DataManager.HasUnlock(player, upgrade.Id) then
 			for key, value in upgrade.Effects do
 				if MULTIPLIERS[key] then
@@ -84,7 +91,7 @@ end
 -- Bake duration for a specific oven model on `owner`'s plot.
 function PlotStats.BakeDuration(owner: Player?, oven: Model, base: number?): number
 	local duration = (base or Config.BakeTime) * PlotStats.Get(owner).BakeTime
-	if owner and oven.Name == "Oven" and DataManager.HasUnlock(owner, "GoldenOven") then
+	if owner and not oven:GetAttribute("IsAutoOven") and DataManager.HasUnlock(owner, "GoldenOven") then
 		duration *= 0.5
 	end
 	return duration * ((oven:GetAttribute("SpeedMult") :: number?) or 1)

@@ -86,6 +86,16 @@ local function resetPlot(plot: Model)
 end
 
 -- Server-side purchase. Returns true on success (also used by tests via DebugBridge).
+-- Re-evaluates which buttons show (Build mode purchases also grant unlocks).
+function TycoonButtons.Refresh(plot: Model, owner: Player?)
+	refreshButtons(plot, owner)
+end
+
+-- Lets other services announce an unlock the same way a button purchase does.
+function TycoonButtons.FireUnlocked(player: Player, plot: Model, upgradeId: string)
+	unlockedEvent:Fire(player, plot, upgradeId)
+end
+
 function TycoonButtons.TryPurchase(player: Player, plot: Model, upgradeId: string): (boolean, string?)
 	if not PlotManager.IsOwner(player, plot) then
 		return false, "not owner"

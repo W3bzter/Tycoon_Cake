@@ -154,9 +154,8 @@ end
 -- Every unlocked oven on the plot, manual or automated (anything tagged IsOven).
 function Ovens.GetOvens(plot: Model): { Model }
 	local ovens = {}
-	local items = plot:FindFirstChild("Items")
-	for _, item in (if items then items:GetChildren() else {}) do
-		if item:IsA("Model") and item:GetAttribute("IsOven") and item:GetAttribute("Visible") and not item:GetAttribute("Broken") then
+	for _, item in BakeUtil.machines(plot) do
+		if item:GetAttribute("IsOven") and item:GetAttribute("Visible") and not item:GetAttribute("Broken") then
 			table.insert(ovens, item)
 		end
 	end

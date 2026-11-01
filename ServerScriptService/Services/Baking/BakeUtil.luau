@@ -46,4 +46,43 @@ function BakeUtil.cakeName(cakeType: string?): string
 	return if cake then cake.DisplayName else "Cake"
 end
 
+-- Every machine/item model on a plot: fixed ones (plot.Items) and placed ones
+-- (plot.Placed, Build mode).
+function BakeUtil.machines(plot: Model): { Model }
+	local list = {}
+	for _, folderName in { "Items", "Placed" } do
+		local folder = plot:FindFirstChild(folderName)
+		for _, child in (if folder then folder:GetChildren() else {}) do
+			if child:IsA("Model") then
+				table.insert(list, child)
+			end
+		end
+	end
+	return list
+end
+
+-- A machine by model name ("Oven_3", "IngredientCrate") or catalog id ("Oven").
+function BakeUtil.findMachine(plot: Model, key: string): Model?
+	local byName = BakeUtil.getItem(plot, key)
+	if byName then
+		return byName
+	end
+	local placed = plot:FindFirstChild("Placed")
+	local named = placed and placed:FindFirstChild(key)
+	if named and named:IsA("Model") then
+		return named
+	end
+	for _, model in BakeUtil.machines(plot) do
+		if model:GetAttribute("CatalogId") == key then
+			return model
+		end
+	end
+	return nil
+end
+
+-- What a model is: its catalog id (placed) or its fixed upgrade id.
+function BakeUtil.idOf(model: Model): string
+	return (model:GetAttribute("CatalogId") :: string?) or model.Name
+end
+
 return BakeUtil

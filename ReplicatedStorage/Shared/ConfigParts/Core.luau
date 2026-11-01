@@ -31,6 +31,8 @@ Config.StreetLength = 500 -- road runs along X at world Z 5..25 (see WorldBuilde
 -- Remotes (created by the server in ReplicatedStorage.Remotes) -----------------
 Config.RemoteNames = {
 	"Notify", -- server -> client: (message: string)
+	"BuildAction", -- client -> server: ("buy", id, uid?) | ("place", id, gx, gz, rot) | ("move", uid, gx, gz, rot) | ("store", uid)
+	"BuildSync", -- server -> client: ({Owned, Counts, Unlocked})
 	"AnomalyStarted", -- server -> client: (name: string, duration: number)
 	"AnomalyEnded", -- server -> client: (name: string)
 	"BuyGemItem", -- client -> server: (itemId: "Shield" | "Boost")

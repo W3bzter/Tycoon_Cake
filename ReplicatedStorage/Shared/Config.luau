@@ -8,7 +8,7 @@ local Config: { [string]: any } = {}
 
 local parts = script.Parent:WaitForChild("ConfigParts")
 -- Keep this list in sync with the files in ConfigParts.
-for _, name in { "Core", "Baking", "Customers", "Automation", "Anomalies", "Economy", "Sounds", "UI" } do
+for _, name in { "Core", "Baking", "Customers", "Automation", "Anomalies", "Economy", "Sounds", "UI", "Build" } do
 	local module = parts:WaitForChild(name)
 	if module then
 		for key, value in require(module) :: any do

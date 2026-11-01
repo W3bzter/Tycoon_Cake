@@ -22,12 +22,11 @@ local function refresh(player: Player)
 	local plotName = player:GetAttribute("PlotName")
 	local plots = workspace:FindFirstChild("Plots")
 	local plot = plotName and plots and plots:FindFirstChild(plotName :: string)
-	local items = plot and plot:FindFirstChild("Items")
-	-- Both mixing stations: the hand bowl (PrepTable) and the Mixer.
+	local placed = plot and plot:FindFirstChild("Placed")
+	-- The placed mixing station (bowl, Mixer or Big Mixer).
 	local prompts: { ProximityPrompt } = {}
-	for _, id in { "PrepTable", "Mixer" } do
-		local station = items and items:FindFirstChild(id)
-		local prompt = station and station:FindFirstChild("Prompt", true) :: ProximityPrompt?
+	for _, station in (if placed then placed:GetChildren() else {}) do
+		local prompt = station:GetAttribute("Kind") == "MixStation" and station:FindFirstChild("Prompt", true) :: ProximityPrompt?
 		if prompt then
 			table.insert(prompts, prompt)
 		end

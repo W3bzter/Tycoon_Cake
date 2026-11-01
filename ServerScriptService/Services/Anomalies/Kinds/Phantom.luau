@@ -130,7 +130,7 @@ end
 return {
 	CanRun = function()
 		for _, plot in Common.ownedPlots() do
-			if Common.item(plot, "DisplayCounter") then
+			if #BakingPipeline.GetSlots(plot) > 0 then
 				return true
 			end
 		end
@@ -138,7 +138,7 @@ return {
 	end,
 	Run = function(_cfg: any, deadline: number)
 		local hasCounter = function(plot: Model)
-			return Common.item(plot, "DisplayCounter") ~= nil
+			return #BakingPipeline.GetSlots(plot) > 0
 		end
 		local protected = Common.consumeShields(hasCounter)
 		local targets = Common.targetPlots(protected, hasCounter)

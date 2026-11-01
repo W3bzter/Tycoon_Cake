@@ -345,13 +345,8 @@ ItemBuilders.BigMixer = function(floor, item)
 	bowl.Material = Enum.Material.Metal -- (no extra label: it would overlap the Mixer's sign)
 end
 
-ItemBuilders.GoldenOven = function(floor, item)
-	Style.Trim("Crown", Vector3.new(8.8, 0.8, 5.8), at(floor, 6, 7.3, -35), P.Gold, item)
-	local star = Style.Ball("Star", 1.4, at(floor, 6, 9, -35), P.Gold, item)
-	star.Material = Enum.Material.Neon
-	local sparkle = Instance.new("Sparkles")
-	sparkle.SparkleColor = P.Gold
-	sparkle.Parent = star
+ItemBuilders.GoldenOven = function(_floor, _item)
+	-- No fixed model: the crown is drawn on the placed oven (Baking/Ovens).
 end
 
 ItemBuilders.CakeCharm = function(floor, item)

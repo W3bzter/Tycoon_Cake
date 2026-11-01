@@ -13,25 +13,28 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
+local BuildCatalog = require(Shared:WaitForChild("BuildCatalog"))
 local PlotLayout = require(Shared:WaitForChild("PlotLayout"))
 
 local Services = script:FindFirstAncestor("Services") :: Folder
 local BakingPipeline = require(Services.Baking.BakingPipeline)
+local BuildService = require(Services.Build.BuildService)
 local DataManager = require(Services.Core.DataManager)
 local PlotManager = require(Services.Core.PlotManager)
 local Prompts = require(Services.Core.Prompts)
 local Remotes = require(Services.Core.Remotes)
 local Style = require(Services.World.Style)
-local TycoonButtons = require(Services.World.TycoonButtons)
 local VFX = require(Services.Effects.VFX)
 
 local Repairs = {}
 
--- Machines that can break (the pantry never does: rolling must always work).
+-- Machines that can break (the pantry never does: rolling must always work):
+-- these fixed automation machines, plus every placed machine (Build mode Kind
+-- MixStation, Oven or Counter). Decor never breaks.
 Repairs.Breakable = {
-	"BasicOven", "Oven", "Oven2", "Oven3", "PrepTable", "Mixer", "DisplayCounter", "DisplayCounter2",
 	"IngredientConveyor", "AutoMixer", "AutoOven", "CounterConveyor", "AutoRestock", "ProductionLine2", "ProductionLine3",
 }
+local BREAKABLE_KINDS = { MixStation = true, Oven = true, Counter = true }
 local MAIN_PARTS = { "Body", "Counter", "Hopper", "Panel", "Rack" }
 
 local repairedEvent = Instance.new("BindableEvent")
@@ -43,9 +46,41 @@ local function notify(player: Player, message: string)
 	Remotes.Get("Notify"):FireClient(player, message)
 end
 
-local function getItem(plot: Model, id: string): Model?
-	local items = plot:FindFirstChild("Items")
-	return items and items:FindFirstChild(id) :: Model?
+-- A fixed item (plot.Items) or placed item (plot.Placed) by model name.
+local function getItem(plot: Model, name: string): Model?
+	for _, folderName in { "Items", "Placed" } do
+		local folder = plot:FindFirstChild(folderName)
+		local item = folder and folder:FindFirstChild(name)
+		if item and item:IsA("Model") then
+			return item
+		end
+	end
+	-- Or a placed item by catalog id ("Oven"), for tests and callers that only know the id.
+	local placed = plot:FindFirstChild("Placed")
+	for _, item in (if placed then placed:GetChildren() else {}) do
+		if item:IsA("Model") and item:GetAttribute("CatalogId") == name then
+			return item
+		end
+	end
+	return nil
+end
+
+local function isBreakable(item: Model): boolean
+	return BREAKABLE_KINDS[item:GetAttribute("Kind") :: string] == true or table.find(Repairs.Breakable, item.Name) ~= nil
+end
+
+-- Every breakable machine on the plot (fixed and placed).
+local function machines(plot: Model): { Model }
+	local list = {}
+	for _, folderName in { "Items", "Placed" } do
+		local folder = plot:FindFirstChild(folderName)
+		for _, item in (if folder then folder:GetChildren() else {}) do
+			if item:IsA("Model") and isBreakable(item) then
+				table.insert(list, item)
+			end
+		end
+	end
+	return list
 end
 
 function Repairs.MainPart(item: Model): BasePart?
@@ -58,8 +93,10 @@ function Repairs.MainPart(item: Model): BasePart?
 	return item.PrimaryPart or item:FindFirstChildWhichIsA("BasePart", true)
 end
 
-function Repairs.Cost(itemId: string, fraction: number): number
-	local upgrade = PlotLayout.Find(itemId)
+-- Repair cost: `fraction` of the item's price (catalog price for placed items).
+function Repairs.Cost(item: Model, fraction: number): number
+	local catalogId = item:GetAttribute("CatalogId") :: string?
+	local upgrade: any = if catalogId then BuildCatalog.Find(catalogId) else PlotLayout.Find(item.Name)
 	local price = upgrade and upgrade.Price or 100
 	if upgrade and upgrade.Currency == "Gems" then
 		price *= 100 -- gem items are repaired with Cash too
@@ -179,21 +216,21 @@ function Repairs.Break(plot: Model, itemId: string, fraction: number, reason: st
 	local owner = PlotManager.GetOwner(plot)
 	local item = getItem(plot, itemId)
 	local data = owner and DataManager.Get(owner)
-	if not owner or not data or not item or not table.find(Repairs.Breakable, itemId) then
+	if not owner or not data or not item or not isBreakable(item) then
 		return false
 	end
 	if item:GetAttribute("Visible") ~= true or Repairs.IsBroken(item) then
 		return false
 	end
-	local cost = Repairs.Cost(itemId, fraction)
-	data.Broken[itemId] = cost
+	local cost = Repairs.Cost(item, fraction)
+	data.Broken[item.Name] = cost
 	item:SetAttribute("Broken", true)
 	item:SetAttribute("RepairCost", cost)
 	-- Whatever was in or on it is lost.
 	if item:GetAttribute("IsOven") and not item:GetAttribute("IsAutoOven") then
 		BakingPipeline.ResetOven(item)
 	end
-	if itemId == "DisplayCounter" or itemId == "DisplayCounter2" then
+	if item:GetAttribute("Kind") == "Counter" then
 		for _, slot in BakingPipeline.GetSlots(plot, true) do
 			if slot:IsDescendantOf(item) and not slot:GetAttribute("Reserved") then
 				BakingPipeline.TakeCake(plot, slot)
@@ -223,12 +260,12 @@ function Repairs.Repair(player: Player, plot: Model, itemId: string): (boolean, 
 	if not main or not root or (root.Position - main.Position).Magnitude > 14 + Config.InteractSlack then
 		return false, "too far"
 	end
-	local cost = data.Broken[itemId] or (item:GetAttribute("RepairCost") :: number?) or Repairs.Cost(itemId, Config.Repair.DamageFraction)
+	local cost = data.Broken[item.Name] or (item:GetAttribute("RepairCost") :: number?) or Repairs.Cost(item, Config.Repair.DamageFraction)
 	if not DataManager.SpendCash(player, cost) then
 		notify(player, `You need ${cost} to repair this.`)
 		return false, "insufficient cash"
 	end
-	data.Broken[itemId] = nil
+	data.Broken[item.Name] = nil
 	clear(item)
 	VFX.Burst(main.Position, "Repair")
 	notify(player, `🔧 Repaired for ${cost}!`)
@@ -242,7 +279,7 @@ function Repairs.ForceRepair(plot: Model, itemId: string)
 	local data = owner and DataManager.Get(owner)
 	local item = getItem(plot, itemId)
 	if data then
-		data.Broken[itemId] = nil
+		data.Broken[if item then item.Name else itemId] = nil
 	end
 	if item then
 		clear(item)
@@ -252,9 +289,8 @@ end
 -- Working (visible and not broken) breakable machines on a plot.
 function Repairs.WorkingMachines(plot: Model): { Model }
 	local result = {}
-	for _, id in Repairs.Breakable do
-		local item = getItem(plot, id)
-		if item and item:GetAttribute("Visible") == true and not Repairs.IsBroken(item) then
+	for _, item in machines(plot) do
+		if item:GetAttribute("Visible") == true and not Repairs.IsBroken(item) then
 			table.insert(result, item)
 		end
 	end
@@ -263,49 +299,52 @@ end
 
 -- Setup --------------------------------------------------------------------------------------
 
-local function setupPlot(plot: Model)
-	for _, id in Repairs.Breakable do
-		local item = getItem(plot, id)
-		local main = item and Repairs.MainPart(item)
-		if item and main then
-			Prompts.Add(item, main, {
-				Name = "RepairPrompt",
-				Action = "🔧 Repair",
-				Key = Config.Prompts.Keys.Repair,
-				Hold = Config.Prompts.RepairHold,
-				Distance = 12,
-				Repair = true,
-				Trigger = function(player)
-					Repairs.Repair(player, plot, id)
-				end,
-			})
-		end
+local function addRepairPrompt(plot: Model, item: Model)
+	local main = Repairs.MainPart(item)
+	if not main or Prompts.Get(item, "RepairPrompt") then
+		return
 	end
+	Prompts.Add(item, main, {
+		Name = "RepairPrompt",
+		Action = "🔧 Repair",
+		Key = Config.Prompts.Keys.Repair,
+		Hold = Config.Prompts.RepairHold,
+		Distance = 12,
+		Repair = true,
+		Trigger = function(player)
+			Repairs.Repair(player, plot, item.Name)
+		end,
+	})
 end
 
 local function resetPlot(plot: Model)
-	for _, id in Repairs.Breakable do
-		local item = getItem(plot, id)
-		if item and Repairs.IsBroken(item) then
+	for _, item in machines(plot) do
+		if Repairs.IsBroken(item) then
 			clear(item)
 		end
 	end
 end
 
--- Saved breaks come back when the owner claims a plot (after items are shown).
+local function applyBreak(item: Model, cost: number)
+	item:SetAttribute("Broken", true)
+	item:SetAttribute("RepairCost", cost)
+	setBrokenLook(item, cost)
+end
+
+-- Saved breaks of fixed machines come back when the owner claims a plot;
+-- placed machines get theirs when they're placed (see Init).
 local function applySaved(player: Player, plot: Model)
 	local data = DataManager.Get(player)
 	if not data then
 		return
 	end
-	for id, cost in data.Broken do
-		local item = getItem(plot, id)
+	for name, cost in data.Broken do
+		local placedName = string.match(name, "_%d+$") ~= nil
+		local item = getItem(plot, name)
 		if item and item:GetAttribute("Visible") == true then
-			item:SetAttribute("Broken", true)
-			item:SetAttribute("RepairCost", cost)
-			setBrokenLook(item, cost)
-		else
-			data.Broken[id] = nil -- no longer owned/shown (e.g. replaced by a machine)
+			applyBreak(item, cost)
+		elseif not placedName then
+			data.Broken[name] = nil -- no longer owned/shown
 		end
 	end
 end
@@ -313,27 +352,33 @@ end
 function Repairs.Init()
 	for _, plot in (workspace:WaitForChild("Plots") :: Folder):GetChildren() do
 		if plot:IsA("Model") then
-			setupPlot(plot)
+			for _, item in machines(plot) do
+				addRepairPrompt(plot, item)
+			end
 		end
 	end
+	BuildService.OnPlaced(function(plot, model)
+		if not isBreakable(model) then
+			return
+		end
+		addRepairPrompt(plot, model)
+		local owner = PlotManager.GetOwner(plot)
+		local data = owner and DataManager.Get(owner)
+		local cost = data and data.Broken[model.Name]
+		if cost then
+			applyBreak(model, cost)
+		end
+	end)
+	BuildService.ItemRemoved:Connect(function(plot, model)
+		local owner = PlotManager.GetOwner(plot)
+		local data = owner and DataManager.Get(owner)
+		if data and not model:GetAttribute("Broken") then
+			data.Broken[model.Name] = nil
+		end
+	end)
 	PlotManager.PlotReleased:Connect(resetPlot)
 	PlotManager.PlotClaimed:Connect(function(player, plot)
 		task.defer(applySaved, player, plot)
-	end)
-	-- A hand tool replaced by its machine takes its break with it.
-	TycoonButtons.UpgradeUnlocked:Connect(function(player, plot, upgradeId)
-		for _, upgrade in PlotLayout.Upgrades do
-			if upgrade.ReplacedBy == upgradeId then
-				local data = DataManager.Get(player)
-				if data then
-					data.Broken[upgrade.Id] = nil
-				end
-				local item = getItem(plot, upgrade.Id)
-				if item then
-					clear(item)
-				end
-			end
-		end
 	end)
 	for _, player in Players:GetPlayers() do
 		local plot = PlotManager.GetPlot(player)
