@@ -161,6 +161,74 @@ function GemShop.Mount(screen: ScreenGui, player: Player)
 	player:GetAttributeChangedSignal("LuckAllowed"):Connect(refreshUpgrades)
 	refreshUpgrades()
 
+	-- Storage upgrades (Cash)
+	local remotes = ReplicatedStorage:WaitForChild("Remotes")
+	local shopAction = remotes:WaitForChild("ShopAction") :: RemoteEvent
+	header("📦 Storage ($ Cash)")
+	local storageButtons: { [string]: TextButton } = {}
+	for _, name in Config.Storage.Order do
+		local b = textButton(panel, name, Color3.fromRGB(60, 160, 90), UDim2.new(0.92, 0, 0, 38))
+		b.Name = "Storage" .. name
+		b.LayoutOrder = nextOrder()
+		b.Activated:Connect(function()
+			shopAction:FireServer("storage", name)
+		end)
+		storageButtons[name] = b
+	end
+	local function refreshStorage()
+		local levels: { [string]: number } = {}
+		for name, lvl in string.gmatch((player:GetAttribute("Storage") :: string?) or "", "(%w+):(%d+)") do
+			levels[name] = tonumber(lvl) or 0
+		end
+		for name, b in storageButtons do
+			local def = Config.Storage[name]
+			local level = levels[name] or 0
+			if level >= def.MaxLevel then
+				b.Text = `{def.Icon} {def.DisplayName} MAX ({string.format(def.Format, level * def.PerLevel)})`
+			else
+				local cost = math.floor(def.BaseCost * def.Growth ^ level + 0.5)
+				b.Text = `{def.Icon} {def.DisplayName} Lv{level}→{level + 1}  ${cost}`
+			end
+		end
+	end
+	player:GetAttributeChangedSignal("Storage"):Connect(refreshStorage)
+	refreshStorage()
+
+	-- Game Passes (one-time Robux purchases)
+	header("🎟️ Game Passes")
+	local passPrompt = remotes:WaitForChild("GamePassPrompt") :: RemoteEvent
+	for key, def in Config.GamePasses do
+		local ready = def.Id ~= 0
+		local b = textButton(panel, def.Label, if ready then Color3.fromRGB(0, 170, 110) else Color3.fromRGB(90, 90, 100), UDim2.new(0.92, 0, 0, 46))
+		b.Name = "Pass" .. key
+		b.LayoutOrder = nextOrder()
+		local price = ""
+		local function refreshPass()
+			if player:GetAttribute(key) == true then
+				b.Text = `{def.Label} ✅ OWNED\n{def.Description}`
+				b.BackgroundColor3 = Color3.fromRGB(70, 120, 90)
+			else
+				b.Text = `{def.Label}{if ready then price else " (coming soon)"}\n{def.Description}`
+			end
+		end
+		b.Activated:Connect(function()
+			passPrompt:FireServer(key)
+		end)
+		player:GetAttributeChangedSignal(key):Connect(refreshPass)
+		refreshPass()
+		if ready then
+			task.spawn(function()
+				local ok, info = pcall(function()
+					return MarketplaceService:GetProductInfo(def.Id, Enum.InfoType.GamePass)
+				end)
+				if ok and info and info.PriceInRobux then
+					price = `  R${info.PriceInRobux}`
+					refreshPass()
+				end
+			end)
+		end
+	end
+
 	-- Robux developer products (fixed amounts, never random)
 	header("🛒 Robux Shop")
 	for _, product in Config.Products do

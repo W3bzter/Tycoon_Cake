@@ -63,6 +63,10 @@ function PlotStats.Get(player: Player?): Stats
 		stats.SalePrice *= 1 + (levels.Income or 0) * Config.GemUpgrades.Income.PerLevel
 		stats.BakeTime *= 1 - (levels.BakeSpeed or 0) * Config.GemUpgrades.BakeSpeed.PerLevel
 	end
+	-- Storage upgrade: extra rack slots (the rack itself comes with Auto-Restock).
+	if data and DataManager.HasUnlock(player, "AutoRestock") then
+		stats.StorageSlots += (data.Storage.Rack or 0) * Config.Storage.Rack.PerLevel
+	end
 	return stats :: any
 end
 

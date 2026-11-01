@@ -96,6 +96,47 @@ local function buyUpgrade(player: Player, name: string): (boolean, string?)
 	return true
 end
 
+function GemShop.StorageCost(name: string, level: number): number
+	local def = Config.Storage[name]
+	return math.floor(def.BaseCost * def.Growth ^ level + 0.5)
+end
+
+local function syncStorage(player: Player)
+	local data = DataManager.Get(player)
+	if data then
+		player:SetAttribute("Storage", `Bag:{data.Storage.Bag or 0},Rack:{data.Storage.Rack or 0}`)
+	end
+end
+
+-- Storage upgrades (Cash): bigger Ingredient Bag, bigger cake rack.
+function GemShop.BuyStorage(player: Player, name: any): (boolean, string?)
+	local data = DataManager.Get(player)
+	if typeof(name) ~= "string" or not table.find(Config.Storage.Order, name) or not data then
+		return false, "unknown upgrade"
+	end
+	local now = os.clock()
+	if now - (lastRequest[player] or 0) < 0.5 then
+		return false, "too fast"
+	end
+	lastRequest[player] = now
+	local def = Config.Storage[name]
+	local level = data.Storage[name] or 0
+	if level >= def.MaxLevel then
+		notify(player, `{def.Icon} {def.DisplayName} is maxed out!`)
+		return false, "max level"
+	end
+	local cost = GemShop.StorageCost(name, level)
+	if not DataManager.SpendCash(player, cost) then
+		notify(player, `You need ${cost} for {def.DisplayName} level {level + 1}.`)
+		return false, "insufficient cash"
+	end
+	data.Storage[name] = level + 1
+	syncStorage(player)
+	Inventory.Sync(player) -- new bag capacity
+	notify(player, `{def.Icon} {def.DisplayName} upgraded to level {level + 1}!`)
+	return true
+end
+
 function GemShop.Buy(player: Player, itemId: any): (boolean, string?)
 	if typeof(itemId) ~= "string" then
 		return false, "bad item"
@@ -148,7 +189,13 @@ function GemShop.Init()
 	Remotes.Get("BuyGemItem").OnServerEvent:Connect(function(player, itemId)
 		GemShop.Buy(player, itemId)
 	end)
+	Remotes.Get("ShopAction").OnServerEvent:Connect(function(player, action, arg)
+		if action == "storage" then
+			GemShop.BuyStorage(player, arg)
+		end
+	end)
 	local function onReady(player: Player)
+		syncStorage(player)
 		task.spawn(function()
 			checkPolicy(player)
 			syncUpgrades(player)

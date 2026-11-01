@@ -8,6 +8,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared:WaitForChild("Config"))
 local Rarity = require(Shared:WaitForChild("Rarity"))
 local Recipes = require(Shared:WaitForChild("Recipes"))
 
@@ -78,7 +79,7 @@ local function renderOdds(player: Player)
 	local luck = (player:GetAttribute("Luck") :: number?) or 0
 	local odds = Rarity.Odds(luck)
 	for i, tier in Rarity.Tiers do
-		local row = label(oddsList, string.format("%s  %.2f%%  (x%s value)", tier.Name, odds[i], tostring(tier.Mult)), UDim2.new(1, 0, 0, 22), UDim2.new(), tier.Color)
+		local row = label(oddsList, string.format("%s  %s%%  (x%s value)", tier.Name, if odds[i] >= 0.1 then string.format("%.2f", odds[i]) else string.format("%.3f", odds[i]), tostring(tier.Mult)), UDim2.new(1, 0, 0, 20), UDim2.new(), tier.Color)
 		row.LayoutOrder = i
 		row.TextXAlignment = Enum.TextXAlignment.Left
 	end
@@ -181,7 +182,7 @@ function Bag.Mount(screen: ScreenGui, player: Player)
 		action:FireServer("recipe", options[(i % #options) + 1])
 	end)
 	local oddsButton = button(panel, "🎲 Odds", Color3.fromRGB(110, 180, 255), UDim2.fromOffset(110, 30), UDim2.fromOffset(282, 44))
-	label(panel, "★ = use first", UDim2.fromOffset(140, 22), UDim2.fromOffset(402, 48), Color3.fromRGB(255, 220, 140))
+	local deleteButton = button(panel, "🗑️ Auto-delete", Color3.fromRGB(190, 80, 90), UDim2.fromOffset(140, 30), UDim2.fromOffset(402, 44))
 
 	grid = Instance.new("ScrollingFrame")
 	grid.Size = UDim2.new(1, -24, 1, -92)
@@ -216,8 +217,79 @@ function Bag.Mount(screen: ScreenGui, player: Player)
 	oddsLayout.SortOrder = Enum.SortOrder.LayoutOrder
 	oddsLayout.Parent = oddsList
 
+	-- Auto-delete settings: per kind, delete anything below a chosen rarity.
+	local settingsRemote = remotes:WaitForChild("Settings") :: RemoteEvent
+	local deletePanel = Instance.new("Frame")
+	deletePanel.Name = "AutoDeletePanel"
+	deletePanel.Size = UDim2.new(1, -24, 1, -92)
+	deletePanel.Position = UDim2.fromOffset(12, 82)
+	deletePanel.BackgroundColor3 = DARK
+	deletePanel.Visible = false
+	deletePanel.ZIndex = 6
+	deletePanel.Parent = panel
+	corner(deletePanel, 10)
+	local intro = label(deletePanel, "Throw away anything BELOW the rarity you pick. Applies to new rolls, mixes and bakes.", UDim2.new(1, -16, 0, 36), UDim2.fromOffset(8, 6), Color3.fromRGB(255, 230, 200))
+	intro.TextWrapped = true
+	local rowButtons: { [string]: TextButton } = {}
+	for i, kind in Config.AutoDelete.Kinds do
+		label(deletePanel, Config.AutoDelete.Labels[kind], UDim2.fromOffset(170, 34), UDim2.fromOffset(8, 50 + (i - 1) * 44)).TextXAlignment = Enum.TextXAlignment.Left
+		local b = button(deletePanel, "Off", Color3.fromRGB(80, 70, 70), UDim2.fromOffset(300, 34), UDim2.fromOffset(190, 50 + (i - 1) * 44))
+		b.Activated:Connect(function()
+			local current = 0
+			for k, n in string.gmatch((player:GetAttribute("AutoDelete") :: string?) or "", "(%w+):(%d+)") do
+				if k == kind then
+					current = tonumber(n) or 0
+				end
+			end
+			-- Off -> below Uncommon (2) -> ... -> below the top tier -> Off
+			local nextValue = if current == 0 then 2 else current + 1
+			if nextValue > #Rarity.Tiers then
+				nextValue = 0
+			end
+			settingsRemote:FireServer("autodelete", kind, nextValue)
+		end)
+		rowButtons[kind] = b
+	end
+	local keepButton = button(deletePanel, "", Color3.fromRGB(70, 160, 120), UDim2.new(1, -16, 0, 34), UDim2.fromOffset(8, 190))
+	keepButton.Activated:Connect(function()
+		settingsRemote:FireServer("keepspecial", player:GetAttribute("KeepSpecial") ~= true)
+	end)
+	local function renderSettings()
+		local values: { [string]: number } = {}
+		for k, n in string.gmatch((player:GetAttribute("AutoDelete") :: string?) or "", "(%w+):(%d+)") do
+			values[k] = tonumber(n) or 0
+		end
+		for kind, b in rowButtons do
+			local n = values[kind] or 0
+			if n <= 0 then
+				b.Text = "Off (keep everything)"
+				b.BackgroundColor3 = Color3.fromRGB(80, 70, 70)
+			else
+				local tier = Rarity.Tiers[n]
+				b.Text = `Delete below {tier.Name}`
+				b.BackgroundColor3 = tier.Color:Lerp(DARK, 0.45)
+			end
+		end
+		local keep = player:GetAttribute("KeepSpecial") == true
+		keepButton.Text = if keep then "✅ Keep anything with traits or mutations" else "⬜ Keep anything with traits or mutations"
+		keepButton.BackgroundColor3 = if keep then Color3.fromRGB(70, 160, 120) else Color3.fromRGB(80, 70, 70)
+		local anyOn = false
+		for _, n in values do
+			anyOn = anyOn or n > 0
+		end
+		deleteButton.Text = if anyOn then "🗑️ Auto-delete ON" else "🗑️ Auto-delete"
+	end
+	player:GetAttributeChangedSignal("AutoDelete"):Connect(renderSettings)
+	player:GetAttributeChangedSignal("KeepSpecial"):Connect(renderSettings)
+	renderSettings()
+	deleteButton.Activated:Connect(function()
+		deletePanel.Visible = not deletePanel.Visible
+		oddsPanel.Visible = false
+	end)
+
 	oddsButton.Activated:Connect(function()
 		oddsPanel.Visible = not oddsPanel.Visible
+		deletePanel.Visible = false
 		if oddsPanel.Visible then
 			renderOdds(player)
 		end

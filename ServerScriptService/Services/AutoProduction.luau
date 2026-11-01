@@ -1,17 +1,24 @@
 --!strict
 -- Automated production lines, ticked on the server every TICK seconds per plot.
 --
+-- Hoppers never fill themselves: players load them from their Ingredient Bag
+-- (prompt "Load Hopper" = one recipe set, "Fill Hopper" = up to the cap), and the
+-- line turns exactly those ingredients into batter and cakes (fixed "Good" mix),
+-- so cake values come from what you loaded. The Full Automation Game Pass
+-- (GamePasses) auto-loads the cheapest unpinned ingredients and auto-rolls at the
+-- pantry when the bag can't fill a hopper.
+--
 -- Line 1 is bought step by step and each step is useful on its own:
---   IngredientConveyor  fills the hopper with the line recipe's ingredients
---                       (no Auto-Mixer yet: grab the ready kit from the hopper)
+--   IngredientConveyor  the hopper (no Auto-Mixer yet: unload a kit back to the bag)
 --   AutoMixer           hopper -> batter tray (no Auto-Oven yet: take the batter)
 --   AutoOven            batter -> cake tray, 1.5x slower than a player's oven until
 --                       speed upgrades (no conveyor yet: take the cake)
 --   CounterConveyor     cake tray -> display counter
 --   AutoRestock         overflow storage rack that refills empty display slots
 -- ProductionLine2/3 are self-contained units that run the whole chain.
--- Each line bakes one recipe, chosen on its panel; players can still bake any
--- recipe by hand in parallel. Automated ovens honour Blocked (Overheat Crisis).
+-- Each line has an on/off switch (saved in PlayerData.LinesEnabled) and a recipe
+-- (PlayerData.LineRecipes). Hopper contents are saved (PlayerData.Hoppers).
+-- Automated ovens honour Blocked (Overheat Crisis).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
@@ -24,6 +31,7 @@ local Recipes = require(Shared:WaitForChild("Recipes"))
 local Assets = require(script.Parent.Assets)
 local BakingPipeline = require(script.Parent.BakingPipeline)
 local DataManager = require(script.Parent.DataManager)
+local GamePasses = require(script.Parent.GamePasses)
 local Inventory = require(script.Parent.Inventory)
 local PlotManager = require(script.Parent.PlotManager)
 local PlotStats = require(script.Parent.PlotStats)
@@ -35,18 +43,22 @@ local AutoProduction = {}
 local TICK = 0.5
 local A = Config.Auto
 
+-- One loaded recipe's worth of ingredients.
+type HopperSet = { Recipe: string, Items: { Rarity.Item } }
+
 type Line = {
+	index: number,
 	name: string,
 	unitId: string?, -- set for self-contained production units
-	recipe: string,
-	hopper: number,
-	batter: number,
+	recipe: string, -- what "Load Hopper" loads next (saved in LineRecipes)
+	hopper: { HopperSet }, -- the owner's saved PlayerData.Hoppers[index] while claimed
+	batter: { Rarity.CakeInfo },
 	tray: { Rarity.CakeInfo }, -- finished cakes waiting
-	feedT: number,
 	mixT: number,
 	bakeRemaining: number?, -- nil = oven idle
 	baking: Rarity.CakeInfo?, -- the cake currently in the oven
 	deliverT: number,
+	autoLoadT: number,
 }
 
 type PlotState = {
@@ -56,19 +68,26 @@ type PlotState = {
 
 local states: { [Model]: PlotState } = {}
 
-local function newLine(name: string, unitId: string?): Line
+local bakedEvent = Instance.new("BindableEvent")
+AutoProduction.Baked = bakedEvent.Event -- (owner, CakeInfo) when an automated oven finishes
+
+-- Set by later phases to roll cake traits/mutations when an automated bake ends.
+AutoProduction.FinishBake = nil :: ((owner: Player, oven: Model, info: Rarity.CakeInfo) -> Rarity.CakeInfo)?
+
+local function newLine(index: number, name: string, unitId: string?): Line
 	return {
+		index = index,
 		name = name,
 		unitId = unitId,
 		recipe = "Vanilla",
-		hopper = 0,
-		batter = 0,
+		hopper = {},
+		batter = {},
 		tray = {},
-		feedT = 0,
 		mixT = 0,
 		bakeRemaining = nil,
 		baking = nil,
 		deliverT = 0,
+		autoLoadT = 0,
 	}
 end
 
@@ -85,6 +104,20 @@ local function hasUnlockFn(owner: Player)
 	return function(id: string)
 		return DataManager.HasUnlock(owner, id)
 	end
+end
+
+local function notify(player: Player, message: string)
+	Remotes.Get("Notify"):FireClient(player, message)
+end
+
+local function isEnabled(owner: Player, line: Line): boolean
+	local data = DataManager.Get(owner)
+	return data == nil or data.LinesEnabled[line.index] ~= false
+end
+
+-- A machine is usable if it isn't Broken (Repairs, Phase 8).
+local function working(model: Model?): boolean
+	return model ~= nil and model:GetAttribute("Broken") ~= true
 end
 
 -- The oven model that bakes for a line (AutoOven for line 1, the unit itself otherwise).
@@ -115,7 +148,7 @@ local function statusGui(part: BasePart, lift: number): TextLabel
 	if not gui then
 		local created = Instance.new("BillboardGui")
 		created.Name = "LineStatus"
-		created.Size = UDim2.fromScale(7, 1.2)
+		created.Size = UDim2.fromScale(8, 1.2)
 		created.StudsOffsetWorldSpace = Vector3.new(0, part.Size.Y / 2 + lift, 0)
 		created.MaxDistance = 35
 		created.LightInfluence = 0
@@ -138,11 +171,14 @@ local function statusGui(part: BasePart, lift: number): TextLabel
 	return (gui :: BillboardGui):FindFirstChild("Text") :: TextLabel
 end
 
-local function slide(plot: Model, cakeType: string, points: { Vector3 }, duration: number)
+local function slide(plot: Model, info: Rarity.CakeInfo, points: { Vector3 }, duration: number)
 	-- Cosmetic cake riding the conveyor. Anchored model moved via a CFrameValue tween.
-	local model = Assets.Clone("Cakes", cakeType)
+	local model = Assets.Clone("Cakes", info.Type)
 	model:ScaleTo(model:GetScale() * 0.55)
 	Assets.Anchor(model, CFrame.new(points[1]), plot)
+	if AutoProduction.DecorateMovingCake then
+		AutoProduction.DecorateMovingCake(model, info)
+	end
 	local value = Instance.new("CFrameValue")
 	value.Value = model:GetPivot()
 	value.Changed:Connect(function(cf)
@@ -163,12 +199,23 @@ local function slide(plot: Model, cakeType: string, points: { Vector3 }, duratio
 	end)
 end
 
+-- Set by VFX (Phase 7): decorates cosmetic cakes on the belt / rack.
+AutoProduction.DecorateMovingCake = nil :: ((Model, Rarity.CakeInfo) -> ())?
+
 local function refreshStorage(plot: Model, state: PlotState)
 	local rack = getItem(plot, "AutoRestock")
 	local markers = rack and rack:FindFirstChild("StorageSlots")
 	local shown = plot:FindFirstChild("StoredCakes")
 	if shown then
 		shown:Destroy()
+	end
+	local rackPart = rack and rack:FindFirstChild("Rack") :: BasePart?
+	if rackPart then
+		local owner = PlotManager.GetOwner(plot)
+		local cap = PlotStats.Get(owner).StorageSlots
+		local label = statusGui(rackPart, 1.2)
+		label.Text = `🗄️ {#state.storage}/{cap}`
+		(label.Parent :: BillboardGui).Enabled = (rack :: Model):GetAttribute("Visible") == true
 	end
 	if not markers or #state.storage == 0 then
 		return
@@ -177,13 +224,32 @@ local function refreshStorage(plot: Model, state: PlotState)
 	folder.Name = "StoredCakes"
 	for i, info in state.storage do
 		local marker = markers:FindFirstChild(`Store{i}`) :: BasePart?
-		if marker then
+		if marker then -- extra (upgraded) slots are stored but not all shown
 			local model = Assets.Clone("Cakes", info.Type)
 			model:ScaleTo(model:GetScale() * 0.6)
 			Assets.Anchor(model, marker.CFrame, folder)
+			if AutoProduction.DecorateMovingCake then
+				AutoProduction.DecorateMovingCake(model, info)
+			end
 		end
 	end
 	folder.Parent = plot
+end
+
+-- Loading ---------------------------------------------------------------------------------
+
+-- Moves recipe sets from the owner's bag into the hopper. Returns how many loaded.
+local function loadSets(owner: Player, line: Line, maxSets: number, order: string): number
+	local loaded = 0
+	while loaded < maxSets and #line.hopper < A.HopperCap do
+		local cakeType, items = Inventory.TakeForRecipe(owner, line.recipe, order)
+		if not cakeType or not items then
+			break
+		end
+		table.insert(line.hopper, { Recipe = cakeType, Items = items })
+		loaded += 1
+	end
+	return loaded
 end
 
 -- Production -------------------------------------------------------------------------------
@@ -206,55 +272,79 @@ local function tickLine(plot: Model, owner: Player, state: PlotState, line: Line
 	local has = function(id: string)
 		return isUnit or owns(owner, id)
 	end
-	local recipe = Recipes.Cakes[line.recipe]
-	if not recipe or not Recipes.IsUnlocked(line.recipe, hasUnlockFn(owner)) then
+	if not Recipes.IsUnlocked(line.recipe, hasUnlockFn(owner)) then
 		line.recipe = "Vanilla"
-		recipe = Recipes.Cakes.Vanilla
+	end
+	local oven = ovenFor(plot, line)
+	if not isEnabled(owner, line) then
+		if oven and has("AutoOven") then
+			BakingPipeline.SetDoorGlow(oven, false)
+		end
+		return
 	end
 
-	-- Feed
-	if line.hopper < A.HopperCap then
-		line.feedT += TICK
-		if line.feedT >= A.FeedTime then
-			line.feedT = 0
-			line.hopper += 1
+	-- Full Automation pass: keep the hopper topped up from the bag.
+	if GamePasses.Owns(owner, "FullAutomation") and #line.hopper < A.HopperCap then
+		line.autoLoadT += TICK
+		if line.autoLoadT >= A.AutoLoadInterval then
+			line.autoLoadT = 0
+			if loadSets(owner, line, 1, "cheapest") == 0 then
+				Inventory.Roll(owner, true) -- normal cooldown and odds; loads next time
+			end
 		end
 	end
 
 	-- Mix
-	if has("AutoMixer") and line.hopper > 0 and line.batter < A.TrayCap then
+	local mixer = if isUnit then getItem(plot, line.unitId :: string) else getItem(plot, "AutoMixer")
+	if has("AutoMixer") and working(mixer) and #line.hopper > 0 and #line.batter < A.TrayCap then
 		line.mixT += TICK
 		if line.mixT >= A.MixTime then
 			line.mixT = 0
-			line.hopper -= 1
-			line.batter = math.min(A.TrayCap, line.batter + PlotStats.Get(owner).MixBatch)
+			local set = table.remove(line.hopper, 1) :: HopperSet
+			local cake = Recipes.Cakes[set.Recipe] or Recipes.Cakes.Vanilla
+			local info = Rarity.MakeCake(set.Recipe, cake.Price, set.Items, "Good")
+			if not Inventory.ShouldDelete(owner, "Batter", info.Rarity, Rarity.IsSpecial(info)) then
+				for _ = 1, PlotStats.Get(owner).MixBatch do
+					if #line.batter < A.TrayCap then
+						table.insert(line.batter, table.clone(info))
+					end
+				end
+			end
 		end
 	end
 
 	-- Bake
-	local oven = ovenFor(plot, line)
 	if has("AutoOven") and oven then
-		local blocked = oven:GetAttribute("Blocked") == true
+		local blocked = oven:GetAttribute("Blocked") == true or not working(oven)
 		if line.bakeRemaining == nil then
-			if line.batter > 0 and #line.tray < A.TrayCap and not blocked then
-				line.batter -= 1
-				-- Automated lines roll their ingredients too, with a fixed "Good" mix.
-				line.baking = BakingPipeline.RollCake(owner, line.recipe)
+			if #line.batter > 0 and #line.tray < A.TrayCap and not blocked then
+				line.baking = table.remove(line.batter, 1)
 				line.bakeRemaining = PlotStats.BakeDuration(owner, oven, Config.BakeTime * A.BakeMult)
+					* (if (line.baking :: Rarity.CakeInfo).Fresh then Rarity.FreshBakeMult else 1)
 			end
 		elseif not blocked then
 			line.bakeRemaining = (line.bakeRemaining :: number) - TICK
 			if (line.bakeRemaining :: number) <= 0 then
 				line.bakeRemaining = nil
-				table.insert(line.tray, line.baking :: Rarity.CakeInfo)
+				local info = line.baking :: Rarity.CakeInfo
 				line.baking = nil
+				if AutoProduction.FinishBake then
+					info = AutoProduction.FinishBake(owner, oven, info)
+				end
+				bakedEvent:Fire(owner, info)
+				if not Inventory.ShouldDelete(owner, "Cake", info.Rarity, Rarity.IsSpecial(info)) then
+					table.insert(line.tray, info)
+				end
 			end
 		end
 		BakingPipeline.SetDoorGlow(oven, line.bakeRemaining ~= nil and not blocked)
 	end
 
 	-- Deliver (conveyor for line 1; production units deliver directly)
-	if has("CounterConveyor") and #line.tray > 0 then
+	local conveyor = if isUnit then nil else getItem(plot, "CounterConveyor")
+	local jammed = (if isUnit then getItem(plot, line.unitId :: string) else conveyor)
+	jammed = if jammed and (jammed:GetAttribute("JammedUntil") or 0) > os.clock() then jammed else nil
+	if has("CounterConveyor") and #line.tray > 0 and (isUnit or working(conveyor)) and not jammed then
 		line.deliverT += TICK
 		if line.deliverT >= A.DeliverTime then
 			if deliver(plot, owner, state, line.tray[1]) then
@@ -264,7 +354,7 @@ local function tickLine(plot: Model, owner: Player, state: PlotState, line: Line
 		elseif not isUnit and math.abs(line.deliverT - TICK) < 1e-6 then
 			-- Show the cake riding the belt for this delivery.
 			local floor = (plot.PrimaryPart :: BasePart).CFrame * CFrame.new(0, 0.6, 0)
-			slide(plot, line.tray[1].Type, {
+			slide(plot, line.tray[1], {
 				(floor * CFrame.new(4, 0, -15)).Position,
 				(floor * CFrame.new(4, 0, 27)).Position,
 				(floor * CFrame.new(9, 0, 27)).Position,
@@ -279,23 +369,48 @@ local function updatePrompts(plot: Model, owner: Player, line: Line)
 		return
 	end
 	local cake = Recipes.Cakes[line.recipe]
+	local enabled = isEnabled(owner, line)
+	local auto = if GamePasses.Owns(owner, "FullAutomation") then "🤖" else ""
+	local hopperText = `{auto}📦 {#line.hopper}/{A.HopperCap}`
+	local bakeText = if line.bakeRemaining then `{math.ceil(line.bakeRemaining)}s` else "-"
 	local status: string
-	if line.unitId then
-		status = `🏭 {cake.Icon} | 🥣 {line.batter} | 🔥 {if line.bakeRemaining then `{math.ceil(line.bakeRemaining)}s` else "-"} | 🍰 {#line.tray}`
+	if not enabled then
+		status = `⏸ OFF | {cake.Icon} {hopperText}`
+	elseif line.unitId then
+		status = `🏭 {cake.Icon} {hopperText} | 🥣 {#line.batter} | 🔥 {bakeText} | 🍰 {#line.tray}`
 	else
-		status = `{cake.Icon} 📦 {line.hopper}/{A.HopperCap}`
+		status = `{cake.Icon} {hopperText}`
 		if owns(owner, "AutoMixer") then
-			status ..= ` | 🥣 {line.batter}`
+			status ..= ` | 🥣 {#line.batter}`
 		end
 		if owns(owner, "AutoOven") then
-			status ..= ` | 🔥 {if line.bakeRemaining then `{math.ceil(line.bakeRemaining)}s` else "-"} | 🍰 {#line.tray}`
+			status ..= ` | 🔥 {bakeText} | 🍰 {#line.tray}`
 		end
+	end
+	if #line.hopper == 0 and enabled and auto == "" then
+		status ..= " | load me!"
 	end
 	statusGui(part, if line.unitId then 1.6 else 3.2).Text = status
 
 	local recipePrompt = part:FindFirstChild("RecipePrompt") :: ProximityPrompt?
 	if recipePrompt then
 		recipePrompt.ObjectText = `{line.name}: {cake.Icon} {cake.DisplayName}`
+	end
+	local load = part:FindFirstChild("LoadPrompt") :: ProximityPrompt?
+	local fill = part:FindFirstChild("FillPrompt") :: ProximityPrompt?
+	local full = #line.hopper >= A.HopperCap
+	if load then
+		load.Enabled = not full
+		load.ObjectText = `{line.name} hopper {#line.hopper}/{A.HopperCap}`
+	end
+	if fill then
+		fill.Enabled = not full
+	end
+	local toggle = part:FindFirstChild("TogglePrompt") :: ProximityPrompt?
+	if toggle then
+		toggle.Enabled = true
+		toggle.ActionText = if enabled then "⏸ Turn Off" else "▶ Turn On"
+		toggle.ObjectText = line.name
 	end
 
 	if line.unitId then
@@ -304,12 +419,12 @@ local function updatePrompts(plot: Model, owner: Player, line: Line)
 	-- Manual hand-offs for the steps that aren't automated yet.
 	local grab = part:FindFirstChild("GrabPrompt") :: ProximityPrompt?
 	if grab then
-		grab.Enabled = not owns(owner, "AutoMixer") and line.hopper > 0
+		grab.Enabled = not owns(owner, "AutoMixer") and #line.hopper > 0
 	end
 	local mixer = getItem(plot, "AutoMixer")
 	local mixerPrompt = mixer and mixer:FindFirstChild("TakePrompt", true) :: ProximityPrompt?
 	if mixerPrompt then
-		mixerPrompt.Enabled = mixer:GetAttribute("Visible") == true and not owns(owner, "AutoOven") and line.batter > 0
+		mixerPrompt.Enabled = mixer:GetAttribute("Visible") == true and not owns(owner, "AutoOven") and #line.batter > 0
 	end
 	local oven = getItem(plot, "AutoOven")
 	local ovenPrompt = oven and oven:FindFirstChild("TakePrompt", true) :: ProximityPrompt?
@@ -321,7 +436,7 @@ end
 local function tickPlot(plot: Model)
 	local owner = PlotManager.GetOwner(plot)
 	local state = states[plot]
-	if not owner or not state then
+	if not owner or not state or not DataManager.IsLoaded(owner) then
 		return
 	end
 	for _, line in state.lines do
@@ -331,8 +446,12 @@ local function tickPlot(plot: Model)
 		end
 	end
 	-- Auto-Restock: refill empty display slots from storage.
+	local moved = false
 	while #state.storage > 0 and BakingPipeline.PlaceCakeInFreeSlot(plot, state.storage[1]) do
 		table.remove(state.storage, 1)
+		moved = true
+	end
+	if moved then
 		refreshStorage(plot, state)
 	end
 end
@@ -348,60 +467,93 @@ local function canUse(player: Player, plot: Model, part: BasePart): boolean
 	return root ~= nil and (root.Position - part.Position).Magnitude <= 10 + Config.InteractSlack
 end
 
-local function notify(player: Player, message: string)
-	Remotes.Get("Notify"):FireClient(player, message)
+local function lineAt(plot: Model, index: number): Line?
+	local state = states[plot]
+	return state and state.lines[index]
 end
 
 function AutoProduction.CycleRecipe(player: Player, plot: Model, lineIndex: number)
-	local state = states[plot]
-	local line = state and state.lines[lineIndex]
-	if not line or not PlotManager.IsOwner(player, plot) then
+	local line = lineAt(plot, lineIndex)
+	local data = DataManager.Get(player)
+	if not line or not data or not PlotManager.IsOwner(player, plot) then
 		return
 	end
 	local menu = Recipes.Unlocked(hasUnlockFn(player))
 	local i = table.find(menu, line.recipe) or 0
 	line.recipe = menu[(i % #menu) + 1]
-	-- Batter already made keeps its old type out of simplicity: clear in-progress work.
-	line.hopper, line.batter, line.feedT, line.mixT = 0, 0, 0, 0
+	data.LineRecipes[lineIndex] = line.recipe
+	-- Sets already in the hopper keep their own recipe; only new loads change.
 	local cake = Recipes.Cakes[line.recipe]
-	notify(player, `{line.name} now bakes {cake.Icon} {cake.DisplayName}`)
+	notify(player, `{line.name} now loads {cake.Icon} {cake.DisplayName}`)
 end
 
+-- Hand loading: `fill` loads up to the cap, otherwise one set. Pinned (★) items
+-- are used first, like hand mixing.
+function AutoProduction.Load(player: Player, plot: Model, lineIndex: number, fill: boolean?): number
+	local line = lineAt(plot, lineIndex)
+	if not line or not PlotManager.IsOwner(player, plot) or not isLineActive(player, line) then
+		return 0
+	end
+	if #line.hopper >= A.HopperCap then
+		notify(player, `{line.name}'s hopper is full.`)
+		return 0
+	end
+	local n = loadSets(player, line, if fill then A.HopperCap else 1, "best")
+	local cake = Recipes.Cakes[line.recipe]
+	if n == 0 then
+		notify(player, `🎒 Your bag is missing ingredients for {cake.Icon} {cake.DisplayName}. Roll at the pantry!`)
+	else
+		notify(player, `📦 Loaded {n} {cake.DisplayName} kit{n > 1 and "s" or ""} into {line.name}`)
+	end
+	return n
+end
+
+function AutoProduction.SetEnabled(player: Player, plot: Model, lineIndex: number, enabled: boolean?)
+	local line = lineAt(plot, lineIndex)
+	local data = DataManager.Get(player)
+	if not line or not data or not PlotManager.IsOwner(player, plot) then
+		return
+	end
+	local value = if enabled == nil then data.LinesEnabled[lineIndex] == false else enabled
+	data.LinesEnabled[lineIndex] = value
+	notify(player, `{line.name} turned {value and "ON ▶" or "OFF ⏸"}`)
+end
+
+-- Line 1 without an Auto-Mixer: take a loaded kit back into the bag.
 function AutoProduction.GrabKit(player: Player, plot: Model)
-	local line = states[plot] and states[plot].lines[1]
-	if not line or line.hopper <= 0 or DataManager.HasUnlock(player, "AutoMixer") then
+	local line = lineAt(plot, 1)
+	if not line or #line.hopper <= 0 or DataManager.HasUnlock(player, "AutoMixer") then
 		return false
 	end
-	-- The kit goes into the Ingredient Bag as freshly rolled ingredients.
-	local items = {}
-	for _, ingredient in Recipes.Cakes[line.recipe].Ingredients do
-		table.insert(items, Inventory.MakeItem(player, ingredient))
-	end
-	if not Inventory.AddItems(player, items) then
+	if not Inventory.AddItems(player, line.hopper[1].Items) then
 		notify(player, "🎒 Your bag is too full for a whole recipe kit!")
 		return false
 	end
-	line.hopper -= 1
+	table.remove(line.hopper, 1)
 	return true
 end
 
 function AutoProduction.TakeBatter(player: Player, plot: Model)
-	local line = states[plot] and states[plot].lines[1]
-	if not line or line.batter <= 0 or DataManager.HasUnlock(player, "AutoOven") then
+	local line = lineAt(plot, 1)
+	if not line or #line.batter <= 0 or DataManager.HasUnlock(player, "AutoOven") then
 		return false
 	end
-	line.batter -= 1
-	ToolFactory.GiveCakeItem(player, "RawBatter", BakingPipeline.RollCake(player, line.recipe))
+	ToolFactory.GiveCakeItem(player, "RawBatter", table.remove(line.batter, 1) :: Rarity.CakeInfo)
 	return true
 end
 
 function AutoProduction.TakeCake(player: Player, plot: Model)
-	local line = states[plot] and states[plot].lines[1]
+	local line = lineAt(plot, 1)
 	if not line or #line.tray <= 0 or DataManager.HasUnlock(player, "CounterConveyor") then
 		return false
 	end
 	ToolFactory.GiveCakeItem(player, "FinishedCake", table.remove(line.tray, 1) :: Rarity.CakeInfo)
 	return true
+end
+
+-- Gremlin (Phase 8) and tests: the live line table.
+function AutoProduction.GetLine(plot: Model, lineIndex: number): Line?
+	return lineAt(plot, lineIndex)
 end
 
 local function addPrompt(part: BasePart, name: string, action: string, key: Enum.KeyCode, onTrigger: (Player) -> ())
@@ -420,7 +572,7 @@ end
 
 local function setupPlot(plot: Model)
 	states[plot] = {
-		lines = { newLine("Line 1"), newLine("Line 2", "ProductionLine2"), newLine("Line 3", "ProductionLine3") },
+		lines = { newLine(1, "Line 1"), newLine(2, "Line 2", "ProductionLine2"), newLine(3, "Line 3", "ProductionLine3") },
 		storage = {},
 	}
 
@@ -430,6 +582,22 @@ local function setupPlot(plot: Model)
 			addPrompt(part, "RecipePrompt", "Change Recipe", Enum.KeyCode.R, function(player)
 				if canUse(player, plot, part) then
 					AutoProduction.CycleRecipe(player, plot, index)
+				end
+			end)
+			addPrompt(part, "LoadPrompt", "📥 Load Hopper", Enum.KeyCode.E, function(player)
+				if canUse(player, plot, part) then
+					AutoProduction.Load(player, plot, index, false)
+				end
+			end)
+			local fill = addPrompt(part, "FillPrompt", "📥 Fill Hopper", Enum.KeyCode.F, function(player)
+				if canUse(player, plot, part) then
+					AutoProduction.Load(player, plot, index, true)
+				end
+			end)
+			fill.HoldDuration = 0.6
+			addPrompt(part, "TogglePrompt", "⏸ Turn Off", Enum.KeyCode.T, function(player)
+				if canUse(player, plot, part) then
+					AutoProduction.SetEnabled(player, plot, index)
 				end
 			end)
 		end
@@ -443,7 +611,7 @@ local function setupPlot(plot: Model)
 
 	local _, hopper = controlFor(plot, states[plot].lines[1])
 	if hopper then
-		addPrompt(hopper, "GrabPrompt", "Grab Recipe Kit", Enum.KeyCode.E, function(player)
+		addPrompt(hopper, "GrabPrompt", "Unload Kit", Enum.KeyCode.G, function(player)
 			if canUse(player, plot, hopper) then
 				AutoProduction.GrabKit(player, plot)
 			end
@@ -475,10 +643,25 @@ local function resetPlot(plot: Model)
 		return
 	end
 	for i, line in state.lines do
-		state.lines[i] = newLine(line.name, line.unitId)
+		state.lines[i] = newLine(line.index, line.name, line.unitId)
 	end
 	state.storage = {}
 	refreshStorage(plot, state)
+end
+
+-- Binds the owner's saved hoppers/recipes to the plot's lines.
+local function onClaimed(player: Player, plot: Model)
+	local state = states[plot]
+	local data = DataManager.Get(player)
+	if not state or not data then
+		return
+	end
+	resetPlot(plot)
+	for i, line in state.lines do
+		data.Hoppers[i] = data.Hoppers[i] or {}
+		line.hopper = data.Hoppers[i]
+		line.recipe = data.LineRecipes[i] or "Vanilla"
+	end
 end
 
 -- Test/debug summary that crosses the DebugBridge cleanly.
@@ -487,9 +670,11 @@ function AutoProduction.Describe(plot: Model): string
 	if not state then
 		return "no state"
 	end
+	local owner = PlotManager.GetOwner(plot)
 	local parts = {}
 	for _, line in state.lines do
-		table.insert(parts, `{line.name}[{line.recipe}] hopper={line.hopper} batter={line.batter} baking={line.bakeRemaining and string.format("%.1f", line.bakeRemaining) or "-"} tray={#line.tray}`)
+		local on = if owner then isEnabled(owner, line) else true
+		table.insert(parts, `{line.name}[{line.recipe}{on and "" or " OFF"}] hopper={#line.hopper} batter={#line.batter} baking={line.bakeRemaining and string.format("%.1f", line.bakeRemaining) or "-"} tray={#line.tray}`)
 	end
 	table.insert(parts, `storage={#state.storage}`)
 	return table.concat(parts, " | ")
@@ -502,6 +687,13 @@ function AutoProduction.Init()
 		end
 	end
 	PlotManager.PlotReleased:Connect(resetPlot)
+	PlotManager.PlotClaimed:Connect(onClaimed)
+	for plot in states do
+		local owner = PlotManager.GetOwner(plot)
+		if owner then
+			onClaimed(owner, plot)
+		end
+	end
 
 	task.spawn(function()
 		while true do

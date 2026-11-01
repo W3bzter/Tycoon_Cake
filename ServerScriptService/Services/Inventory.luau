@@ -48,8 +48,54 @@ function Inventory.Luck(player: Player): number
 	return luckProvider(player)
 end
 
-function Inventory.Capacity(_player: Player): number
-	return Config.Rolling.BagSize
+function Inventory.Capacity(player: Player): number
+	local data = DataManager.Get(player)
+	local level = data and data.Storage.Bag or 0
+	return Config.Rolling.BagSize + level * Config.Storage.Bag.PerLevel
+end
+
+-- Auto-delete: should an item of `kind` ("Ingredient" | "Batter" | "Cake") with
+-- this rarity be thrown away? `special` = it has traits or a mutation.
+function Inventory.ShouldDelete(player: Player, kind: string, rarity: number, special: boolean): boolean
+	local data = DataManager.Get(player)
+	if not data then
+		return false
+	end
+	local threshold = data.Settings.AutoDelete[kind] or 0
+	if threshold <= 0 or rarity >= threshold then
+		return false
+	end
+	return not (special and data.Settings.KeepSpecial)
+end
+
+local function syncSettings(player: Player)
+	local data = DataManager.Get(player)
+	if not data then
+		return
+	end
+	local parts = {}
+	for _, kind in Config.AutoDelete.Kinds do
+		table.insert(parts, `{kind}:{data.Settings.AutoDelete[kind] or 0}`)
+	end
+	player:SetAttribute("AutoDelete", table.concat(parts, ","))
+	player:SetAttribute("KeepSpecial", data.Settings.KeepSpecial)
+end
+Inventory.SyncSettings = syncSettings
+
+-- Remotes.Settings: ("autodelete", kind, n) | ("keepspecial", bool)
+function Inventory.SettingsAction(player: Player, action: any, a: any, b: any)
+	local data = DataManager.Get(player)
+	if not data then
+		return
+	end
+	if action == "autodelete" and typeof(a) == "string" and table.find(Config.AutoDelete.Kinds, a) and typeof(b) == "number" then
+		data.Settings.AutoDelete[a] = math.clamp(math.floor(b), 0, #Rarity.Tiers)
+	elseif action == "keepspecial" and typeof(a) == "boolean" then
+		data.Settings.KeepSpecial = a
+	else
+		return
+	end
+	syncSettings(player)
 end
 
 local function bagOf(player: Player): { Rarity.Item }?
@@ -128,25 +174,55 @@ function Inventory.AddItems(player: Player, items: { Rarity.Item }): boolean
 	return true
 end
 
+-- Fired after every successful roll with all rolled items (including auto-deleted
+-- ones, marked Deleted). Used for stats, achievements and the pantry VFX.
+local rollEvent = Instance.new("BindableEvent")
+Inventory.Rolled = rollEvent.Event -- (player, items)
+
 -- One free roll: one of every ingredient the unlocked recipes use.
-function Inventory.Roll(player: Player): boolean
+-- `quiet` skips the "bag full" toast (Full Automation auto-rolls).
+function Inventory.Roll(player: Player, quiet: boolean?): boolean
 	local now = os.clock()
 	if now - (lastRoll[player] or 0) < Config.Rolling.Cooldown then
 		return false
 	end
 	local needed = Recipes.NeededIngredients(hasUnlockFn(player))
-	local items = {}
+	local count = 0
 	for _, ingredient in Recipes.IngredientOrder do
 		if needed[ingredient] then
-			table.insert(items, Inventory.MakeItem(player, ingredient))
+			count += 1
 		end
 	end
-	if not Inventory.AddItems(player, items) then
-		notify(player, "🎒 Your bag is too full to roll. Mix some cakes or toss ingredients!")
+	local bag = bagOf(player)
+	if not bag or #bag + count > Inventory.Capacity(player) then
+		if not quiet then
+			notify(player, "🎒 Your bag is too full to roll. Mix some cakes or toss ingredients!")
+		end
 		return false
 	end
+	local rolled, kept = {}, {}
+	for _, ingredient in Recipes.IngredientOrder do
+		if needed[ingredient] then
+			local item: any = Inventory.MakeItem(player, ingredient)
+			if Inventory.ShouldDelete(player, "Ingredient", item.Rarity, Rarity.IsSpecial(item)) then
+				item.Deleted = true -- shown greyed out in the reveal, never stored
+			else
+				table.insert(kept, item)
+			end
+			table.insert(rolled, item)
+		end
+	end
+	Inventory.AddItems(player, kept)
 	lastRoll[player] = now
-	Remotes.Get("RollResult"):FireClient(player, items)
+	-- Auto-rolls (Full Automation) only show the reveal for Legendary or better.
+	local best = 1
+	for _, item in rolled do
+		best = math.max(best, item.Rarity)
+	end
+	if not quiet or best >= 5 then
+		Remotes.Get("RollResult"):FireClient(player, rolled)
+	end
+	rollEvent:Fire(player, rolled)
 	return true
 end
 
@@ -169,24 +245,62 @@ function Inventory.PeekRecipe(player: Player): string?
 	return Recipes.BestRecipe(Inventory.Counts(player), unlocked)
 end
 
--- Picks the ingredients for one batch (see PeekRecipe): pinned items first,
--- then the most valuable. Removes them from the bag.
-function Inventory.TakeForRecipe(player: Player): (string?, { Rarity.Item }?)
-	local data = DataManager.Get(player)
-	local cakeType = Inventory.PeekRecipe(player)
-	if not data or not cakeType then
-		return nil, nil
+-- One item per ingredient of `cakeType`, or nil if the bag can't make it.
+-- order "best": pinned first, then most valuable (hand mixing).
+-- order "cheapest": never pinned, least valuable first (automation), so your
+-- best ingredients stay in the bag for the minigame.
+local function pick(bag: { Rarity.Item }, cakeType: string, order: string): { Rarity.Item }?
+	local list: { Rarity.Item }
+	if order == "cheapest" then
+		list = {}
+		for _, item in bag do
+			if not item.Pinned then
+				table.insert(list, item)
+			end
+		end
+		table.sort(list, function(a, b)
+			local fa, fb = Rarity.Factor(a), Rarity.Factor(b)
+			if fa ~= fb then
+				return fa < fb
+			end
+			return a.Id < b.Id
+		end)
+	else
+		list = sorted(bag)
 	end
-
 	local chosen: { Rarity.Item } = {}
-	local order = sorted(data.Bag)
 	for _, ingredient in Recipes.Cakes[cakeType].Ingredients do
-		for _, item in order do
+		local found = false
+		for _, item in list do
 			if item.Type == ingredient and not table.find(chosen, item) then
 				table.insert(chosen, item)
+				found = true
 				break
 			end
 		end
+		if not found then
+			return nil
+		end
+	end
+	return chosen
+end
+
+function Inventory.CanMake(player: Player, cakeType: string, order: string?): boolean
+	local bag = bagOf(player)
+	return bag ~= nil and Recipes.Cakes[cakeType] ~= nil and pick(bag, cakeType, order or "best") ~= nil
+end
+
+-- Picks the ingredients for one batch and removes them from the bag.
+-- Without `forcedRecipe` it makes PeekRecipe's choice (hand mixing).
+function Inventory.TakeForRecipe(player: Player, forcedRecipe: string?, order: string?): (string?, { Rarity.Item }?)
+	local data = DataManager.Get(player)
+	local cakeType = forcedRecipe or Inventory.PeekRecipe(player)
+	if not data or not cakeType or not Recipes.Cakes[cakeType] then
+		return nil, nil
+	end
+	local chosen = pick(data.Bag, cakeType, order or "best")
+	if not chosen then
+		return nil, nil
 	end
 	for _, item in chosen do
 		local index = table.find(data.Bag, item)
@@ -241,15 +355,16 @@ end
 
 function Inventory.Init()
 	Remotes.Get("BagAction").OnServerEvent:Connect(Inventory.Action)
-	DataManager.PlayerLoaded:Connect(function(player)
+	Remotes.Get("Settings").OnServerEvent:Connect(Inventory.SettingsAction)
+	local function ready(player: Player)
 		Inventory.Sync(player)
-	end)
-	DataManager.PlayerReset:Connect(function(player)
-		Inventory.Sync(player)
-	end)
+		syncSettings(player)
+	end
+	DataManager.PlayerLoaded:Connect(ready)
+	DataManager.PlayerReset:Connect(ready)
 	for _, player in Players:GetPlayers() do
 		if DataManager.IsLoaded(player) then
-			Inventory.Sync(player)
+			ready(player)
 		end
 	end
 	Players.PlayerRemoving:Connect(function(player)

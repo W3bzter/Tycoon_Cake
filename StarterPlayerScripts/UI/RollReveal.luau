@@ -117,6 +117,12 @@ function RollReveal.Show(items: { any })
 			end
 			rarityLabel.Text = tier.Name .. (if badges ~= "" then " " .. badges else "")
 			frame.BackgroundColor3 = tier.Color:Lerp(Color3.fromRGB(30, 22, 30), 0.75)
+			if item.Deleted then -- auto-deleted by the player's settings: never reached the bag
+				rarityLabel.Text = "🗑️ " .. rarityLabel.Text
+				frame.BackgroundTransparency = 0.6
+				stroke.Transparency = 0.6
+				return
+			end
 			if tier.Glow >= 2 then
 				TweenService:Create(frame, TweenInfo.new(0.15, Enum.EasingStyle.Back, Enum.EasingDirection.Out, 2, true), { Size = UDim2.fromOffset(104, 124) }):Play()
 			end

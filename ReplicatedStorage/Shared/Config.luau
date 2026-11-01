@@ -90,8 +90,32 @@ Config.Auto = {
 	MixTime = 3,
 	BakeMult = 1.5, -- automated ovens are slower than a player's oven until upgraded
 	DeliverTime = 3, -- conveyor travel time to the counter
-	HopperCap = 2, -- recipe sets the hopper can hold
+	HopperCap = 4, -- recipe sets the hopper can hold (players load them from the bag)
 	TrayCap = 2, -- batters / cakes waiting between steps
+	AutoLoadInterval = 1, -- Full Automation pass: seconds between auto-loads per line
+}
+
+-- Auto-delete (per player, saved in PlayerData.Settings). A kind's threshold n
+-- deletes anything of rarity < n (0 = off). KeepSpecial spares traits/mutations.
+Config.AutoDelete = {
+	Kinds = { "Ingredient", "Batter", "Cake" },
+	Labels = { Ingredient = "🥚 Ingredients", Batter = "🥣 Batters", Cake = "🍰 Cakes" },
+}
+
+-- Storage upgrades (levelled, paid with Cash; cost = BaseCost * Growth ^ level).
+Config.Storage = {
+	Order = { "Bag", "Rack" },
+	Bag = { Icon = "🎒", DisplayName = "Bigger Bag", PerLevel = 10, MaxLevel = 6, BaseCost = 2000, Growth = 2.2, Format = "+%d bag slots" },
+	Rack = { Icon = "🗄️", DisplayName = "Bigger Cake Rack", PerLevel = 3, MaxLevel = 5, BaseCost = 25000, Growth = 2, Format = "+%d rack slots (needs Auto-Restock)" },
+}
+
+-- Game Passes. Create them on the Creator Dashboard (Monetization > Passes)
+-- and paste each ID here. ID 0 = not set up yet.
+-- FullAutomation: hoppers load themselves from your bag (cheapest unpinned
+-- ingredients first) and the pantry auto-rolls (normal cooldown and odds) when
+-- the bag can't fill a hopper. It only automates free actions.
+Config.GamePasses = {
+	FullAutomation = { Id = 0, Label = "🤖 Full Automation", Description = "Hoppers load themselves from your bag" },
 }
 
 -- Gem upgrades (levelled; cost = BaseCost * CostGrowth ^ level) -------------------
@@ -109,6 +133,8 @@ Config.RareCakeGems = {
 	[4] = { 0.15, 1 }, -- Epic
 	[5] = { 0.5, 2 }, -- Legendary
 	[6] = { 1, 5 }, -- Mythic
+	[7] = { 1, 12 }, -- Divine
+	[8] = { 1, 40 }, -- Anomalous
 }
 
 -- Robux developer products. Create these on the Creator Dashboard
@@ -172,6 +198,14 @@ Config.RemoteNames = {
 	"BagAction", -- client -> server: ("pin" | "discard", id) or ("recipe", name)
 	"MixStart", -- server -> client: (sessionId, stationId, seed)
 	"MixSubmit", -- client -> server: (sessionId, score 0..1)
+	"Settings", -- client -> server: ("autodelete", kind, n) | ("keepspecial", bool)
+	"ShopAction", -- client -> server: ("storage", "Bag" | "Rack")
+	"GamePassPrompt", -- client -> server: (passKey) asks the server to prompt a pass purchase
+	"Cutscene", -- server -> client: (anomalyName, focus: Vector3, plotName)
+	"ScreenShake", -- server -> client: (intensity, duration)
+	"Rebirth", -- client -> server: () try to rebirth
+	"AchievementSync", -- server -> client: ({Stats, Unlocked})
+	"AchievementUnlocked", -- server -> client: (achievementId)
 }
 
 return Config

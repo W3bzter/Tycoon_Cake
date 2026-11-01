@@ -18,12 +18,20 @@ export type PlayerData = {
 	UnlockedUpgrades: { [string]: boolean },
 	ShieldCharges: number, -- Anomaly Shields (Gem shop)
 	BoostEndsAt: number, -- os.time() when the Bake Boost runs out
-	Stats: { CakesSold: number },
+	Stats: { [string]: number },
 	Bag: { any },
 	NextItemId: number,
 	MixRecipe: string,
 	GemUpgrades: { [string]: number },
 	Receipts: { string },
+	Settings: { AutoDelete: { [string]: number }, KeepSpecial: boolean },
+	Storage: { [string]: number },
+	LinesEnabled: { boolean },
+	LineRecipes: { string },
+	Hoppers: { { any } },
+	Rebirths: number,
+	Achievements: { [string]: number },
+	Broken: { [string]: number },
 }
 
 type Session = {
@@ -39,13 +47,43 @@ local TEMPLATE: PlayerData = {
 	UnlockedUpgrades = {},
 	ShieldCharges = 0,
 	BoostEndsAt = 0,
-	Stats = { CakesSold = 0 },
+	-- Lifetime counters (achievements read these; see Shared/Achievements).
+	Stats = {
+		CakesSold = 0,
+		CakesBaked = 0,
+		TotalEarned = 0,
+		IngredientsRolled = 0,
+		BestRoll = 0, -- highest rarity index ever rolled
+		Mutations = 0,
+		PerfectMixes = 0,
+		AnomaliesStopped = 0,
+		OvensSaved = 0,
+		MimicsStopped = 0,
+		BrutesDefeated = 0,
+		RatsSquashed = 0,
+		GremlinsCaught = 0,
+		PhantomsBanished = 0,
+		Repairs = 0,
+		Explosions = 0,
+	},
 	Bag = {}, -- rolled ingredients (Shared/Rarity Item)
 	NextItemId = 1,
 	MixRecipe = "Best", -- "Best" or a cake type
 	GemUpgrades = { Income = 0, BakeSpeed = 0, Luck = 0 },
 	Receipts = {}, -- recent Robux receipt IDs, oldest first (dedupe; see RobuxShop)
+	-- Auto-delete thresholds per kind (0 = off; n = delete rarity < n).
+	Settings = { AutoDelete = { Ingredient = 0, Batter = 0, Cake = 0 }, KeepSpecial = true },
+	Storage = { Bag = 0, Rack = 0 }, -- storage upgrade levels (Config.Storage)
+	LinesEnabled = { true, true, true }, -- production line on/off switches
+	LineRecipes = { "Vanilla", "Vanilla", "Vanilla" },
+	-- Ingredient sets loaded into each line's hopper: { {Recipe, Items} } per line.
+	-- Saved so loaded ingredients are never lost when you leave.
+	Hoppers = { {}, {}, {} },
+	Rebirths = 0,
+	Achievements = {}, -- id -> os.time() unlocked
+	Broken = {}, -- machine id -> repair cost (Cash); re-applied on join
 }
+DataManager.TEMPLATE = TEMPLATE
 
 local store: DataStore? = nil
 local sessions: { [Player]: Session } = {}
@@ -115,7 +153,7 @@ end
 local function createLeaderstats(player: Player, data: PlayerData)
 	local leaderstats = Instance.new("Folder")
 	leaderstats.Name = "leaderstats"
-	for _, stat in { "Cash", "Gems" } do
+	for _, stat in { "Cash", "Gems", "Rebirths" } do
 		local v = Instance.new("IntValue")
 		v.Name = stat
 		v.Value = (data :: any)[stat]
@@ -163,6 +201,7 @@ local function load(player: Player)
 	-- Mirrored for the client HUD (shield count, boost timer).
 	player:SetAttribute("ShieldCharges", data.ShieldCharges)
 	player:SetAttribute("BoostEndsAt", data.BoostEndsAt)
+	player:SetAttribute("Rebirths", data.Rebirths)
 	loadedEvent:Fire(player, data)
 end
 
@@ -263,33 +302,34 @@ function DataManager.ExtendBoost(player: Player, seconds: number)
 	end
 end
 
-function DataManager.RecordSale(player: Player)
+-- Adds to a lifetime stat (Stats.<name>). Achievements wraps this and checks goals.
+function DataManager.AddStat(player: Player, name: string, amount: number)
 	local data = DataManager.Get(player)
 	if data then
-		data.Stats.CakesSold += 1
+		data.Stats[name] = (data.Stats[name] or 0) + amount
 	end
 end
 
--- Studio-only: wipe this session's save back to a brand-new player (DevMode
--- still tops up Cash/Gems; with DevMode off this resets your real save).
-function DataManager.ResetToNew(player: Player): boolean
-	if not RunService:IsStudio() then
-		return false
-	end
+function DataManager.RecordSale(player: Player)
+	DataManager.AddStat(player, "CakesSold", 1)
+end
+
+-- Replaces the session's data with `newData` (a full PlayerData), refreshes
+-- leaderstats/attributes, strips held tools, saves, and fires PlayerReset so the
+-- plot is rebuilt from scratch. Used by the Studio reset and by Rebirth.
+function DataManager.ApplyReset(player: Player, newData: PlayerData): boolean
 	local session = sessions[player]
 	if not session then
 		return false
 	end
-	local data = deepCopy(TEMPLATE)
-	if DEV_ACTIVE then
-		data.Cash = Config.DevModeAmount
-		data.Gems = Config.DevModeAmount
-	end
-	session.data = data
-	updateLeaderstat(player, "Cash", data.Cash)
-	updateLeaderstat(player, "Gems", data.Gems)
-	player:SetAttribute("ShieldCharges", data.ShieldCharges)
-	player:SetAttribute("BoostEndsAt", data.BoostEndsAt)
+	reconcile(newData :: any, TEMPLATE :: any)
+	session.data = newData
+	updateLeaderstat(player, "Cash", newData.Cash)
+	updateLeaderstat(player, "Gems", newData.Gems)
+	updateLeaderstat(player, "Rebirths", newData.Rebirths)
+	player:SetAttribute("ShieldCharges", newData.ShieldCharges)
+	player:SetAttribute("BoostEndsAt", newData.BoostEndsAt)
+	player:SetAttribute("Rebirths", newData.Rebirths)
 	for _, container in { player:FindFirstChildOfClass("Backpack"), player.Character } do
 		for _, tool in (if container then container:GetChildren() else {}) do
 			if tool:IsA("Tool") then
@@ -298,9 +338,33 @@ function DataManager.ResetToNew(player: Player): boolean
 		end
 	end
 	DataManager.Save(player)
-	print(`[DataManager] Studio reset: {player.Name} is now a brand-new player ({keyFor(player)})`)
 	resetEvent:Fire(player)
 	return true
+end
+
+-- A deep copy of the template (for building a reset).
+function DataManager.NewData(): PlayerData
+	return deepCopy(TEMPLATE)
+end
+
+DataManager.DeepCopy = deepCopy
+
+-- Studio-only: wipe this session's save back to a brand-new player (DevMode
+-- still tops up Cash/Gems; with DevMode off this resets your real save).
+function DataManager.ResetToNew(player: Player): boolean
+	if not RunService:IsStudio() then
+		return false
+	end
+	local data = deepCopy(TEMPLATE)
+	if DEV_ACTIVE then
+		data.Cash = Config.DevModeAmount
+		data.Gems = Config.DevModeAmount
+	end
+	local ok = DataManager.ApplyReset(player, data)
+	if ok then
+		print(`[DataManager] Studio reset: {player.Name} is now a brand-new player ({keyFor(player)})`)
+	end
+	return ok
 end
 
 function DataManager.Unlock(player: Player, upgradeId: string)

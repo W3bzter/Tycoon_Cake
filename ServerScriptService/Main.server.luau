@@ -11,6 +11,7 @@ local ORDER = {
 	"LightingSetup",
 	"WorldBuilder",
 	"DataManager",
+	"GamePasses",
 	"PlotManager",
 	"Inventory",
 	"TycoonButtons",

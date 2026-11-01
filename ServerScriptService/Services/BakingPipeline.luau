@@ -29,6 +29,10 @@ local WorldBuilder = require(script.Parent.WorldBuilder)
 
 local BakingPipeline = {}
 
+-- (player, CakeInfo) after every hand mix, before auto-delete (stats/achievements).
+local mixedEvent = Instance.new("BindableEvent")
+BakingPipeline.Mixed = mixedEvent.Event
+
 local OVEN_IDS = { "BasicOven", "Oven", "Oven2", "Oven3" } -- manual ovens (automated ones live in AutoProduction)
 local COUNTER_IDS = { "DisplayCounter", "DisplayCounter2" }
 -- Hand tools are slower than machines (Phase 4 turns mixing into a minigame).
@@ -415,6 +419,11 @@ function BakingPipeline.Mix(player: Player, station: Model, quality: string?): R
 		return nil
 	end
 	local info = Rarity.MakeCake(cakeType, Recipes.Cakes[cakeType].Price, items, quality)
+	mixedEvent:Fire(player, info)
+	if Inventory.ShouldDelete(player, "Batter", info.Rarity, Rarity.IsSpecial(info)) then
+		notify(player, `🗑️ Auto-deleted a {Rarity.Name(info.Rarity)} {cakeName(cakeType)} batter ({info.Quality} mix)`)
+		return info
+	end
 	-- Big Mixer makes 2 per mix; the hand bowl always makes 1.
 	local batch = if station.Name == "Mixer" then PlotStats.Get(player).MixBatch else 1
 	for _ = 1, batch do
@@ -464,14 +473,19 @@ local function ovenHandler(player: Player, plot: Model, oven: Model)
 	elseif state == "Ready" then
 		local cakeType = (oven:GetAttribute("CakeType") :: string?) or "Vanilla"
 		setOvenState(oven, "Idle")
-		ToolFactory.GiveCakeItem(player, "FinishedCake", {
+		local info: Rarity.CakeInfo = {
 			Type = cakeType,
 			Value = (oven:GetAttribute("CakeValue") :: number?) or Recipes.Cakes[cakeType].Price,
 			Rarity = (oven:GetAttribute("CakeRarity") :: number?) or 1,
 			Anomaly = oven:GetAttribute("Anomaly") == true,
 			Fresh = oven:GetAttribute("Fresh") == true,
 			Quality = (oven:GetAttribute("Quality") :: string?) or "Good",
-		})
+		}
+		if Inventory.ShouldDelete(player, "Cake", info.Rarity, Rarity.IsSpecial(info)) then
+			notify(player, `🗑️ Auto-deleted a {Rarity.Name(info.Rarity)} {cakeName(cakeType)}`)
+			return
+		end
+		ToolFactory.GiveCakeItem(player, "FinishedCake", info)
 	end
 end
 for _, id in OVEN_IDS do

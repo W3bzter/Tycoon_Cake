@@ -20,18 +20,25 @@ export type CakeInfo = {
 	Anomaly: boolean, -- Anomaly-touched: Mimics go for it first
 	Fresh: boolean, -- bakes faster
 	Quality: string, -- mix grade (Phase 4)
+	Traits: { string }?, -- cake traits rolled at bake time (Phase 7)
+	Mutation: string?, -- at most one mutation, rolled at bake time (Phase 7)
 }
 
 local Rarity = {}
 
+-- Fx: how loud the roll reveal / world effects get for this tier
+-- ("none" | "glow" | "shake" | "rays" | "mythic" | "divine" | "anomalous").
 Rarity.Tiers = {
-	{ Name = "Common", Color = Color3.fromRGB(205, 205, 215), Mult = 1, Weight = 60, Glow = 0 },
-	{ Name = "Uncommon", Color = Color3.fromRGB(90, 220, 120), Mult = 1.5, Weight = 25, Glow = 0.5 },
-	{ Name = "Rare", Color = Color3.fromRGB(80, 160, 255), Mult = 2.5, Weight = 10, Glow = 1 },
-	{ Name = "Epic", Color = Color3.fromRGB(180, 90, 255), Mult = 5, Weight = 4, Glow = 1.5 },
-	{ Name = "Legendary", Color = Color3.fromRGB(255, 180, 40), Mult = 12, Weight = 0.9, Glow = 2 },
-	{ Name = "Mythic", Color = Color3.fromRGB(255, 60, 140), Mult = 40, Weight = 0.1, Glow = 3 },
+	{ Name = "Common", Color = Color3.fromRGB(205, 205, 215), Mult = 1, Weight = 60, Glow = 0, Fx = "none" },
+	{ Name = "Uncommon", Color = Color3.fromRGB(90, 220, 120), Mult = 1.5, Weight = 25, Glow = 0.5, Fx = "none" },
+	{ Name = "Rare", Color = Color3.fromRGB(80, 160, 255), Mult = 2.5, Weight = 10, Glow = 1, Fx = "glow" },
+	{ Name = "Epic", Color = Color3.fromRGB(180, 90, 255), Mult = 5, Weight = 4, Glow = 1.5, Fx = "shake" },
+	{ Name = "Legendary", Color = Color3.fromRGB(255, 180, 40), Mult = 12, Weight = 0.9, Glow = 2, Fx = "rays" },
+	{ Name = "Mythic", Color = Color3.fromRGB(255, 60, 140), Mult = 40, Weight = 0.1, Glow = 3, Fx = "mythic" },
+	{ Name = "Divine", Color = Color3.fromRGB(255, 245, 190), Mult = 100, Weight = 0.02, Glow = 4, Fx = "divine" },
+	{ Name = "Anomalous", Color = Color3.fromRGB(40, 255, 200), Mult = 300, Weight = 0.005, Glow = 5, Fx = "anomalous" },
 }
+Rarity.MYTHIC = 6 -- tiers at or above this index get the big effects
 
 -- Each trait is rolled independently.
 Rarity.Traits = {
@@ -122,6 +129,11 @@ function Rarity.MakeCake(cakeType: string, basePrice: number, items: { Item }, q
 		Fresh = fresh,
 		Quality = grade,
 	}
+end
+
+-- Anything with a trait or a mutation counts as "special" (auto-delete can keep it).
+function Rarity.IsSpecial(thing: any): boolean
+	return (thing.Traits ~= nil and #thing.Traits > 0) or thing.Mutation ~= nil
 end
 
 function Rarity.Name(index: number): string
