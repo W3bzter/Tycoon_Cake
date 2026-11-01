@@ -27,6 +27,34 @@ Config.CustomerWalkSpeed = 18
 Config.CustomerTripTimeout = 60 -- give up on a leg of the trip after this long
 Config.CustomerStandOff = 5 -- studs in front of the counter where customers stop
 
+-- Anomalies --------------------------------------------------------------------
+-- Duration is the countdown shown to players. For Overheat/Mimic it is a safety
+-- timeout: those end early once players deal with them.
+Config.AnomalyInterval = 180
+Config.Anomalies = {
+	GravityDistortion = {
+		DisplayName = "GRAVITY DISTORTION",
+		Description = "Gravity has dropped to 10%!",
+		Weight = 1,
+		Duration = 45,
+		GravityScale = 0.1,
+	},
+	OverheatCrisis = {
+		DisplayName = "OVERHEAT CRISIS",
+		Description = "Ovens are overheating! Use your Fire Extinguisher on them.",
+		Weight = 1,
+		Duration = 60,
+		ExtinguisherRange = 12,
+	},
+	MimicCustomer = {
+		DisplayName = "MIMIC CUSTOMER",
+		Description = "A glowing mimic is after your cakes! Click or touch it to stop it.",
+		Weight = 1,
+		Duration = 60,
+		StopReward = 50,
+	},
+}
+
 -- Animations (rbxassetid:// strings; empty = skip and just do a hop)
 Config.Animations = {
 	Buy = "",

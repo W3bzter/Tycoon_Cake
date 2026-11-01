@@ -21,6 +21,7 @@ export type CustomerOptions = {
 	-- Return false to make the customer leave without the default purchase.
 	OnArrive: ((npc: Model, plot: Model, slot: BasePart) -> boolean?)?,
 	Decorate: ((npc: Model) -> ())?,
+	IgnoreCap: boolean?, -- anomaly NPCs spawn even when the street is full
 }
 
 local active: { [Model]: boolean } = {}
@@ -76,9 +77,20 @@ end
 
 -- Movement ------------------------------------------------------------------------
 
+-- Polls instead of MoveToFinished:Wait(), which never returns if the NPC is
+-- destroyed mid-walk (e.g. a stopped Mimic) and would leak the coroutine.
 local function moveTo(humanoid: Humanoid, position: Vector3): boolean
+	local done, reached = false, false
+	local conn = humanoid.MoveToFinished:Once(function(result)
+		done, reached = true, result
+	end)
 	humanoid:MoveTo(position)
-	return humanoid.MoveToFinished:Wait() -- Roblox times this out (false) after ~8s
+	local started = os.clock()
+	while not done and humanoid:IsDescendantOf(workspace) and os.clock() - started < 8 do
+		task.wait(0.1)
+	end
+	conn:Disconnect()
+	return reached
 end
 
 -- Walks along a computed path; recomputes when blocked and teleports as a last resort.
@@ -163,6 +175,7 @@ local function popText(npc: Model, text: string, color: Color3)
 	gui.Parent = head
 	task.delay(2, gui.Destroy, gui)
 end
+CustomerAI.PopText = popText
 
 local function celebrate(npc: Model)
 	local humanoid = npc:FindFirstChildOfClass("Humanoid")
@@ -264,7 +277,7 @@ end
 
 -- Picks a random owned plot with an unreserved cake for sale and sends a customer.
 function CustomerAI.TrySpawnForAnyPlot(options: CustomerOptions?): Model?
-	if CustomerAI.Count() >= Config.MaxCustomers then
+	if CustomerAI.Count() >= Config.MaxCustomers and not (options and options.IgnoreCap) then
 		return nil
 	end
 	local candidates = {}

@@ -14,6 +14,7 @@ local ORDER = {
 	"TycoonButtons",
 	"BakingPipeline",
 	"CustomerAI",
+	"AnomalyManager",
 }
 
 local loaded: { [string]: any } = {}

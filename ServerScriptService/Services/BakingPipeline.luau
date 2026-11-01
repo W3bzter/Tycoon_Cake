@@ -91,6 +91,47 @@ local function runBake(oven: Model)
 	setOvenState(oven, "Ready")
 end
 
+-- Overheat visuals + the Blocked flag runBake/ovenHandler respect.
+function BakingPipeline.SetOvenBlocked(oven: Model, blocked: boolean)
+	oven:SetAttribute("Blocked", blocked)
+	local body = oven:FindFirstChild("Body") :: BasePart?
+	if body then
+		if body:GetAttribute("NormalColor") == nil then
+			body:SetAttribute("NormalColor", body.Color)
+		end
+		local smoke = body:FindFirstChild("OverheatSmoke")
+		if blocked then
+			body.Color = Color3.fromRGB(230, 40, 30)
+			if not smoke then
+				local s = Instance.new("Smoke")
+				s.Name = "OverheatSmoke"
+				s.Color = Color3.fromRGB(60, 60, 60)
+				s.Size = 4
+				s.RiseVelocity = 6
+				s.Opacity = 0.6
+				s.Parent = body
+			end
+		else
+			body.Color = body:GetAttribute("NormalColor") :: Color3
+			if smoke then
+				smoke:Destroy()
+			end
+		end
+	end
+
+	local prompt = getPrompt(oven)
+	if prompt then
+		if blocked then
+			prompt.ObjectText = "Oven (OVERHEATED)"
+		else
+			setOvenState(oven, oven:GetAttribute("OvenState") :: string)
+			if oven:GetAttribute("OvenState") == "Idle" then
+				prompt.ObjectText = "Oven"
+			end
+		end
+	end
+end
+
 function BakingPipeline.GetOvens(plot: Model): { Model }
 	local ovens = {}
 	for _, id in OVEN_IDS do
@@ -334,8 +375,8 @@ local function resetPlot(plot: Model)
 	for _, id in OVEN_IDS do
 		local oven = getItem(plot, id)
 		if oven then
-			oven:SetAttribute("Blocked", false)
 			setOvenState(oven, "Idle")
+			BakingPipeline.SetOvenBlocked(oven, false)
 		end
 	end
 end
