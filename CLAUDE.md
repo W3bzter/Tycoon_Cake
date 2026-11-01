@@ -1,66 +1,55 @@
-# MyGame
+# MyGame: Anomaly Bakery Tycoon
 
-This is a Roblox game project that uses **Script Sync** to keep the scripts in this folder in sync with Roblox Studio.
+Roblox game synced with Studio by **Script Sync**. Read this file first, then open only the modules you need.
 
-## Folder → Studio service mapping
+## Sync setup
+Folders map to Studio services: `ServerScriptService/`, `ReplicatedStorage/`, `StarterPlayerScripts/` (= `StarterPlayer.StarterPlayerScripts`). In Script Sync, link each service to the `MyGame` root (not to its own subfolder, or Studio nests it and scripts don't show).
+File types: `*.server.luau` = Script, `*.local.luau` = LocalScript, plain `*.luau` = ModuleScript. Never use `*.client.luau` in StarterPlayerScripts (runs twice).
 
-| Folder                  | Studio service                                  |
-|-------------------------|-------------------------------------------------|
-| `ServerScriptService/`  | `ServerScriptService`                           |
-| `ReplicatedStorage/`    | `ReplicatedStorage`                             |
-| `StarterPlayerScripts/` | `StarterPlayer.StarterPlayerScripts`            |
+## Ground rules
+- The world, machines, buttons and all Tools are built from code. Don't build gameplay parts in Studio; the place file isn't in git.
+- Every tunable number lives in `ReplicatedStorage/Shared/ConfigParts/<Feature>.luau`, read as `Config.<Name>` (`Shared/Config.luau` merges the parts; add a new part's name to its list).
+- Keep modules small (about 300 lines max) and in the folder of their feature. Server modules require siblings as `require(Services.<Folder>.<Module>)` with `local Services = script:FindFirstAncestor("Services")`.
+- All player actions are validated on the server (owner, distance, unlocked, not broken, rate limits).
+- Labels: every BillboardGui is `AlwaysOnTop`, `LightInfluence = 0`, short `MaxDistance` (`Style.Billboard` does this). Don't add labels that can stack on screen; reuse the machine's sign.
+- Robux: `Core/RobuxShop` is the only place that sets `ProcessReceipt`. Game Passes go through `Core/GamePasses`. Paid things never change random odds; Luck is PolicyService-gated (fails closed).
 
-Each Studio service is synced via the `MyGame` root folder: in Studio's Script Sync settings, link the services to `MyGame` itself, so each service maps to the top-level folder of the same name. Don't link a service to its own subfolder (e.g. `MyGame/ServerScriptService`). Studio then nests the service inside it (`ServerScriptService/ServerScriptService/`), and scripts don't show up in Studio.
+## Server layout (`ServerScriptService/`)
+`Main.server.luau` is the only entry point: it `Init()`s services by name in `ORDER` (add new services there) and, in Studio, creates `ServerStorage.DebugBridge`.
 
-Put server-only scripts in `ServerScriptService`, shared modules/assets used by both server and client in `ReplicatedStorage`, and client LocalScripts in `StarterPlayerScripts`.
+| Folder | Modules |
+|---|---|
+| `Core/` | `Remotes` (creates `Config.RemoteNames`), `DataManager` (load/save, stats, `ApplyReset`), `PlayerDataSchema` (data type + template), `PlotManager` (claim/release plots), `PlotStats` (totals upgrade Effects, Gem upgrades, rebirth bonus), `ToolFactory` (all Tools), `GamePasses`, `RobuxShop`, `DevTools` (Studio reset button), `SmokeTest` |
+| `World/` | `WorldBuilder` (plots, street), `ItemBuilders` (one builder per upgrade id), `Style` (palette, shapes, billboards), `Assets` (mesh templates with primitive fallbacks), `LightingSetup`, `TycoonButtons` (floor purchase pads), `Repairs` (broken machines) |
+| `Baking/` | `BakingPipeline` (interactions + setup; re-exports the others), `Ovens` (oven states, `FinishBake` = bake-time rolls), `Display` (counter slots, cakes on them), `Pantry` (bins, roll pop-up), `BakeUtil`, `Inventory` (Ingredient Bag, rolls, auto-delete), `MixingGame` (minigame sessions) |
+| `Factory/` | `AutoProduction` (production lines, hoppers, Full Automation auto-load) |
+| `Customers/` | `CustomerAI` (spawn, walk, buy), `CustomerLook` (rigs, animations, bubbles), `AvatarService` (friends' avatars), `NPCKit` (walking, gliding, hit system/Frying Pan) |
+| `Anomalies/` | `AnomalyManager` (timer, trigger), `AnomalyCommon` (shields, cutscenes, rewards), `Creatures` (Brute/Rat/Gremlin/Phantom models), `Kinds/<Name>` (one module per anomaly: `{CanRun, Run(cfg, deadline), Cleanup}`) |
+| `Economy/` | `GemShop` (consumables, Gem upgrades, Cash storage upgrades), `Rebirth`, `Achievements` |
+| `Effects/` | `VFX` (public API: ApplyCake/ApplyIngredient/Burst/Pillar), `CakeFX` (per mutation/trait/rarity look), `FxKit` (emitters, shells) |
 
-## Game: Anomaly Bakery Tycoon
+## Shared (`ReplicatedStorage/Shared/`)
+`Config` + `ConfigParts/*`, `PlotLayout` (upgrade metadata + button spots; floor plan in its header), `Recipes`, `Rarity` (tiers, ingredient traits, MakeCake; re-exports `CakeRolls`), `CakeRolls` (cake traits, mutations, RollBake), `CakeData` (CakeInfo ⇄ attributes), `RebirthDefs`, `Achievements` (definitions).
 
-- `ServerScriptService/Main.server.luau` is the only server entry point; it `Init()`s the modules in `ServerScriptService/Services/` in a fixed order. Add new services to its `ORDER` list.
-- The world (plots, street, machines, buttons) and all Tools are built from code (`WorldBuilder`, `ItemBuilders`, `ToolFactory`), because the place file is not in git. Don't build gameplay parts by hand in Studio.
-- `StarterPlayerScripts/ClientController.local.luau` is the client entry point; HUD pieces live in `StarterPlayerScripts/UI/`.
+## Client (`StarterPlayerScripts/`)
+`ClientController.local.luau` mounts everything and wires remotes. `UI/HUD/` (currency, toasts, button prices, highlighter, anomaly banner, recipe preview), `UI/Panels/` (Bag + auto-delete, Shop, Achievements, Rebirth, MixGame), `UI/Effects/` (RollReveal, Cutscene, WorldFX tag animations, ScreenShake).
 
-### Where things live
-- **Config** (`ReplicatedStorage/Shared/Config.luau`): every tunable: timers, prices of consumables, automation timings, Gem rewards, animation and sound IDs.
-- **Upgrades** (`ReplicatedStorage/Shared/PlotLayout.luau`): metadata only (Id, Tier, Category, Price, Currency, Requires list, ReplacedBy, Effects, button position). Plot-local coordinates; the file header has the floor plan. Chained upgrades reuse one button spot. Progression: Tier 0 hand tools (Pantry, Mixing Bowl `PrepTable`, `BasicOven`) → Tier 1 manual machines, which replace their hand tool via `ReplacedBy` (replaced items/buttons stay hidden and can't be bought) → Tier 4-5 automation. A new plot shows only the floor, spawn pad, owner tag and the Pantry button.
-- **Geometry** (`Services/ItemBuilders.luau`): one builder per upgrade Id, using the **`Style`** toolkit (pastel palette, `RoundedBox`, billboards, `MachineSign`, street props). Keep the part names other services look up: `Crate`/`Bins`, `Body`, `Door`, `Counter`, `Hopper`, `Panel`, `StorageSlots`.
-- **Labels**: every BillboardGui is `AlwaysOnTop`, `LightInfluence = 0`, with a short `MaxDistance` (`Style.Billboard` does this by default). `MachineSign`'s `lift` keeps front-row (automation) signs low and back-wall signs high so they never line up on screen; after adding labels, rerun the projected-overlap check (see the Phase 1 commit). Always-on-top billboards don't appear in MCP screenshots, but they do render in-game.
-- **Effects** (`Services/PlotStats.luau`): totals upgrade `Effects`, the Gem boost and the levelled Gem upgrades into BakeTime, CustomerRate, SalePrice (multipliers) and MixBatch, VIPChance, StorageSlots (additive). Add a new effect by adding it here and reading it where it applies.
-- **Recipes** (`ReplicatedStorage/Shared/Recipes.luau`): ingredients, cakes, base prices, unlock upgrade Ids.
-- **Rarity & value** (`ReplicatedStorage/Shared/Rarity.luau`): 8 rarities (Common..Mythic, Divine, Anomalous; colour, glow, value mult, odds, `Fx` level for effects), 4 ingredient traits, mix-quality multipliers, Luck odds shift, and `MakeCake` (value = recipe price × average ingredient factor × mix quality). Also the **bake-time rolls**: cake traits (`CakeTraits`: Fluffy, Sprinkled, Glazed, GoldenCrust, Cursed, Burnt; Nibbled/Spooked are only added by anomalies) and **mutations** (`Mutations`: Molten, Frozen, Electric, Galaxy, Rainbow, Void = anomaly-only), rolled by `RollBake`. Gems/Robux never change mutation odds. Shared so the client shows the same odds/values as the server.
-- **CakeData** (`Shared/CakeData.luau`): the one place that reads/writes a `CakeInfo` as attributes on tools (type = `Variant`), ovens and display slots (type = `CakeType`). Use it instead of copying attributes by hand.
-- **Ingredient Bag** (`Services/Inventory.luau`): saved per player (`PlayerData.Bag`). A free roll at the pantry adds one of every ingredient the unlocked recipes use. Mixing takes from the bag (★ pinned first, then most valuable, for the chosen `MixRecipe` or the best one). Rolls are never sold for Robux or Gems. Capacity grows with the Bag storage upgrade. **Auto-delete** (`PlayerData.Settings`, `Settings` remote, Bag panel): per kind (Ingredient/Batter/Cake) delete anything below a rarity, optionally keeping items with traits/mutations; checked at roll, mix and bake (`Inventory.ShouldDelete`).
-- **Baking** (`Services/BakingPipeline.luau`): pantry roll, mixing stations, ovens, display counters. Batter/cakes carry a `CakeInfo` (type, value, rarity, Anomaly, Fresh, quality, Traits, Mutation); customers pay the cake's value. Every finished bake (manual and automated) goes through `BakingPipeline.FinishBake`, which rolls traits/mutation and fires `Baked`. Anything with `IsOven` is an oven for Overheat Crisis. Rare+ rolls pop out of the pantry (Mythic+ also a light pillar and a server-wide toast).
-- **VFX** (`Services/VFX.luau` + client `UI/WorldFX.luau`): particles, shells, halos, bursts and pillars built from code with built-in `rbxasset://textures/particles/*`. `ApplyCake` / `ApplyIngredient` put everything in a model's `FX` folder (call again to replace). Animation runs on the client through CollectionService tags `FxSpin`, `FxRainbow`, `FxFlicker`, `FxBob`. Particles don't show in MCP screenshots.
-- **Roll reveal** (`UI/RollReveal.luau`): scales with the best tier's `Fx` (glow → shake → rays → full-screen Mythic/Divine/Anomalous moments). `UI/ScreenShake.luau` is the shared camera shake (also the `ScreenShake` remote).
-- **Mixing minigame** (`Services/MixingGame.luau` + `StarterPlayerScripts/UI/MixGame.luau`): a server-owned session per mix; the client reports the share of time inside the sweet spot; the server checks session id/timing and grades it (Perfect/Great/Good/Sloppy). Ingredients are only taken when a valid result arrives. Automation always mixes "Good".
-- **Automation** (`Services/AutoProduction.luau`): production lines ticked every 0.5s. Line 1 is built step by step (each step usable alone); lines 2 and 3 are self-contained units. **Hoppers never fill themselves**: players load recipe sets from the bag (Load = E, Fill = hold F); hopper contents and line recipes are saved (`PlayerData.Hoppers`, `LineRecipes`). Each line has an on/off switch (T, `PlayerData.LinesEnabled`). Automated ovens are tagged `IsOven` + `IsAutoOven`. Broken machines and jammed conveyors (`JammedUntil`) pause their step.
-- **Full Automation Game Pass** (`Services/GamePasses.luau`, `Config.GamePasses`, ID 0 = not set up): hoppers auto-load the cheapest unpinned ingredients and the pantry auto-rolls (normal cooldown and odds) when the bag can't fill a hopper. It only automates free actions. Ownership is cached and fails closed; `GamePasses.SetTestOwned` fakes it in Studio. Game passes don't touch `ProcessReceipt`.
-- **Storage upgrades** (`Config.Storage`, bought with Cash via the `ShopAction` remote in `GemShop`): bigger Ingredient Bag and bigger cake rack (`PlotStats.StorageSlots`).
-- **Customers** (`Services/CustomerAI.luau` + `Services/AvatarService.luau`): per-plot spawn timers (skipped while the plot is `Haunted`). NPCs wear the owner's friends' avatars (fallback: other players, then a colour-only default), want a cake, tip, can be VIPs. Mimics prefer Anomaly-touched/Cursed cakes. Walking is `NPCKit.WalkTo`.
-- **Anomalies** (`Services/AnomalyManager.luau` + one module per anomaly in `Services/Anomalies/`, shared helpers in `Services/AnomalyCommon.luau`, creatures and hits in `Services/NPCKit.luau`): GravityDistortion, OverheatCrisis (unchecked ovens **explode** at the end), MimicCustomer, Brute (smashes in and breaks machines), RatSwarm (steals bag items, nibbles cakes), Gremlin (lines off, recipe scramble, conveyor jam), Phantom (lights flicker, no customers, spooks cakes). Each module returns `{CanRun, Run(cfg, deadline), Cleanup}` and needs a `Config.Anomalies` entry; add a cutscene shot in `Config.Cutscene.Shots`. Players fight creatures with the 🍳 Frying Pan (`NPCKit.PanHit`), clicks or touch. `AnomalyManager.Trigger(name, duration?)` starts one for tests.
-- **Cutscenes** (`UI/Cutscene.luau`, `Cutscene` remote): letterbox, camera move per style, tint and title before the anomaly acts (`Config.Cutscene.Length`); the alert banner waits for it.
-- **Repairs** (`Services/Repairs.luau`): `Repairs.Break(plot, id, fraction)` marks a machine `Broken` (dark, smoking, its MachineSign turns red) and saves `PlayerData.Broken`; owners hold Q to pay `fraction` of its price (explosion 50%, anomaly damage 25%; `Config.Repair`). Breaks are re-applied on join.
-- **Rebirth** (`Shared/RebirthDefs.luau` + `Services/Rebirth.luau` + `UI/Rebirth.luau`): Cash plus specific held cakes (rarity/type/trait/mutation requirements). Resets Cash and plot upgrades via `DataManager.ApplyReset`, keeps everything else; +25% cake prices per rebirth (`PlotStats`) and +10% mutation chance.
-- **Achievements** (`Shared/Achievements.luau` + `Services/Achievements.luau` + `UI/Achievements.luau`): each one watches a `PlayerData.Stats` key (`DataManager.AddStat`/`MaxStat` fire `StatChanged`) and pays Gems; optional `BadgeId`. Add a stat where it happens, then a definition.
-- **Gems**: earned from anomalies (extinguish, stopping/defeating creatures), `CustomerAI` (VIP tips, Epic+ cake sales, `Config.RareCakeGems`) and achievements. Spent on gem-priced plot upgrades (`Currency = "Gems"`), consumables and levelled upgrades (Income, Baking Speed, Luck; `Config.GemUpgrades`) in `Services/GemShop.luau` via the `BuyGemItem` remote. **Luck is gated by PolicyService** (`ArePaidRandomItemsRestricted`, fails closed): hidden, unbuyable and 0 for restricted players.
-- **Robux shop** (`Services/RobuxShop.luau`): developer products in `Config.Products` (fixed Gem/Cash amounts, never random; ID 0 = not set up). `ProcessReceipt` dedupes by receipt ID saved in `PlayerData.Receipts`, and returns `PurchaseGranted` only after `DataManager.Save` succeeds (otherwise it rolls back and returns `NotProcessedYet`). Keep it the only place that sets `MarketplaceService.ProcessReceipt`.
-- **Player data** (`Services/DataManager.luau`): Cash, Gems, UnlockedUpgrades, ShieldCharges, BoostEndsAt, Stats, Bag, NextItemId, MixRecipe, GemUpgrades, Receipts, Settings, Storage, LinesEnabled, LineRecipes, Hoppers, Rebirths, Achievements, Broken. Add new fields to `TEMPLATE`; `reconcile()` fills them in for old saves. `ApplyReset(player, data, keepTools?)` swaps in new data and rebuilds the plot (Studio reset, rebirth).
+## Remotes (`Config.RemoteNames`)
+Server→client: `Notify`, `AnomalyStarted/Ended`, `Cutscene`, `ScreenShake`, `RollResult`, `BagUpdate`, `MixStart`, `AchievementSync/Unlocked`.
+Client→server: `BagAction`, `Settings`, `MixSubmit`, `BuyGemItem`, `ShopAction`, `GamePassPrompt`, `Rebirth`, `DevResetData` (Studio).
 
-### DevMode and Studio tools
-- `Config.DevMode = true` (set `false` to disable): only when `RunService:IsStudio()`, your Cash/Gems are set to `Config.DevModeAmount` on join and the save key is `Dev_<UserId>` instead of `Player_<UserId>`, so the real save (shared with the live game) is never touched. A "DEV MODE" tag shows on the HUD.
-- Studio-only "🔄 Reset my data" HUD button (`Services/DevTools.luau`) resets the current save key to a brand-new player and rebuilds the plot. With DevMode off it resets your real save. Command-bar equivalent is in the DevTools header.
+## Player data (`Core/PlayerDataSchema`)
+Cash, Gems, UnlockedUpgrades, ShieldCharges, BoostEndsAt, Stats (lifetime counters; achievements watch them), Bag, NextItemId, MixRecipe, GemUpgrades, Receipts, Settings (auto-delete), Storage, LinesEnabled, LineRecipes, Hoppers, Rebirths, Achievements, Broken. New field = add it to the schema; `reconcile()` fills old saves.
 
-### Art assets live in the place file (press Ctrl+S)
-- Ingredient, batter-bowl and cake meshes (made with `generate_mesh`) are templates in `ServerStorage.Assets/{Ingredients,Cakes,Props}`. That's in the place file, **not git**, so save the place (Ctrl+S) after changing them.
-- `Services/Assets.luau` lists the expected names, strips any scripts from templates, and falls back to primitive models when a template is missing, so a fresh place or git clone still works.
-- `Lighting.Technology` (Future) can't be set by scripts or the MCP; set it in Studio's Properties panel. Everything else about lighting is in `Services/LightingSetup.luau`.
+## Key flows
+- Cake value: ingredients (rarity × traits) → mix grade → bake rolls (cake traits, mutation) → `PlotStats.SalePrice` when sold.
+- Every bake ends in `Ovens.FinishBake` (fires `Baked`). Stats go through `DataManager.AddStat/MaxStat` → `StatChanged` → achievements.
+- Machines are found by name in `plot.Items`; `Broken`, `Visible`, `IsOven` are attributes.
 
-## Notes
-
-- Place files (`*.rbxl`, `*.rbxlx`) and `*.lock` files are git-ignored.
-- The Roblox Studio MCP server (`Roblox_Studio`) is available for interacting with the open Studio session.
-- Script file types: `*.server.luau` → Script, `*.local.luau` → LocalScript, plain `*.luau` → ModuleScript. Use `.local.luau` for scripts in `StarterPlayerScripts`. `*.client.luau` becomes a `Script` with `RunContext = Client`, which runs twice when placed in StarterPlayerScripts.
-- Tables returned through the DebugBridge are copies: re-read values instead of comparing a stale copy.
-- Testing: `require()` from MCP `execute_luau` gets a separate module copy, not the running one. In Studio playtests, call the running services through `ServerStorage.DebugBridge:Invoke("ServiceName", "Method", ...)` (created by `Main` only when `RunService:IsStudio()`).
-- Edits made while a playtest is running don't reach that playtest: stop it, check the change synced, then start again.
+## Testing
+- Stop the playtest, let Script Sync push the edits, start again (edits never reach a running test).
+- Smoke test (Server view): `game.ServerStorage.DebugBridge:Invoke("SmokeTest", "Run", game.Players:GetPlayers()[1], true)` → OK/FAIL per step plus logged errors. It resets the dev save. Update its steps when an API changes.
+- Call running services via `DebugBridge:Invoke("<Module>", "<Function>", ...)`; it finds any module by name. Tables returned through it are copies. `require()` from MCP gets a separate module copy.
+- `Config.DevMode` (Studio only): Cash/Gems top-up and a separate `Dev_<UserId>` save key. HUD "Reset my data" button (Studio only).
+- MCP screenshots don't show particles or always-on-top billboards.
+- Art meshes live in `ServerStorage.Assets` in the place file (not git): press Ctrl+S after changing them. `Lighting.Technology` must be set in Studio by hand.

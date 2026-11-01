@@ -28,10 +28,24 @@ local ORDER = {
 	"DevTools",
 }
 
+-- Services live in feature folders (Core, World, Baking, ...); find them by name.
+-- Script Sync may still be creating instances when the server starts, so wait.
+local function findModule(name: string): ModuleScript
+	local deadline = os.clock() + 10
+	while true do
+		local module = Services:FindFirstChild(name, true)
+		if module and module:IsA("ModuleScript") then
+			return module
+		end
+		assert(os.clock() < deadline, `[Main] service module {name} not found`)
+		task.wait(0.1)
+	end
+end
+
 local loaded: { [string]: any } = {}
 
 for _, name in ORDER do
-	local module = require(Services:WaitForChild(name)) :: any
+	local module = require(findModule(name)) :: any
 	loaded[name] = module
 	if type(module.Init) == "function" then
 		module.Init()
@@ -48,7 +62,7 @@ if RunService:IsStudio() then
 		local service = loaded[serviceName]
 		if not service then
 			-- Helper modules without Init (Assets, ToolFactory, Style...) aren't in ORDER.
-			local module = Services:FindFirstChild(serviceName)
+			local module = Services:FindFirstChild(serviceName, true)
 			service = module and module:IsA("ModuleScript") and (require(module) :: any)
 		end
 		assert(service, `DebugBridge: unknown service {serviceName}`)
