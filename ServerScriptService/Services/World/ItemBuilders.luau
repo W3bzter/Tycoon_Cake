@@ -18,7 +18,6 @@ local ItemBuilders: { [string]: (floor: CFrame, item: Model) -> () } = {}
 local B = Config.Building -- building shell size (ConfigParts/Build)
 local WALL_H = B.WallHeight
 local FACADE_Z = B.FacadeZ
-local BACK_Z = B.BackZ + 0.5 -- back wall centre
 local SIDE_X = B.HalfX - 0.5 -- side wall centres (±)
 local DECK_Y = B.DeckY
 
@@ -26,46 +25,65 @@ local function at(floor: CFrame, x: number, y: number, z: number): CFrame
 	return floor * CFrame.new(x, y, z)
 end
 
-ItemBuilders.Walls = function(floor, item)
+-- Every size stage of a fixed item: one child model per Config.Building.Stages
+-- entry, tagged Stage = n. Only the owner's current stage is shown (TycoonButtons).
+local function perStage(item: Model, build: (stage: Model, halfX: number, backZ: number, last: boolean) -> ())
+	for i, st in B.Stages do
+		local stage = Instance.new("Model")
+		stage.Name = `Stage{i}`
+		stage:SetAttribute("Stage", i)
+		build(stage, st.HalfX, st.BackZ, i == #B.Stages)
+		stage.Parent = item
+	end
+end
+
+-- The bakery shell for one size stage. Only the largest has the Factory Annex doorway.
+local function buildShell(floor: CFrame, item: Model, halfX: number, backZ: number, annexDoor: boolean)
 	local wallColor = P.Vanilla
-	local width = B.HalfX * 2
-	local depth = FACADE_Z - B.BackZ -- side walls run from the back wall to the facade
-	local midZ = (FACADE_Z + B.BackZ) / 2
-	-- Back wall (with the Factory Annex doorway) and side walls.
+	local width = halfX * 2
+	local depth = FACADE_Z - backZ -- side walls run from the back wall to the facade
+	local midZ = (FACADE_Z + backZ) / 2
+	local backC = backZ + 0.5
+	local sideX = halfX - 0.5
+	-- Back wall (with the Factory Annex doorway on the largest stage) and side walls.
 	local A = B.Annex
 	local doorH = 10
-	local function backPiece(name: string, x0: number, x1: number, y0: number, y1: number, depth: number?): Part
-		return Style.Part({ Name = name, Size = Vector3.new(x1 - x0, y1 - y0, depth or 1), CFrame = at(floor, (x0 + x1) / 2, (y0 + y1) / 2, BACK_Z), Color = wallColor, Parent = item })
+	local function backPiece(name: string, x0: number, x1: number, y0: number, y1: number, thick: number?): Part
+		return Style.Part({ Name = name, Size = Vector3.new(x1 - x0, y1 - y0, thick or 1), CFrame = at(floor, (x0 + x1) / 2, (y0 + y1) / 2, backC), Color = wallColor, Parent = item })
 	end
-	backPiece("BackWall", -B.HalfX, A.DoorX0, 0, WALL_H)
-	backPiece("BackWall", A.DoorX1, B.HalfX, 0, WALL_H)
-	backPiece("BackWallLintel", A.DoorX0, A.DoorX1, doorH, WALL_H)
-	-- Seals the doorway until the annex is bought (TycoonButtons hides HideWhenOwned parts).
-	local block = backPiece("AnnexDoorBlock", A.DoorX0, A.DoorX1, 0, doorH, 0.8)
-	block.Color = P.Cream
-	block:SetAttribute("HideWhenOwned", "FactoryAnnex")
-	local blockGui = Instance.new("SurfaceGui")
-	blockGui.Face = Enum.NormalId.Back -- +Z, into the bakery
-	blockGui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-	blockGui.PixelsPerStud = 30
-	blockGui.LightInfluence = 0
-	blockGui.Parent = block
-	local blockText = Instance.new("TextLabel")
-	blockText.Size = UDim2.fromScale(1, 0.4)
-	blockText.Position = UDim2.fromScale(0, 0.3)
-	blockText.BackgroundTransparency = 1
-	blockText.TextScaled = true
-	blockText.Font = Enum.Font.FredokaOne
-	blockText.TextColor3 = P.HotPink
-	blockText.Text = "🔒 Factory Annex\n(Build shop → Upgrades)"
-	blockText.Parent = blockGui
-	for _, x in { -SIDE_X, SIDE_X } do
+	if not annexDoor then
+		backPiece("BackWall", -halfX, halfX, 0, WALL_H)
+	else
+		backPiece("BackWall", -halfX, A.DoorX0, 0, WALL_H)
+		backPiece("BackWall", A.DoorX1, halfX, 0, WALL_H)
+		backPiece("BackWallLintel", A.DoorX0, A.DoorX1, doorH, WALL_H)
+		-- Seals the doorway until the annex is bought (TycoonButtons hides HideWhenOwned parts).
+		local block = backPiece("AnnexDoorBlock", A.DoorX0, A.DoorX1, 0, doorH, 0.8)
+		block.Color = P.Cream
+		block:SetAttribute("HideWhenOwned", "FactoryAnnex")
+		local blockGui = Instance.new("SurfaceGui")
+		blockGui.Face = Enum.NormalId.Back -- +Z, into the bakery
+		blockGui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+		blockGui.PixelsPerStud = 30
+		blockGui.LightInfluence = 0
+		blockGui.Parent = block
+		local blockText = Instance.new("TextLabel")
+		blockText.Size = UDim2.fromScale(1, 0.4)
+		blockText.Position = UDim2.fromScale(0, 0.3)
+		blockText.BackgroundTransparency = 1
+		blockText.TextScaled = true
+		blockText.Font = Enum.Font.FredokaOne
+		blockText.TextColor3 = P.HotPink
+		blockText.Text = "🔒 Factory Annex\n(Build shop → Upgrades)"
+		blockText.Parent = blockGui
+	end
+	for _, x in { -sideX, sideX } do
 		Style.Part({ Name = "SideWall", Size = Vector3.new(1, WALL_H, depth), CFrame = at(floor, x, WALL_H / 2, midZ), Color = wallColor, Parent = item })
 	end
 
 	-- Front facade on each side of the doorway: low band, pillars, glass windows
 	-- (the facade from the door edge to the side wall is split into equal bays).
-	local inner, outer = B.DoorHalf + 1, SIDE_X
+	local inner, outer = B.DoorHalf + 1, sideX
 	local bays = math.max(1, math.floor((outer - inner) / 16))
 	local bay = (outer - inner) / bays
 	local topY = 10 -- windows and the doorway are 10 studs tall; the band above fills to the roof
@@ -92,14 +110,22 @@ ItemBuilders.Walls = function(floor, item)
 
 	-- Cornice and baseboard bands for a chunky outline.
 	Style.Trim("Cornice", Vector3.new(width + 1.5, 1.2, 2.2), at(floor, 0, WALL_H + 0.3, FACADE_Z), P.HotPink, item)
-	Style.Trim("CorniceBack", Vector3.new(width + 1.5, 1.2, 2.2), at(floor, 0, WALL_H + 0.3, BACK_Z), P.HotPink, item)
-	for _, x in { -SIDE_X, SIDE_X } do
+	Style.Trim("CorniceBack", Vector3.new(width + 1.5, 1.2, 2.2), at(floor, 0, WALL_H + 0.3, backC), P.HotPink, item)
+	for _, x in { -sideX, sideX } do
 		Style.Part({ Name = "CorniceSide", Size = Vector3.new(2.2, 1.2, depth), CFrame = at(floor, x, WALL_H + 0.3, midZ), Color = P.HotPink, Parent = item })
 		Style.Part({ Name = "Baseboard", Size = Vector3.new(1.6, 1, depth), CFrame = at(floor, x, 0.5, midZ), Color = P.HotPink, Parent = item })
 	end
-	for _, span in { { -B.HalfX, A.DoorX0 }, { A.DoorX1, B.HalfX } } do
-		Style.Part({ Name = "Baseboard", Size = Vector3.new(span[2] - span[1], 1, 1.6), CFrame = at(floor, (span[1] + span[2]) / 2, 0.5, BACK_Z), Color = P.HotPink, Parent = item })
+	local spans = if annexDoor then { { -halfX, A.DoorX0 }, { A.DoorX1, halfX } } else { { -halfX, halfX } }
+	for _, span in spans do
+		Style.Part({ Name = "Baseboard", Size = Vector3.new(span[2] - span[1], 1, 1.6), CFrame = at(floor, (span[1] + span[2]) / 2, 0.5, backC), Color = P.HotPink, Parent = item })
 	end
+end
+
+ItemBuilders.Walls = function(floor, item)
+	perStage(item, function(stage, halfX, backZ, last)
+		buildShell(floor, stage, halfX, backZ, last)
+	end)
+	local topY = 10
 
 	-- Shop sign above the door.
 	local sign = Style.RoundedBox("ShopSign", Vector3.new(22, 4.5, 1), at(floor, 0, (topY + WALL_H) / 2, FACADE_Z + 1), P.White, item, 0.5)
@@ -228,7 +254,9 @@ ItemBuilders.Plants = function(floor, item)
 end
 
 ItemBuilders.Awning = function(floor, item)
-	Style.StripedAwning(B.HalfX * 2 - 2, 6, at(floor, 0, 10.2, FACADE_Z + 0.6), P.HotPink, P.White, item)
+	perStage(item, function(stage, halfX)
+		Style.StripedAwning(halfX * 2 - 2, 6, at(floor, 0, 10.2, FACADE_Z + 0.6), P.HotPink, P.White, stage)
+	end)
 end
 
 
@@ -317,8 +345,10 @@ end
 
 local function recipePoster(x: number, cakeName: string, icon: string, color: Color3)
 	return function(floor: CFrame, item: Model)
-		Style.RoundedBox("Frame", Vector3.new(7, 5, 0.4), at(floor, x, 11, BACK_Z + 1.3), P.Cocoa, item, 0.3)
-		panel("Poster", Vector3.new(6.2, 4.2, 0.3), at(floor, x, 11, BACK_Z + 1.6), color, `{icon}\n{cakeName}`, P.Cocoa, item)
+		perStage(item, function(stage, _halfX, backZ)
+			Style.RoundedBox("Frame", Vector3.new(7, 5, 0.4), at(floor, x, 11, backZ + 1.8), P.Cocoa, stage, 0.3)
+			panel("Poster", Vector3.new(6.2, 4.2, 0.3), at(floor, x, 11, backZ + 2.1), color, `{icon}\n{cakeName}`, P.Cocoa, stage)
+		end)
 	end
 end
 ItemBuilders.RecipeChocolate = recipePoster(-6, "Chocolate", "🍫", P.Peach)
@@ -361,6 +391,10 @@ ItemBuilders.FasterOvens3 = noModel
 ItemBuilders.OvenRack2 = noModel
 ItemBuilders.OvenRack3 = noModel
 ItemBuilders.OvenRack4 = noModel
+-- Bigger Bakery: the Walls/Awning/deck... items hold every size stage; the
+-- expansions only change which stage shows (TycoonButtons).
+ItemBuilders.BakeryExpansion1 = noModel
+ItemBuilders.BakeryExpansion2 = noModel
 
 ItemBuilders.BigMixer = function(floor, item)
 	local bowl = Style.Cylinder("BigBowl", 3, 5.6, at(floor, -12, 5.3, -35), P.Steel, item)
@@ -376,7 +410,9 @@ ItemBuilders.CakeCharm = function(floor, item)
 end
 
 ItemBuilders.GoldenShopfront = function(floor, item)
-	Style.Trim("GoldCornice", Vector3.new(B.HalfX * 2 + 2, 1.4, 2.6), at(floor, 0, WALL_H + 0.4, FACADE_Z), P.Gold, item)
+	perStage(item, function(stage, halfX)
+		Style.Trim("GoldCornice", Vector3.new(halfX * 2 + 2, 1.4, 2.6), at(floor, 0, WALL_H + 0.4, FACADE_Z), P.Gold, stage)
+	end)
 	for _, x in { -(B.DoorHalf + 1), B.DoorHalf + 1 } do
 		Style.RoundedBox("GoldPillar", Vector3.new(2.4, 7.2, 2), at(floor, x, 6.5, FACADE_Z), P.Gold, item, 0.6)
 	end
@@ -387,43 +423,55 @@ end
 -- Second floor: a deck over the front (dining) half of the building at wall
 -- height, reached by stairs along the right wall. The stairwell (x WELL_X..SIDE_X,
 -- from the landing to the facade) is left open.
-ItemBuilders.SecondFloor = function(floor, item)
+local function buildDeck(floor: CFrame, item: Model, halfX: number)
+	local sideX = halfX - 0.5
 	local deckColor = P.Peach
-	local wellX = SIDE_X - 9.5 -- deck's right edge = stairwell's left edge
+	local wellX = sideX - 9.5 -- deck's right edge = stairwell's left edge
 	local back = FACADE_Z - 40 -- deck's back edge
 	local steps, run = 16, 1.5
 	local rise = DECK_Y / steps
 	local stairBottom = FACADE_Z - 4 -- the lowest step, near the shop front
 	local stairTop = stairBottom - steps * run -- where the landing starts
-	local deckW = wellX + SIDE_X
-	Style.Part({ Name = "Deck", Size = Vector3.new(deckW, 1, FACADE_Z - back), CFrame = at(floor, (wellX - SIDE_X) / 2, DECK_Y - 0.5, (back + FACADE_Z) / 2), Color = deckColor, Material = Enum.Material.WoodPlanks, Parent = item })
-	Style.Part({ Name = "Landing", Size = Vector3.new(SIDE_X - wellX, 1, stairTop - back), CFrame = at(floor, (wellX + SIDE_X) / 2, DECK_Y - 0.5, (back + stairTop) / 2), Color = deckColor, Material = Enum.Material.WoodPlanks, Parent = item })
+	local deckW = wellX + sideX
+	Style.Part({ Name = "Deck", Size = Vector3.new(deckW, 1, FACADE_Z - back), CFrame = at(floor, (wellX - sideX) / 2, DECK_Y - 0.5, (back + FACADE_Z) / 2), Color = deckColor, Material = Enum.Material.WoodPlanks, Parent = item })
+	Style.Part({ Name = "Landing", Size = Vector3.new(sideX - wellX, 1, stairTop - back), CFrame = at(floor, (wellX + sideX) / 2, DECK_Y - 0.5, (back + stairTop) / 2), Color = deckColor, Material = Enum.Material.WoodPlanks, Parent = item })
 	for i = 1, steps do
 		local h = rise * i
 		Style.Part({
 			Name = "Step",
 			Size = Vector3.new(8, h, run),
-			CFrame = at(floor, SIDE_X - 5, h / 2, stairBottom - (i - 0.5) * run),
+			CFrame = at(floor, sideX - 5, h / 2, stairBottom - (i - 0.5) * run),
 			Color = if i % 2 == 0 then P.Cream else P.Vanilla,
 			Parent = item,
 		})
 	end
 	-- Railings: back edge of the deck, and along the stairwell.
-	Style.Part({ Name = "RailBack", Size = Vector3.new(SIDE_X * 2, 0.5, 0.5), CFrame = at(floor, 0, DECK_Y + 3, back + 0.2), Color = P.White, Parent = item })
+	Style.Part({ Name = "RailBack", Size = Vector3.new(sideX * 2, 0.5, 0.5), CFrame = at(floor, 0, DECK_Y + 3, back + 0.2), Color = P.White, Parent = item })
 	Style.Part({ Name = "RailWell", Size = Vector3.new(0.5, 0.5, FACADE_Z - stairTop), CFrame = at(floor, wellX - 0.2, DECK_Y + 3, (stairTop + FACADE_Z) / 2), Color = P.White, Parent = item })
-	for x = -SIDE_X + 2, wellX, 6 do
+	for x = -sideX + 2, wellX, 6 do
 		Style.Part({ Name = "Baluster", Size = Vector3.new(0.4, 3, 0.4), CFrame = at(floor, x, DECK_Y + 1.5, back + 0.2), Color = P.White, Parent = item })
 	end
 	for z = stairTop, FACADE_Z - 1, 6 do
 		Style.Part({ Name = "Baluster", Size = Vector3.new(0.4, 3, 0.4), CFrame = at(floor, wellX - 0.2, DECK_Y + 1.5, z), Color = P.White, Parent = item })
 	end
 	-- Rooftop café tables (clear of the VIP Lounge at x -27..-9, z 4..17).
-	for _, spot in { { -44, 4 }, { -44, 24 }, { 10, 6 }, { 28, 24 } } do
+	local spots = { { -18, 27 }, { 2, 6 }, { wellX - 6, 26 } }
+	if halfX >= 45 then
+		table.insert(spots, { -halfX + 8, 6 })
+		table.insert(spots, { -halfX + 8, 26 })
+	end
+	for _, spot in spots do
 		Style.Cylinder("TableTop", 0.4, 4.4, at(floor, spot[1], DECK_Y + 3, spot[2]), P.White, item)
 		Style.Cylinder("TableLeg", 2.8, 0.6, at(floor, spot[1], DECK_Y + 1.4, spot[2]), P.Sky, item)
 		Style.Cylinder("Umbrella", 0.4, 6, at(floor, spot[1], DECK_Y + 7, spot[2]), P.HotPink, item)
 		Style.Cylinder("Pole", 4, 0.3, at(floor, spot[1], DECK_Y + 5, spot[2]), P.White, item)
 	end
+end
+
+ItemBuilders.SecondFloor = function(floor, item)
+	perStage(item, function(stage, halfX)
+		buildDeck(floor, stage, halfX)
+	end)
 end
 
 ItemBuilders.VIPLounge = function(floor, item)

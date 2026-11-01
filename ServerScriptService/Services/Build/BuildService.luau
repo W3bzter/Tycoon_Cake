@@ -149,7 +149,7 @@ end
 
 function BuildService.CanPlace(player: Player, plot: Model, id: string, gx: number, gz: number, rot: number, ignoreUid: string?): (boolean, string?)
 	local rect = BuildRules.Place(BuildModels.Footprint(id), gx, gz, rot)
-	return BuildRules.Check(rect, BuildArea.Reserved(plot, player), placedRects(player, ignoreUid))
+	return BuildRules.Check(rect, BuildArea.Reserved(plot, player), placedRects(player, ignoreUid), BuildArea.Bounds(plot, player))
 end
 
 local function blocked(model: Model, action: string): string?
@@ -362,6 +362,31 @@ local function clearPlot(plot: Model)
 	plot:SetAttribute("BuildReserved", nil)
 end
 
+-- Saves from before the small starting bakery: grants the Bigger Bakery
+-- expansions needed so every placed item is still inside the walls.
+local function growToFit(player: Player, plot: Model, b: any)
+	local stages = #Config.Building.Stages
+	local need = TycoonButtons.Stage(player)
+	for _, record in b.Placed do
+		if BuildCatalog.Find(record.Id) then
+			local rect = BuildRules.Place(BuildModels.Footprint(record.Id), record.GX, record.GZ, record.Rot)
+			while need < stages do
+				local bounds = BuildRules.StageBounds(need)
+				if rect.X0 >= bounds.MinX - 0.05 and rect.X1 <= bounds.MaxX + 0.05 and rect.Z0 >= bounds.MinZ - 0.05 and rect.Z1 <= bounds.MaxZ + 0.05 then
+					break
+				end
+				need += 1
+			end
+		end
+	end
+	if need > TycoonButtons.Stage(player) then
+		for i = 1, need - 1 do
+			DataManager.Unlock(player, Config.Building.Expansions[i])
+		end
+		TycoonButtons.Sync(plot, player)
+	end
+end
+
 local function onClaimed(player: Player, plot: Model)
 	clearPlot(plot)
 	local b = buildData(player)
@@ -369,6 +394,7 @@ local function onClaimed(player: Player, plot: Model)
 		return
 	end
 	BuildService.Migrate(player, plot)
+	growToFit(player, plot, b)
 	for uid, record in b.Placed do
 		if BuildCatalog.Find(record.Id) then
 			spawn(plot, uid, record)

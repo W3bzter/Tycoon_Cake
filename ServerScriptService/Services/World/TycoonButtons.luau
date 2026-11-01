@@ -8,6 +8,8 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local BuildRules = require(Shared:WaitForChild("BuildRules"))
+local Config = require(Shared:WaitForChild("Config"))
 local PlotLayout = require(Shared:WaitForChild("PlotLayout"))
 
 local Services = script:FindFirstAncestor("Services") :: Folder
@@ -48,19 +50,59 @@ local function syncItems(plot: Model, owner: Player)
 	end
 end
 
--- Parts tagged HideWhenOwned = "<upgradeId>" (e.g. the panel sealing the Factory
--- Annex doorway in the back wall) disappear once the owner has that upgrade.
+-- The owner's bakery size stage (1 = starting size; Bigger Bakery upgrades add one).
+function TycoonButtons.Stage(owner: Player?): number
+	if not owner then
+		return 1
+	end
+	return BuildRules.Stage(function(id)
+		return DataManager.HasUnlock(owner, id)
+	end)
+end
+
+-- The Stage of the nearest Stage-tagged model around `inst` inside `item`, if any.
+local function stageAround(inst: Instance, item: Instance): number?
+	local node: Instance? = inst
+	while node and node ~= item do
+		local stage = node:GetAttribute("Stage")
+		if typeof(stage) == "number" then
+			return stage
+		end
+		node = node.Parent
+	end
+	return nil
+end
+
+-- Visibility rules inside shown items:
+--   Stage = n           models built per size stage (walls, awning, deck...): only the owner's stage shows
+--   HideWhenOwned = id  parts that disappear once the owner has that upgrade (the
+--                       panel sealing the Factory Annex doorway)
 local function applyHideRules(plot: Model, owner: Player?)
+	local current = TycoonButtons.Stage(owner)
 	local items = plot:FindFirstChild("Items") :: Folder
 	for _, item in items:GetChildren() do
 		local itemVisible = item:GetAttribute("Visible") == true
 		for _, d in item:GetDescendants() do
+			local stage = d:GetAttribute("Stage")
+			if typeof(stage) == "number" then
+				WorldBuilder.SetVisible(d, itemVisible and stage == current)
+			end
+		end
+		for _, d in item:GetDescendants() do
 			local id = d:GetAttribute("HideWhenOwned")
 			if typeof(id) == "string" and d:IsA("BasePart") then
-				WorldBuilder.SetVisible(d, itemVisible and not (owner and DataManager.HasUnlock(owner, id)))
+				local stage = stageAround(d, item)
+				local shown = itemVisible and (stage == nil or stage == current)
+				WorldBuilder.SetVisible(d, shown and not (owner and DataManager.HasUnlock(owner, id)))
 			end
 		end
 	end
+end
+
+-- Re-applies which fixed items and stage variants show (after unlocks granted in code).
+function TycoonButtons.Sync(plot: Model, owner: Player)
+	syncItems(plot, owner)
+	applyHideRules(plot, owner)
 end
 
 local function resetPlot(plot: Model)
@@ -118,6 +160,12 @@ function TycoonButtons.Init()
 		-- Saves from before the Factory Annex: automation already owned gets the room free.
 		if (DataManager.HasUnlock(player, "IngredientConveyor") or DataManager.HasUnlock(player, "ProductionLine2")) and not DataManager.HasUnlock(player, "FactoryAnnex") then
 			DataManager.Unlock(player, "FactoryAnnex")
+		end
+		-- The annex doorway is in the full-size bakery's back wall.
+		if DataManager.HasUnlock(player, "FactoryAnnex") then
+			for _, id in Config.Building.Expansions do
+				DataManager.Unlock(player, id)
+			end
 		end
 		resetPlot(plot)
 		syncItems(plot, player)

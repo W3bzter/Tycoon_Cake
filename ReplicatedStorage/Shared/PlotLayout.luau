@@ -32,6 +32,7 @@ PlotLayout.Upgrades = {
 
 	-- Tier 1: Manual machines (each replaces its hand tool in the same spot) -----------
 	{ Id = "Awning", DisplayName = "Striped Awning", Icon = "⛱️", Category = "Decor", Tier = 1, Price = 200, Requires = { "Walls" } },
+	{ Id = "BakeryExpansion1", DisplayName = "Bigger Bakery I", Icon = "📐", Category = "Build", Tier = 1, Price = 1500, Requires = { "Awning" } },
 
 	-- Tier 2: Shopfront --------------------------------------------------------------
 	{ Id = "RecipeChocolate", DisplayName = "Chocolate Recipe", Icon = "🍫", Category = "Kitchen", Tier = 2, Price = 600, Requires = { "Oven" } },
@@ -41,12 +42,13 @@ PlotLayout.Upgrades = {
 	-- Tier 3: Expansion ----------------------------------------------------------------
 	{ Id = "RecipeStrawberry", DisplayName = "Strawberry Recipe", Icon = "🍓", Category = "Kitchen", Tier = 3, Price = 3000, Requires = { "RecipeChocolate", "DisplayCounter2" } },
 	{ Id = "SecondFloor", DisplayName = "Second Floor", Icon = "🪜", Category = "Build", Tier = 3, Price = 4500, Requires = { "Seating", "DisplayCounter2" } },
+	{ Id = "BakeryExpansion2", DisplayName = "Bigger Bakery II", Icon = "📐", Category = "Build", Tier = 3, Price = 9000, Requires = { "BakeryExpansion1", "DisplayCounter2" } },
 	{ Id = "FasterOvens2", DisplayName = "Oven Speed II", Icon = "⏱️", Category = "Kitchen", Tier = 3, Price = 8000, Requires = { "FasterOvens1" }, Effects = { BakeTime = 0.8 } },
 	{ Id = "OvenRack3", DisplayName = "Oven Rack III", Icon = "🧁", Category = "Kitchen", Tier = 3, Price = 7500, Requires = { "OvenRack2", "FasterOvens1" }, Effects = { OvenRacks = 1 } },
 	{ Id = "VIPLounge", DisplayName = "VIP Lounge", Icon = "👑", Category = "Decor", Tier = 3, Price = 15000, Requires = { "SecondFloor" }, Effects = { VIPChance = 0.12 } },
 
 	-- Tier 4: Factory Annex (a new room behind the bakery), then automation inside it (line 1, bought in order) ------------------------------
-	{ Id = "FactoryAnnex", DisplayName = "Factory Annex", Icon = "🏭", Category = "Build", Tier = 4, Price = 10000, Requires = { "RecipeStrawberry", "FasterOvens2" } },
+	{ Id = "FactoryAnnex", DisplayName = "Factory Annex", Icon = "🏭", Category = "Build", Tier = 4, Price = 10000, Requires = { "BakeryExpansion2", "RecipeStrawberry", "FasterOvens2" } },
 	{ Id = "IngredientConveyor", DisplayName = "Ingredient Conveyor", Icon = "📦", Category = "Auto", Tier = 4, Price = 12000, Requires = { "FactoryAnnex" } },
 	{ Id = "AutoMixer", DisplayName = "Auto-Mixer", Icon = "🤖", Category = "Auto", Tier = 4, Price = 18000, Requires = { "IngredientConveyor" } },
 	{ Id = "AutoOven", DisplayName = "Auto-Oven", Icon = "🤖", Category = "Auto", Tier = 4, Price = 27000, Requires = { "AutoMixer" } },

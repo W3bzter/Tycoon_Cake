@@ -110,8 +110,11 @@ local function startGhost(id: string, from: Model?)
 		mode = "place"
 		rot = 0
 		local template = BuildGhost.Template(id) :: Model
-		gx = (template:GetAttribute("DefaultGX") :: number?) or 0
-		gz = (template:GetAttribute("DefaultGZ") :: number?) or 0
+		-- Start at the item's usual spot, pulled inside a small bakery's walls.
+		local b = BuildGhost.Bounds(plot)
+		local g = Config.Build.Grid
+		gx = math.clamp((template:GetAttribute("DefaultGX") :: number?) or 0, math.ceil(b.MinX / g) + 1, math.floor(b.MaxX / g) - 1)
+		gz = math.clamp((template:GetAttribute("DefaultGZ") :: number?) or 0, math.ceil(b.MinZ / g) + 1, math.floor(b.MaxZ / g) - 1)
 	end
 	selectModel(nil)
 	menu.SetMode(mode, nil)

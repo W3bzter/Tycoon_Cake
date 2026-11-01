@@ -89,20 +89,22 @@ local function buildEntrance(plot: Model, floor: CFrame)
 	entrance.Parent = plot
 end
 
-local function buildFloor(plot: Model, floor: CFrame)
-	-- Pink checker tiles (8 studs) inside the building footprint (Config.Building).
+-- Floor tiles and patio fence for one size stage (`parent` = the Walls item's
+-- Stage<n> model, so they show with that stage's walls).
+local function buildFloor(parent: Instance, floor: CFrame, halfX: number, backZ: number)
+	-- Pink checker tiles (8 studs) inside the building footprint.
 	local B = Config.Building
 	local tiles = Instance.new("Model")
 	tiles.Name = "Tiles"
-	local countX = math.floor(B.HalfX * 2 / 8)
-	local countZ = math.floor((B.FacadeZ + 0.5 - B.BackZ) / 8)
+	local countX = math.floor(halfX * 2 / 8)
+	local countZ = math.floor((B.FacadeZ + 0.5 - backZ) / 8)
 	for ix = 0, countX - 1 do
 		for iz = 0, countZ - 1 do
 			if (ix + iz) % 2 == 0 then
 				Style.Part({
 					Name = "Tile",
 					Size = Vector3.new(8, 0.05, 8),
-					CFrame = floor * CFrame.new(-B.HalfX + 4 + ix * 8, 0.025, B.BackZ + 4 + iz * 8),
+					CFrame = floor * CFrame.new(-halfX + 4 + ix * 8, 0.025, backZ + 4 + iz * 8),
 					Color = P.Pink,
 					CanCollide = false,
 					Parent = tiles,
@@ -110,19 +112,19 @@ local function buildFloor(plot: Model, floor: CFrame)
 			end
 		end
 	end
-	tiles.Parent = plot
+	tiles.Parent = parent
 
 	-- Low picket fence along the patio sides.
 	local fence = Instance.new("Model")
 	fence.Name = "Fence"
 	local z0, z1 = B.FacadeZ + 0.5, B.FrontZ
-	for _, x in { -(B.HalfX - 0.4), B.HalfX - 0.4 } do
+	for _, x in { -(halfX - 0.4), halfX - 0.4 } do
 		for z = z0, z1, 4 do
 			Style.RoundedBox("Picket", Vector3.new(0.8, 3, 0.8), floor * CFrame.new(x, 1.5, z), P.White, fence, 0.35)
 		end
 		Style.Part({ Name = "Rail", Size = Vector3.new(0.4, 0.5, z1 - z0), CFrame = floor * CFrame.new(x, 2.2, (z0 + z1) / 2), Color = P.White, Parent = fence })
 	end
-	fence.Parent = plot
+	fence.Parent = parent
 end
 
 local function buildUpgrades(plot: Model, floor: CFrame)
@@ -140,7 +142,9 @@ local function buildUpgrades(plot: Model, floor: CFrame)
 		if upgrade.Id == "Walls" then
 			-- A new plot is just the bare floor: tiles, fence and entrance arch
 			-- arrive with the building.
-			buildFloor(item, floor)
+			for i, st in Config.Building.Stages do
+				buildFloor(item:FindFirstChild(`Stage{i}`) or item, floor, st.HalfX, st.BackZ)
+			end
 			buildEntrance(item, floor)
 		end
 		item.Parent = items

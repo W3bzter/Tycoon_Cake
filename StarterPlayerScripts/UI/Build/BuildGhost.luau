@@ -100,6 +100,13 @@ function BuildGhost.Reserved(plot: Model): { BuildRules.Rect }
 	return rects
 end
 
+-- Where you may place things: your bakery's current size stage (BuildStage, set by
+-- the server's Build/BuildArea) plus the patio.
+function BuildGhost.Bounds(plot: Model): BuildRules.Bounds
+	local stage = plot:GetAttribute("BuildStage")
+	return BuildRules.StageBounds(if typeof(stage) == "number" then stage else 1)
+end
+
 -- Same check the server runs: (ok, reason, rect).
 function BuildGhost.Check(plot: Model, id: string, gx: number, gz: number, rot: number, ignore: Model?): (boolean, string?, BuildRules.Rect?)
 	local foot = BuildGhost.Footprint(id)
@@ -107,7 +114,7 @@ function BuildGhost.Check(plot: Model, id: string, gx: number, gz: number, rot: 
 		return false, "still loading", nil
 	end
 	local rect = BuildRules.Place(foot, gx, gz, rot)
-	local ok, reason = BuildRules.Check(rect, BuildGhost.Reserved(plot), placedRects(plot, ignore))
+	local ok, reason = BuildRules.Check(rect, BuildGhost.Reserved(plot), placedRects(plot, ignore), BuildGhost.Bounds(plot))
 	return ok, reason, rect
 end
 
@@ -168,28 +175,26 @@ function BuildGhost.New(id: string): Ghost?
 	return ghost
 end
 
--- Grid lines over the plot floor plus red plates where nothing may be built.
+-- Grid lines over your buildable area plus red plates where nothing may be built.
+-- Redrawn when the server republishes them (a purchase, a bigger bakery).
 local overlay: Folder? = nil
-local overlayConn: RBXScriptConnection? = nil
+local overlayConns: { RBXScriptConnection } = {}
 
 function BuildGhost.HideOverlay()
-	if overlayConn then
-		overlayConn:Disconnect()
-		overlayConn = nil
+	for _, conn in overlayConns do
+		conn:Disconnect()
 	end
+	overlayConns = {}
 	if overlay then
 		overlay:Destroy()
 		overlay = nil
 	end
 end
 
-function BuildGhost.ShowOverlay(plot: Model)
-	BuildGhost.HideOverlay()
-	local folder = Instance.new("Folder")
-	folder.Name = "BuildOverlay"
-	overlay = folder
+local function drawOverlay(plot: Model, folder: Folder)
+	folder:ClearAllChildren()
 	local floor = BuildRules.Floor(plot)
-	local b = Config.Build.Bounds
+	local b = BuildGhost.Bounds(plot)
 	local g = Config.Build.Grid
 	local w, d = b.MaxX - b.MinX, b.MaxZ - b.MinZ
 	local cx, cz = (b.MinX + b.MaxX) / 2, (b.MinZ + b.MaxZ) / 2
@@ -206,20 +211,30 @@ function BuildGhost.ShowOverlay(plot: Model)
 		line.CFrame = floor * CFrame.new(cx, 0.04, z)
 		line.Parent = folder
 	end
-	local blocked = Instance.new("Folder")
-	blocked.Name = "Reserved"
-	blocked.Parent = folder
-	local function drawReserved()
-		blocked:ClearAllChildren()
-		for _, r in BuildGhost.Reserved(plot) do
+	for _, r in BuildGhost.Reserved(plot) do
+		-- Clip to the buildable area so plates outside it don't clutter the view.
+		local x0, x1 = math.max(r.X0, b.MinX), math.min(r.X1, b.MaxX)
+		local z0, z1 = math.max(r.Z0, b.MinZ), math.min(r.Z1, b.MaxZ)
+		if x1 > x0 and z1 > z0 then
 			local plate = visualPart(BAD_COLOR, 0.75)
-			plate.Size = Vector3.new(math.max(r.X1 - r.X0, 0.1), 0.06, math.max(r.Z1 - r.Z0, 0.1))
-			plate.CFrame = floor * CFrame.new((r.X0 + r.X1) / 2, 0.05, (r.Z0 + r.Z1) / 2)
-			plate.Parent = blocked
+			plate.Size = Vector3.new(math.max(x1 - x0, 0.1), 0.06, math.max(z1 - z0, 0.1))
+			plate.CFrame = floor * CFrame.new((x0 + x1) / 2, 0.05, (z0 + z1) / 2)
+			plate.Parent = folder
 		end
 	end
-	drawReserved()
-	overlayConn = plot:GetAttributeChangedSignal("BuildReserved"):Connect(drawReserved)
+end
+
+function BuildGhost.ShowOverlay(plot: Model)
+	BuildGhost.HideOverlay()
+	local folder = Instance.new("Folder")
+	folder.Name = "BuildOverlay"
+	overlay = folder
+	drawOverlay(plot, folder)
+	for _, name in { "BuildReserved", "BuildStage" } do
+		table.insert(overlayConns, plot:GetAttributeChangedSignal(name):Connect(function()
+			drawOverlay(plot, folder)
+		end))
+	end
 	folder.Parent = workspace.CurrentCamera
 end
 

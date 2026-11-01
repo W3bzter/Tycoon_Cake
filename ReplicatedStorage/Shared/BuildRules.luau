@@ -46,9 +46,28 @@ function BuildRules.Overlaps(a: Rect, b: Rect): boolean
 	return a.X0 < b.X1 - EPS and b.X0 < a.X1 - EPS and a.Z0 < b.Z1 - EPS and b.Z0 < a.Z1 - EPS
 end
 
--- Is `rect` inside the plot and clear of every reserved / other rect?
-function BuildRules.Check(rect: Rect, reserved: { Rect }, others: { Rect }): (boolean, string?)
-	local b = Config.Build.Bounds
+export type Bounds = { MinX: number, MaxX: number, MinZ: number, MaxZ: number }
+
+-- The bakery's size stage (1 = starting size) from which expansions are owned.
+function BuildRules.Stage(hasUnlock: (string) -> boolean): number
+	local stage = 1
+	for _, id in Config.Building.Expansions do
+		if hasUnlock(id) then
+			stage += 1
+		end
+	end
+	return math.min(stage, #Config.Building.Stages)
+end
+
+-- Where items may be placed at a stage: inside the walls plus the patio in front.
+function BuildRules.StageBounds(stage: number): Bounds
+	local st = Config.Building.Stages[math.clamp(stage, 1, #Config.Building.Stages)]
+	return { MinX = -st.HalfX + 0.5, MaxX = st.HalfX - 0.5, MinZ = st.BackZ + 0.5, MaxZ = Config.Building.FrontZ }
+end
+
+-- Is `rect` inside `bounds` (default: the largest area) and clear of every reserved / other rect?
+function BuildRules.Check(rect: Rect, reserved: { Rect }, others: { Rect }, bounds: Bounds?): (boolean, string?)
+	local b = bounds or Config.Build.Bounds
 	if rect.X0 < b.MinX - EPS or rect.X1 > b.MaxX + EPS or rect.Z0 < b.MinZ - EPS or rect.Z1 > b.MaxZ + EPS then
 		return false, "outside your bakery"
 	end

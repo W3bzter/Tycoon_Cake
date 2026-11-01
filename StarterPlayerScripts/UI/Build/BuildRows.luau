@@ -108,6 +108,8 @@ local function describe(upgrade: PlotLayout.Upgrade): string
 	end
 	if upgrade.Id == "FactoryAnnex" then
 		return "A factory room behind your bakery for automation."
+	elseif string.sub(upgrade.Id, 1, 15) == "BakeryExpansion" then
+		return "Moves your walls out: more room to build."
 	elseif #parts > 0 then
 		return table.concat(parts, ", ")
 	elseif string.sub(upgrade.Id, 1, 6) == "Recipe" then
