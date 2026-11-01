@@ -1,12 +1,5 @@
 -- Client entry point: builds the HUD and wires server RemoteEvents to UI modules.
 
--- Script Sync makes this a Script with RunContext = Client, which runs both from
--- StarterPlayer.StarterPlayerScripts and from the player's PlayerScripts copy.
--- Only the PlayerScripts copy should run.
-if not script:FindFirstAncestorOfClass("PlayerScripts") then
-	return
-end
-
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
