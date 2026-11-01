@@ -9,7 +9,9 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Recipes = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Recipes"))
 local Rarity = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Rarity"))
+local CakeData = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("CakeData"))
 local Assets = require(script.Parent.Assets)
+local VFX = require(script.Parent.VFX)
 
 local ToolFactory = {}
 
@@ -115,33 +117,26 @@ function ToolFactory.Give(player: Player, kind: string, variant: string?): Tool?
 	return tool
 end
 
--- Cake info (Shared/Rarity CakeInfo) travels on batter/cake tools as attributes.
+-- Cake info (Shared/Rarity CakeInfo) travels on batter/cake tools as attributes
+-- (Shared/CakeData; the type is the tool's Variant).
 function ToolFactory.SetCakeInfo(tool: Tool, info: Rarity.CakeInfo)
-	tool:SetAttribute("Variant", info.Type)
-	tool:SetAttribute("CakeValue", info.Value)
-	tool:SetAttribute("CakeRarity", info.Rarity)
-	tool:SetAttribute("Anomaly", info.Anomaly)
-	tool:SetAttribute("Fresh", info.Fresh)
-	tool:SetAttribute("Quality", info.Quality)
+	CakeData.Write(tool, info, "Variant")
 	local cake = Recipes.Cakes[info.Type]
 	local base = if cake then (cake.DisplayName:gsub(" Cake", "")) else info.Type
 	local kind = tool:GetAttribute("ItemKind")
 	local icon = if kind == "RawBatter" then "🥣" elseif cake then cake.Icon else "🍰"
 	local suffix = if kind == "RawBatter" then " Batter" else " Cake"
-	tool.Name = `{icon} {Rarity.Name(info.Rarity)} {base}{suffix} ${info.Value}`
+	local badges = Rarity.CakeBadges(info)
+	tool.Name = `{icon} {Rarity.Name(info.Rarity)} {base}{suffix} ${info.Value}{if badges ~= "" then " " .. badges else ""}`
+	local handle = tool:FindFirstChild("Handle")
+	local art = handle and handle:FindFirstChildWhichIsA("Model")
+	if art then
+		VFX.ApplyCake(art, info, true)
+	end
 end
 
 function ToolFactory.GetCakeInfo(tool: Tool): Rarity.CakeInfo
-	local cakeType = (tool:GetAttribute("Variant") :: string?) or "Vanilla"
-	local cake = Recipes.Cakes[cakeType]
-	return {
-		Type = cakeType,
-		Value = (tool:GetAttribute("CakeValue") :: number?) or (cake and cake.Price or 25),
-		Rarity = (tool:GetAttribute("CakeRarity") :: number?) or 1,
-		Anomaly = tool:GetAttribute("Anomaly") == true,
-		Fresh = tool:GetAttribute("Fresh") == true,
-		Quality = (tool:GetAttribute("Quality") :: string?) or "Good",
-	}
+	return CakeData.Read(tool, "Variant")
 end
 
 function ToolFactory.GiveCakeItem(player: Player, kind: string, info: Rarity.CakeInfo): Tool?

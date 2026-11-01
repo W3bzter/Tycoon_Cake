@@ -17,6 +17,8 @@ local GemShop = require(UI:WaitForChild("GemShop"))
 local InteractHighlighter = require(UI:WaitForChild("InteractHighlighter"))
 local RecipePreview = require(UI:WaitForChild("RecipePreview"))
 local Toast = require(UI:WaitForChild("Toast"))
+local WorldFX = require(UI:WaitForChild("WorldFX"))
+local ScreenShake = require(UI:WaitForChild("ScreenShake"))
 
 local screen = Instance.new("ScreenGui")
 screen.Name = "BakeryHUD"
@@ -89,6 +91,9 @@ RollReveal.Mount(screen)
 Remotes:WaitForChild("RollResult").OnClientEvent:Connect(RollReveal.Show)
 MixGame.Mount(screen)
 Remotes:WaitForChild("MixStart").OnClientEvent:Connect(MixGame.Play)
+
+WorldFX.Mount()
+Remotes:WaitForChild("ScreenShake").OnClientEvent:Connect(ScreenShake.Shake)
 
 Remotes:WaitForChild("Notify").OnClientEvent:Connect(Toast.Show)
 Remotes:WaitForChild("AnomalyStarted").OnClientEvent:Connect(function(name: string, duration: number)

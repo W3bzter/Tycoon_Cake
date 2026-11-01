@@ -37,6 +37,7 @@ local PlotManager = require(script.Parent.PlotManager)
 local PlotStats = require(script.Parent.PlotStats)
 local Remotes = require(script.Parent.Remotes)
 local ToolFactory = require(script.Parent.ToolFactory)
+local VFX = require(script.Parent.VFX)
 
 local AutoProduction = {}
 
@@ -59,6 +60,7 @@ type Line = {
 	baking: Rarity.CakeInfo?, -- the cake currently in the oven
 	deliverT: number,
 	autoLoadT: number,
+	starved: boolean?, -- Full Automation: bag full and nothing usable
 }
 
 type PlotState = {
@@ -67,12 +69,8 @@ type PlotState = {
 }
 
 local states: { [Model]: PlotState } = {}
+local lastStarveWarning: { [Player]: number } = setmetatable({}, { __mode = "k" }) :: any
 
-local bakedEvent = Instance.new("BindableEvent")
-AutoProduction.Baked = bakedEvent.Event -- (owner, CakeInfo) when an automated oven finishes
-
--- Set by later phases to roll cake traits/mutations when an automated bake ends.
-AutoProduction.FinishBake = nil :: ((owner: Player, oven: Model, info: Rarity.CakeInfo) -> Rarity.CakeInfo)?
 
 local function newLine(index: number, name: string, unitId: string?): Line
 	return {
@@ -176,9 +174,7 @@ local function slide(plot: Model, info: Rarity.CakeInfo, points: { Vector3 }, du
 	local model = Assets.Clone("Cakes", info.Type)
 	model:ScaleTo(model:GetScale() * 0.55)
 	Assets.Anchor(model, CFrame.new(points[1]), plot)
-	if AutoProduction.DecorateMovingCake then
-		AutoProduction.DecorateMovingCake(model, info)
-	end
+	VFX.ApplyCake(model, info, true)
 	local value = Instance.new("CFrameValue")
 	value.Value = model:GetPivot()
 	value.Changed:Connect(function(cf)
@@ -199,8 +195,6 @@ local function slide(plot: Model, info: Rarity.CakeInfo, points: { Vector3 }, du
 	end)
 end
 
--- Set by VFX (Phase 7): decorates cosmetic cakes on the belt / rack.
-AutoProduction.DecorateMovingCake = nil :: ((Model, Rarity.CakeInfo) -> ())?
 
 local function refreshStorage(plot: Model, state: PlotState)
 	local rack = getItem(plot, "AutoRestock")
@@ -228,9 +222,7 @@ local function refreshStorage(plot: Model, state: PlotState)
 			local model = Assets.Clone("Cakes", info.Type)
 			model:ScaleTo(model:GetScale() * 0.6)
 			Assets.Anchor(model, marker.CFrame, folder)
-			if AutoProduction.DecorateMovingCake then
-				AutoProduction.DecorateMovingCake(model, info)
-			end
+			VFX.ApplyCake(model, info, true)
 		end
 	end
 	folder.Parent = plot
@@ -288,8 +280,18 @@ local function tickLine(plot: Model, owner: Player, state: PlotState, line: Line
 		line.autoLoadT += TICK
 		if line.autoLoadT >= A.AutoLoadInterval then
 			line.autoLoadT = 0
-			if loadSets(owner, line, 1, "cheapest") == 0 then
+			if loadSets(owner, line, 1, "cheapest") > 0 then
+				line.starved = false
+			elseif Inventory.RollFits(owner) then
 				Inventory.Roll(owner, true) -- normal cooldown and odds; loads next time
+			else
+				-- The bag is too full to roll and has nothing this line can use.
+				line.starved = true
+				local now = os.clock()
+				if now - (lastStarveWarning[owner] or 0) > 45 then
+					lastStarveWarning[owner] = now
+					notify(owner, `🎒 {line.name} is starving: your bag is full of ingredients it can't use. Toss some, change its recipe, or mix by hand!`)
+				end
 			end
 		end
 	end
@@ -326,12 +328,8 @@ local function tickLine(plot: Model, owner: Player, state: PlotState, line: Line
 			line.bakeRemaining = (line.bakeRemaining :: number) - TICK
 			if (line.bakeRemaining :: number) <= 0 then
 				line.bakeRemaining = nil
-				local info = line.baking :: Rarity.CakeInfo
+				local info = BakingPipeline.FinishBake(owner, oven, line.baking :: Rarity.CakeInfo, false)
 				line.baking = nil
-				if AutoProduction.FinishBake then
-					info = AutoProduction.FinishBake(owner, oven, info)
-				end
-				bakedEvent:Fire(owner, info)
 				if not Inventory.ShouldDelete(owner, "Cake", info.Rarity, Rarity.IsSpecial(info)) then
 					table.insert(line.tray, info)
 				end
@@ -387,7 +385,9 @@ local function updatePrompts(plot: Model, owner: Player, line: Line)
 			status ..= ` | 🔥 {bakeText} | 🍰 {#line.tray}`
 		end
 	end
-	if #line.hopper == 0 and enabled and auto == "" then
+	if line.starved and #line.hopper == 0 and auto ~= "" then
+		status ..= " | 🎒 bag full!"
+	elseif #line.hopper == 0 and enabled and auto == "" then
 		status ..= " | load me!"
 	end
 	statusGui(part, if line.unitId then 1.6 else 3.2).Text = status

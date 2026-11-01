@@ -174,6 +174,19 @@ function Inventory.AddItems(player: Player, items: { Rarity.Item }): boolean
 	return true
 end
 
+-- Would a roll fit in the bag right now (ignoring the cooldown)?
+function Inventory.RollFits(player: Player): boolean
+	local bag = bagOf(player)
+	if not bag then
+		return false
+	end
+	local count = 0
+	for _ in Recipes.NeededIngredients(hasUnlockFn(player)) do
+		count += 1
+	end
+	return #bag + count <= Inventory.Capacity(player)
+end
+
 -- Fired after every successful roll with all rolled items (including auto-deleted
 -- ones, marked Deleted). Used for stats, achievements and the pantry VFX.
 local rollEvent = Instance.new("BindableEvent")

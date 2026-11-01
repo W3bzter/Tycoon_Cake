@@ -177,6 +177,11 @@ Config.Sounds = {
 	Purchase = "rbxasset://sounds/electronicpingshort.wav",
 	Denied = "rbxasset://sounds/clickfast.wav",
 	Sale = "rbxasset://sounds/electronicpingshort.wav",
+	BigRoll = "rbxasset://sounds/electronicpingshort.wav", -- Legendary+ roll fanfare (pitched)
+	Explosion = "rbxasset://sounds/collide.wav",
+	Repair = "rbxasset://sounds/clickfast.wav",
+	AnomalySting = "rbxasset://sounds/electronicpingshort.wav", -- cutscene sting (pitched down)
+	Achievement = "rbxasset://sounds/electronicpingshort.wav",
 }
 
 -- World ----------------------------------------------------------------------

@@ -10,6 +10,9 @@
 --   Slot part:    HasCake, ForSale, Reserved, CakeType
 --   Player:       UnlockedRecipes = "Vanilla,Chocolate" (for the client's mixer preview)
 
+local CollectionService = game:GetService("CollectionService")
+local Debris = game:GetService("Debris")
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -17,7 +20,10 @@ local Config = require(Shared:WaitForChild("Config"))
 local Rarity = require(Shared:WaitForChild("Rarity"))
 local Recipes = require(Shared:WaitForChild("Recipes"))
 
+local CakeData = require(Shared:WaitForChild("CakeData"))
+
 local Assets = require(script.Parent.Assets)
+local VFX = require(script.Parent.VFX)
 local DataManager = require(script.Parent.DataManager)
 local Inventory = require(script.Parent.Inventory)
 local PlotManager = require(script.Parent.PlotManager)
@@ -32,6 +38,9 @@ local BakingPipeline = {}
 -- (player, CakeInfo) after every hand mix, before auto-delete (stats/achievements).
 local mixedEvent = Instance.new("BindableEvent")
 BakingPipeline.Mixed = mixedEvent.Event
+-- (owner, CakeInfo) after every bake (manual and automated), with traits/mutation.
+local bakedEvent = Instance.new("BindableEvent")
+BakingPipeline.Baked = bakedEvent.Event
 
 local OVEN_IDS = { "BasicOven", "Oven", "Oven2", "Oven3" } -- manual ovens (automated ones live in AutoProduction)
 local COUNTER_IDS = { "DisplayCounter", "DisplayCounter2" }
@@ -111,6 +120,29 @@ local function setOvenState(oven: Model, state: string)
 	end
 end
 
+-- Bake finished (manual or automated): rolls cake traits and a mutation
+-- (Shared/Rarity.RollBake), records stats and celebrates mutations.
+function BakingPipeline.FinishBake(owner: Player?, oven: Model, info: Rarity.CakeInfo, overheated: boolean?): Rarity.CakeInfo
+	local data = owner and DataManager.Get(owner)
+	local out = Rarity.RollBake(info, {
+		AnomalyActive = ReplicatedStorage:GetAttribute("ActiveAnomaly") ~= nil,
+		Overheated = overheated,
+		Rebirths = data and data.Rebirths or 0,
+	})
+	if owner then
+		bakedEvent:Fire(owner, out)
+		if out.Mutation then
+			local m = Rarity.Mutations[out.Mutation]
+			local body = oven:FindFirstChild("Body") :: BasePart?
+			if body then
+				VFX.Burst(body.Position, "Mutation", m.Color)
+			end
+			notify(owner, `{m.Icon} MUTATION! {out.Mutation} {cakeName(out.Type)} (x{m.Mult} value)`)
+		end
+	end
+	return out
+end
+
 local function runBake(oven: Model, plot: Model)
 	local duration = PlotStats.BakeDuration(PlotManager.GetOwner(plot), oven)
 	if oven:GetAttribute("Fresh") then
@@ -119,21 +151,27 @@ local function runBake(oven: Model, plot: Model)
 	oven:SetAttribute("BakeRemaining", duration)
 	setOvenState(oven, "Baking")
 	local prompt = getPrompt(oven)
+	local overheated = false
 	while (oven:GetAttribute("BakeRemaining") :: number) > 0 do
 		local dt = task.wait(0.25)
 		if oven.Parent == nil or oven:GetAttribute("OvenState") ~= "Baking" then
-			return -- plot was reset
+			return -- plot was reset (or the oven exploded)
 		end
-		if not oven:GetAttribute("Blocked") then -- Overheat Crisis pauses baking
+		if not oven:GetAttribute("Blocked") and not oven:GetAttribute("Broken") then -- Overheat Crisis pauses baking
 			local remaining = math.max(0, (oven:GetAttribute("BakeRemaining") :: number) - dt)
 			oven:SetAttribute("BakeRemaining", remaining)
 			if prompt then
 				prompt.ObjectText = `Oven ({math.ceil(remaining)}s)`
 			end
-		elseif prompt then
-			prompt.ObjectText = "Oven (OVERHEATED)"
+		else
+			overheated = overheated or oven:GetAttribute("Blocked") == true
+			if prompt then
+				prompt.ObjectText = "Oven (OVERHEATED)"
+			end
 		end
 	end
+	local info = BakingPipeline.FinishBake(PlotManager.GetOwner(plot), oven, CakeData.Read(oven), overheated)
+	CakeData.Write(oven, info)
 	setOvenState(oven, "Ready")
 end
 
@@ -268,7 +306,14 @@ local function decorateCake(model: Model, info: Rarity.CakeInfo)
 	label.TextColor3 = tier.Color
 	label.TextScaled = true
 	label.Font = Enum.Font.FredokaOne
-	label.Text = `{info.Anomaly and "👁️ " or ""}{tier.Name} ${info.Value}`
+	local badges = Rarity.CakeBadges(info)
+	label.Text = `{info.Anomaly and "👁️ " or ""}{tier.Name} ${info.Value}{if badges ~= "" then "\n" .. badges else ""}`
+	if badges ~= "" then
+		gui.Size = UDim2.fromScale(3.6, 1.7)
+	end
+	if info.Mutation and Rarity.Mutations[info.Mutation] then
+		label.TextColor3 = Rarity.Mutations[info.Mutation].Color:Lerp(Color3.new(1, 1, 1), 0.2)
+	end
 	label.Parent = gui
 	local corner = Instance.new("UICorner")
 	corner.CornerRadius = UDim.new(0.4, 0)
@@ -278,6 +323,7 @@ local function decorateCake(model: Model, info: Rarity.CakeInfo)
 	stroke.Thickness = 1.5
 	stroke.Parent = label
 	gui.Parent = model.PrimaryPart or ring
+	VFX.ApplyCake(model, info)
 end
 
 local function placeCake(plot: Model, slot: BasePart, info: Rarity.CakeInfo)
@@ -287,11 +333,7 @@ local function placeCake(plot: Model, slot: BasePart, info: Rarity.CakeInfo)
 	Assets.Anchor(model, slot.CFrame * CFrame.new(0, slot.Size.Y / 2, 0), cakesFolder(plot))
 	decorateCake(model, info)
 
-	slot:SetAttribute("CakeType", info.Type)
-	slot:SetAttribute("CakeValue", info.Value)
-	slot:SetAttribute("CakeRarity", info.Rarity)
-	slot:SetAttribute("Anomaly", info.Anomaly)
-	slot:SetAttribute("Quality", info.Quality)
+	CakeData.Write(slot, info)
 	slot:SetAttribute("HasCake", true)
 	slot:SetAttribute("ForSale", true)
 	slot:SetAttribute("Reserved", false)
@@ -345,22 +387,12 @@ function BakingPipeline.TakeCake(plot: Model, slot: BasePart): (boolean, Rarity.
 	if not slot:GetAttribute("HasCake") then
 		return false, nil
 	end
-	local cakeType = (slot:GetAttribute("CakeType") :: string?) or "Vanilla"
-	local info: Rarity.CakeInfo = {
-		Type = cakeType,
-		Value = (slot:GetAttribute("CakeValue") :: number?) or Recipes.Cakes[cakeType].Price,
-		Rarity = (slot:GetAttribute("CakeRarity") :: number?) or 1,
-		Anomaly = slot:GetAttribute("Anomaly") == true,
-		Fresh = false,
-		Quality = (slot:GetAttribute("Quality") :: string?) or "Good",
-	}
+	local info = CakeData.Read(slot)
 	local cake = cakesFolder(plot):FindFirstChild(slot.Name)
 	if cake then
 		cake:Destroy()
 	end
-	for _, attr in { "CakeType", "CakeValue", "CakeRarity", "Anomaly", "Quality" } do
-		slot:SetAttribute(attr, nil)
-	end
+	CakeData.Clear(slot)
 	slot:SetAttribute("HasCake", false)
 	slot:SetAttribute("ForSale", false)
 	slot:SetAttribute("Reserved", false)
@@ -391,6 +423,42 @@ function BakingPipeline.RefreshPantry(plot: Model)
 		local bin = getBin(plot, ingredient)
 		if bin then
 			WorldBuilder.SetVisible(bin, needed[ingredient] == true)
+		end
+	end
+end
+
+-- Roll spectacle: Rare+ ingredients pop out of the pantry (everyone sees it);
+-- Mythic+ also fire a pillar of light and a server-wide announcement.
+local function showPantryRoll(player: Player, items: { any })
+	local plot = PlotManager.GetPlot(player)
+	local pantry = plot and getItem(plot, "IngredientCrate")
+	local crate = pantry and pantry:FindFirstChild("Crate") :: BasePart?
+	if not plot or not crate then
+		return
+	end
+	local shown = {}
+	for _, item in items do
+		if item.Rarity >= 3 and not item.Deleted then
+			table.insert(shown, item)
+		end
+	end
+	for i, item in shown do
+		local model = Assets.Clone("Ingredients", item.Type)
+		model:ScaleTo(model:GetScale() * (1 + item.Rarity * 0.12))
+		local offset = (i - (#shown + 1) / 2) * 2.6
+		local cf = crate.CFrame * CFrame.new(offset, crate.Size.Y / 2 + 3, 0)
+		Assets.Anchor(model, CFrame.new(cf.Position), plot)
+		VFX.ApplyIngredient(model, item)
+		CollectionService:AddTag(model, "FxBob") -- the client floats and spins it
+		Debris:AddItem(model, 2.8)
+		local tier = Rarity.Tiers[item.Rarity]
+		if item.Rarity >= Rarity.MYTHIC then
+			VFX.Pillar(cf.Position, tier.Color, 4)
+			VFX.Burst(cf.Position, "Rebirth", tier.Color)
+			local info = Recipes.Ingredients[item.Type]
+			for _, other in Players:GetPlayers() do
+				notify(other, `⭐ {player.DisplayName} rolled {string.upper(tier.Name)} {info and info.Icon or ""} {item.Type}!`)
+			end
 		end
 	end
 end
@@ -461,28 +529,14 @@ local function ovenHandler(player: Player, plot: Model, oven: Model)
 			notify(player, "You need Raw Batter from the mixer.")
 			return
 		end
-		local info = ToolFactory.GetCakeInfo(batter)
-		oven:SetAttribute("CakeType", info.Type)
-		oven:SetAttribute("CakeValue", info.Value)
-		oven:SetAttribute("CakeRarity", info.Rarity)
-		oven:SetAttribute("Anomaly", info.Anomaly)
-		oven:SetAttribute("Fresh", info.Fresh)
-		oven:SetAttribute("Quality", info.Quality)
+		CakeData.Write(oven, ToolFactory.GetCakeInfo(batter))
 		batter:Destroy()
 		task.spawn(runBake, oven, plot)
 	elseif state == "Ready" then
-		local cakeType = (oven:GetAttribute("CakeType") :: string?) or "Vanilla"
+		local info = CakeData.Read(oven)
 		setOvenState(oven, "Idle")
-		local info: Rarity.CakeInfo = {
-			Type = cakeType,
-			Value = (oven:GetAttribute("CakeValue") :: number?) or Recipes.Cakes[cakeType].Price,
-			Rarity = (oven:GetAttribute("CakeRarity") :: number?) or 1,
-			Anomaly = oven:GetAttribute("Anomaly") == true,
-			Fresh = oven:GetAttribute("Fresh") == true,
-			Quality = (oven:GetAttribute("Quality") :: string?) or "Good",
-		}
 		if Inventory.ShouldDelete(player, "Cake", info.Rarity, Rarity.IsSpecial(info)) then
-			notify(player, `🗑️ Auto-deleted a {Rarity.Name(info.Rarity)} {cakeName(cakeType)}`)
+			notify(player, `🗑️ Auto-deleted a {Rarity.Name(info.Rarity)} {cakeName(info.Type)}`)
 			return
 		end
 		ToolFactory.GiveCakeItem(player, "FinishedCake", info)
@@ -646,6 +700,7 @@ function BakingPipeline.Init()
 		end
 	end
 	PlotManager.PlotReleased:Connect(resetPlot)
+	Inventory.Rolled:Connect(showPantryRoll)
 
 	-- TycoonButtons shows/hides whole items; defer so the bin filter runs after it.
 	PlotManager.PlotClaimed:Connect(function(_player, plot)

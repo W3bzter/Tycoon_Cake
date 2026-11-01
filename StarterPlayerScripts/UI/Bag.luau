@@ -6,6 +6,7 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
@@ -25,7 +26,7 @@ local title: TextLabel
 local recipeButton: TextButton
 local hudButton: TextButton
 local oddsPanel: Frame
-local oddsList: Frame
+local oddsList: ScrollingFrame
 
 local function corner(inst: GuiObject, r: number)
 	local c = Instance.new("UICorner")
@@ -90,9 +91,42 @@ local function renderOdds(player: Player)
 		row.TextXAlignment = Enum.TextXAlignment.Left
 	end
 	local note = label(oddsList, if luck > 0 then string.format("🍀 Luck +%d%% applied. Rolls are always free.", math.floor(luck * 100 + 0.5)) else "Rolls are always free.", UDim2.new(1, 0, 0, 18), UDim2.new(), Color3.fromRGB(200, 200, 210))
-	note.LayoutOrder = 99
+	note.LayoutOrder = 50
 	note.TextXAlignment = Enum.TextXAlignment.Left
+
+	-- Bake-time rolls: cake traits and mutations.
+	local function row(text: string, color: Color3, order: number)
+		local r = label(oddsList, text, UDim2.new(1, 0, 0, 18), UDim2.new(), color)
+		r.LayoutOrder = order
+		r.TextXAlignment = Enum.TextXAlignment.Left
+	end
+	row("🔥 When a cake finishes baking it can gain:", Color3.fromRGB(255, 200, 140), 60)
+	for j, name in Rarity.CakeTraitOrder do
+		local t = Rarity.CakeTraits[name]
+		if t.Chance > 0 then
+			row(string.format("%s %s  %.1f%%  (%s)", t.Icon, name, t.Chance * 100, t.Description), Color3.fromRGB(255, 240, 200), 60 + j)
+		end
+	end
+	local rebirths = (player:GetAttribute("Rebirths") :: number?) or 0
+	row(string.format("🧬 Mutation chance: %.1f%% for a Common cake, more for rarer ones (x3 during anomalies)", Rarity.MutationChance(1, { Rebirths = rebirths }) * 100), Color3.fromRGB(220, 180, 255), 80)
+	for j, name in Rarity.MutationOrder do
+		local m = Rarity.Mutations[name]
+		row(`{m.Icon} {name}  x{m.Mult} value{if m.AnomalyOnly then " (only during anomalies)" else ""}`, m.Color:Lerp(Color3.new(1, 1, 1), 0.3), 80 + j)
+	end
 end
+
+-- Mythic+ bag cards get a slowly turning shimmer on their border.
+local shimmer: { UIGradient } = {}
+RunService.RenderStepped:Connect(function(dt)
+	for i = #shimmer, 1, -1 do
+		local g = shimmer[i]
+		if g.Parent == nil then
+			table.remove(shimmer, i)
+		else
+			g.Rotation = (g.Rotation + dt * 120) % 360
+		end
+	end
+end)
 
 local function render()
 	hudButton.Text = `🎒 Bag {#state.Items}/{state.Capacity}`
@@ -114,6 +148,17 @@ local function render()
 		stroke.Color = tier.Color
 		stroke.Thickness = 2 + tier.Glow
 		stroke.Parent = cell
+		if item.Rarity >= Rarity.MYTHIC then
+			stroke.Color = Color3.new(1, 1, 1)
+			local g = Instance.new("UIGradient")
+			g.Color = ColorSequence.new({
+				ColorSequenceKeypoint.new(0, tier.Color),
+				ColorSequenceKeypoint.new(0.5, Color3.new(1, 1, 1)),
+				ColorSequenceKeypoint.new(1, tier.Color),
+			})
+			g.Parent = stroke
+			table.insert(shimmer, g)
+		end
 
 		local info = Recipes.Ingredients[item.Type]
 		label(cell, info and info.Icon or "❓", UDim2.new(1, 0, 0, 34), UDim2.fromOffset(0, 4))
@@ -207,10 +252,13 @@ function Bag.Mount(screen: ScreenGui, player: Player)
 	oddsPanel.ZIndex = 6
 	oddsPanel.Parent = panel
 	corner(oddsPanel, 10)
-	oddsList = Instance.new("Frame")
+	oddsList = Instance.new("ScrollingFrame")
 	oddsList.Size = UDim2.new(1, -16, 1, -16)
 	oddsList.Position = UDim2.fromOffset(8, 8)
 	oddsList.BackgroundTransparency = 1
+	oddsList.ScrollBarThickness = 6
+	oddsList.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	oddsList.CanvasSize = UDim2.new()
 	oddsList.Parent = oddsPanel
 	local oddsLayout = Instance.new("UIListLayout")
 	oddsLayout.Padding = UDim.new(0, 4)
