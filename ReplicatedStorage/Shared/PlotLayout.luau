@@ -35,12 +35,14 @@ PlotLayout.Upgrades = {
 
 	-- Tier 2: Shopfront --------------------------------------------------------------
 	{ Id = "RecipeChocolate", DisplayName = "Chocolate Recipe", Icon = "🍫", Category = "Kitchen", Tier = 2, Price = 600, Requires = { "Oven" } },
-	{ Id = "FasterOvens1", DisplayName = "Faster Ovens I", Icon = "⏱️", Category = "Kitchen", Tier = 2, Price = 1500, Requires = { "Oven" }, Effects = { BakeTime = 0.8 } },
+	{ Id = "FasterOvens1", DisplayName = "Oven Speed I", Icon = "⏱️", Category = "Kitchen", Tier = 2, Price = 1500, Requires = { "Oven" }, Effects = { BakeTime = 0.8 } },
+	{ Id = "OvenRack2", DisplayName = "Oven Rack II", Icon = "🧁", Category = "Kitchen", Tier = 2, Price = 1000, Requires = { "Oven" }, Effects = { OvenRacks = 1 } },
 
 	-- Tier 3: Expansion ----------------------------------------------------------------
 	{ Id = "RecipeStrawberry", DisplayName = "Strawberry Recipe", Icon = "🍓", Category = "Kitchen", Tier = 3, Price = 3000, Requires = { "RecipeChocolate", "DisplayCounter2" } },
 	{ Id = "SecondFloor", DisplayName = "Second Floor", Icon = "🪜", Category = "Build", Tier = 3, Price = 4500, Requires = { "Seating", "DisplayCounter2" } },
-	{ Id = "FasterOvens2", DisplayName = "Faster Ovens II", Icon = "⏱️", Category = "Kitchen", Tier = 3, Price = 8000, Requires = { "FasterOvens1" }, Effects = { BakeTime = 0.8 } },
+	{ Id = "FasterOvens2", DisplayName = "Oven Speed II", Icon = "⏱️", Category = "Kitchen", Tier = 3, Price = 8000, Requires = { "FasterOvens1" }, Effects = { BakeTime = 0.8 } },
+	{ Id = "OvenRack3", DisplayName = "Oven Rack III", Icon = "🧁", Category = "Kitchen", Tier = 3, Price = 7500, Requires = { "OvenRack2", "FasterOvens1" }, Effects = { OvenRacks = 1 } },
 	{ Id = "VIPLounge", DisplayName = "VIP Lounge", Icon = "👑", Category = "Decor", Tier = 3, Price = 15000, Requires = { "SecondFloor" }, Effects = { VIPChance = 0.12 } },
 
 	-- Tier 4: Automation (production line 1, bought in order) ------------------------------
@@ -49,10 +51,11 @@ PlotLayout.Upgrades = {
 	{ Id = "AutoOven", DisplayName = "Auto-Oven", Icon = "🤖", Category = "Auto", Tier = 4, Price = 27000, Requires = { "AutoMixer" } },
 	{ Id = "CounterConveyor", DisplayName = "Counter Conveyor", Icon = "➡️", Category = "Auto", Tier = 4, Price = 40000, Requires = { "AutoOven" } },
 	{ Id = "AutoRestock", DisplayName = "Auto-Restock Rack", Icon = "🗄️", Category = "Auto", Tier = 4, Price = 60000, Requires = { "CounterConveyor" }, Effects = { StorageSlots = 6 } },
+	{ Id = "OvenRack4", DisplayName = "Oven Rack IV", Icon = "🧁", Category = "Kitchen", Tier = 4, Price = 40000, Requires = { "OvenRack3", "FasterOvens2" }, Effects = { OvenRacks = 1 } },
 
 	-- Tier 5: Production lines --------------------------------------------------------------
 	{ Id = "ProductionLine2", DisplayName = "Production Line 2", Icon = "🏭", Category = "Auto", Tier = 5, Price = 90000, Requires = { "AutoRestock" } },
-	{ Id = "FasterOvens3", DisplayName = "Faster Ovens III", Icon = "⏱️", Category = "Kitchen", Tier = 5, Price = 135000, Requires = { "FasterOvens2", "ProductionLine2" }, Effects = { BakeTime = 0.75 } },
+	{ Id = "FasterOvens3", DisplayName = "Oven Speed III", Icon = "⏱️", Category = "Kitchen", Tier = 5, Price = 135000, Requires = { "FasterOvens2", "ProductionLine2" }, Effects = { BakeTime = 0.75 } },
 	{ Id = "ProductionLine3", DisplayName = "Production Line 3", Icon = "🏭", Category = "Auto", Tier = 5, Price = 200000, Requires = { "ProductionLine2" } },
 	{ Id = "GoldenShopfront", DisplayName = "Golden Shopfront", Icon = "✨", Category = "Decor", Tier = 5, Price = 300000, Requires = { "ProductionLine3" }, Effects = { SalePrice = 1.1, VIPChance = 0.05 } },
 

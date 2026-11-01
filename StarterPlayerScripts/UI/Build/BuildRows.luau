@@ -100,6 +100,8 @@ local function describe(upgrade: PlotLayout.Upgrade): string
 			table.insert(parts, `+{math.round((value - 1) * 100)}% cake prices`)
 		elseif key == "VIPChance" then
 			table.insert(parts, `+{math.round(value * 100)}% VIP customers`)
+		elseif key == "OvenRacks" then
+			table.insert(parts, "Your oven bakes 1 more cake at once")
 		elseif key == "StorageSlots" then
 			table.insert(parts, `+{value} storage slots`)
 		end

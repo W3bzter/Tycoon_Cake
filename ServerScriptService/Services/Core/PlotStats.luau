@@ -8,6 +8,7 @@
 --   MixBatch      +  extra batters per mix (Big Mixer)
 --   VIPChance     +  chance a customer is a VIP (VIP Lounge, Golden Shopfront)
 --   StorageSlots  +  overflow cake storage (Auto-Restock)
+--   OvenRacks     +  cakes the bakery oven bakes at once (base 1, Oven Rack upgrades)
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -37,6 +38,7 @@ export type Stats = {
 	MixBatch: number,
 	VIPChance: number,
 	StorageSlots: number,
+	OvenRacks: number,
 }
 
 function PlotStats.Get(player: Player?): Stats
@@ -47,6 +49,7 @@ function PlotStats.Get(player: Player?): Stats
 		MixBatch = 1,
 		VIPChance = 0,
 		StorageSlots = 0,
+		OvenRacks = 1,
 	}
 	if not player then
 		return stats :: any

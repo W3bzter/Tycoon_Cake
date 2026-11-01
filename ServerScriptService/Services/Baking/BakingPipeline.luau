@@ -138,29 +138,40 @@ handlers.MixStation = function(player, _plot, station)
 	end
 end
 
+-- E on the oven: collect a finished cake if there is one, otherwise load every
+-- Raw Batter you carry into the free racks (Baking/Ovens).
 handlers.Oven = function(player, plot, oven)
 	if oven:GetAttribute("Blocked") then
 		notify(player, "This oven is overheating! Put it out first.")
 		return
 	end
-	local state = oven:GetAttribute("OvenState")
-	if state == "Idle" then
-		local batter = ToolFactory.Find(player, "RawBatter")[1]
-		if not batter then
-			notify(player, "You need Raw Batter from the mixer.")
-			return
-		end
-		CakeData.Write(oven, ToolFactory.GetCakeInfo(batter))
-		batter:Destroy()
-		Ovens.StartBake(oven, plot)
-	elseif state == "Ready" then
-		local info = CakeData.Read(oven)
-		Ovens.SetState(oven, "Idle")
+	local ready = Ovens.RackIn(oven, "Ready")
+	if ready then
+		local info = Ovens.Collect(oven, ready)
 		if Inventory.ShouldDelete(player, "Cake", info.Rarity, Rarity.IsSpecial(info)) then
 			notify(player, `🗑️ Auto-deleted a {Rarity.Name(info.Rarity)} {cakeName(info.Type)}`)
 			return
 		end
 		ToolFactory.GiveCakeItem(player, "FinishedCake", info)
+		return
+	end
+	local batters = ToolFactory.Find(player, "RawBatter")
+	if #batters == 0 then
+		notify(player, "You need Raw Batter from the mixer.")
+		return
+	end
+	local loaded = 0
+	for _, batter in batters do
+		local rack = Ovens.RackIn(oven, "Idle")
+		if not rack then
+			break
+		end
+		Ovens.Load(oven, rack, ToolFactory.GetCakeInfo(batter), plot)
+		batter:Destroy()
+		loaded += 1
+	end
+	if loaded == 0 then
+		notify(player, "Every rack is baking. Buy more Oven Racks in the Build shop's Upgrades tab!")
 	end
 end
 
@@ -266,7 +277,7 @@ local function setupMachine(plot: Model, model: Model)
 		model:SetAttribute("IsOven", true)
 		model:SetAttribute("Blocked", false)
 		model:SetAttribute("SpeedMult", if idOf(model) == "BasicOven" then BASIC_OVEN_SPEED else nil) -- read by PlotStats.BakeDuration
-		Ovens.SetState(model, "Idle")
+		Ovens.Setup(model, plot) -- racks + upgrade visuals
 	elseif kind == "Counter" then
 		buildSlots(model, part)
 	end
@@ -278,7 +289,7 @@ local function busyReason(model: Model, action: string): string?
 	-- No OvenState yet = setupMachine (a deferred ItemPlaced handler) hasn't run: a brand-new, empty oven.
 	local state = model:GetAttribute("OvenState")
 	if kind == "Oven" and ((state ~= nil and state ~= "Idle") or model:GetAttribute("Blocked")) then
-		return "The oven is busy: collect the cake first."
+		return "The oven is busy: wait for its cakes and collect them first."
 	end
 	local plot = plotOf(model)
 	if kind == "Counter" and action ~= "move" and plot then
@@ -297,7 +308,7 @@ local function resetPlot(plot: Model)
 	end
 	for _, oven in Ovens.GetOvens(plot) do
 		if not oven:GetAttribute("IsAutoOven") then
-			Ovens.SetState(oven, "Idle")
+			Ovens.ResetOven(oven)
 			BakingPipeline.SetOvenBlocked(oven, false)
 		end
 	end
@@ -325,6 +336,7 @@ function BakingPipeline.Init()
 	end)
 	TycoonButtons.UpgradeUnlocked:Connect(function(_player, plot)
 		task.defer(BakingPipeline.RefreshPantry, plot)
+		Ovens.SetupPlot(plot) -- Oven Rack / Oven Speed / Golden Oven bought
 	end)
 	for _, plot in (workspace:WaitForChild("Plots") :: Folder):GetChildren() do
 		if plot:IsA("Model") and PlotManager.GetOwner(plot) then

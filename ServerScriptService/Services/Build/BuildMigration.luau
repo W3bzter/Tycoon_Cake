@@ -10,6 +10,8 @@
 --   CakeCharm -> inventory
 -- Second pass (PlayerData.Build.MigratedShop), when the floor buttons went away:
 --   Pantry (IngredientCrate), Street Sign, Radio Ad -> placed at their old spots
+-- Phase 4 (one oven with racks): each old extra oven (Build.LegacyOvens, from
+--   Oven2/Oven3) becomes a free Oven Rack upgrade (OvenRack2, OvenRack3).
 
 local Services = script:FindFirstAncestor("Services") :: Folder
 local BuildModels = require(Services.Build.BuildModels)
@@ -23,10 +25,17 @@ local OLD_TABLE_SPOTS = { { -28, 6 }, { -16, 6 }, { -28, 16 }, { -16, 16 } }
 
 local SHOP_ITEMS = { "IngredientCrate", "StreetSign", "RadioAd" } -- were fixed floor-button items
 
+local function convertLegacyOvens(player: Player, b: any)
+	for i = 1, math.min(b.LegacyOvens or 0, 2) do
+		DataManager.Unlock(player, `OvenRack{i + 1}`)
+	end
+	b.LegacyOvens = 0
+end
+
 local function migrate(player: Player, plot: Model)
 	local data = DataManager.Get(player)
 	local b = data and data.Build
-	if not data or not b or (b.Migrated and b.MigratedShop) then
+	if not data or not b or (b.Migrated and b.MigratedShop and (b.LegacyOvens or 0) == 0) then
 		return
 	end
 	local has = function(id: string)
@@ -53,6 +62,7 @@ local function migrate(player: Player, plot: Model)
 		end
 	end
 	if b.Migrated then
+		convertLegacyOvens(player, b)
 		return
 	end
 	b.Migrated = true
@@ -85,6 +95,7 @@ local function migrate(player: Player, plot: Model)
 	if has("CakeCharm") then
 		b.Owned.CakeCharm = (b.Owned.CakeCharm or 0) + 1
 	end
+	convertLegacyOvens(player, b)
 end
 
 function BuildMigration.Init()

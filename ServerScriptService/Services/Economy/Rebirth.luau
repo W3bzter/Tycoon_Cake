@@ -72,6 +72,7 @@ function Rebirth.Request(player: Player): (boolean, string?)
 	new.LinesEnabled = fresh.LinesEnabled
 	new.Build = fresh.Build -- placed equipment and decor go with the bakery
 	new.Build.Migrated = true
+	new.Build.MigratedShop = true
 	new.LineRecipes = fresh.LineRecipes
 	new.Rebirths = done + 1
 	new.MixRecipe = "Best" -- recipes must be re-unlocked

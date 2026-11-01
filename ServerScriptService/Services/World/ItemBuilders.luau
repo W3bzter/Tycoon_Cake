@@ -163,12 +163,11 @@ local function buildOven(x: number)
 		for i = -1, 1 do
 			Style.Ball("Knob", 0.7, at(floor, x + i * 1.6, 6.1, -32.4), P.HotPink, item)
 		end
-		Style.Cylinder("Chimney", 3, 1.2, at(floor, x + 2.5, 8.5, BACK_Z + 3.6), P.Steel, item).Material = Enum.Material.Metal
+		Style.Cylinder("Chimney", 3, 1.2, at(floor, x + 2.5, 8.5, -36.5), P.Steel, item).Material = Enum.Material.Metal
 		Style.MachineSign(item, body, "🔥", "Oven")
 	end
 end
 ItemBuilders.Oven = buildOven(6)
-ItemBuilders.Oven2 = buildOven(20)
 
 local function buildCounter(x: number, stripe: Color3)
 	return function(floor: CFrame, item: Model)
@@ -204,7 +203,6 @@ ItemBuilders.Awning = function(floor, item)
 	Style.StripedAwning(B.HalfX * 2 - 2, 6, at(floor, 0, 10.2, FACADE_Z + 0.6), P.HotPink, P.White, item)
 end
 
-ItemBuilders.Oven3 = buildOven(34)
 
 -- Hand tools (Tier 0). They stand where the Mixer / Oven will go and are hidden
 -- once those are bought (PlotLayout ReplacedBy).
@@ -326,41 +324,22 @@ ItemBuilders.RadioAd = function(floor, item)
 	Style.MachineSign(item, radio, "📻", "Radio Ad")
 end
 
-ItemBuilders.FasterOvens1 = function(floor, item)
-	for _, x in { 6, 20 } do
-		local dial = Style.Part({
-			Name = "Gauge",
-			Shape = Enum.PartType.Cylinder,
-			Size = Vector3.new(0.3, 2.4, 2.4),
-			CFrame = at(floor, x, 10.5, BACK_Z + 1.3) * CFrame.Angles(0, math.rad(90), 0),
-			Color = P.White,
-			Parent = item,
-		})
-		Style.Part({ Name = "Needle", Size = Vector3.new(0.15, 1, 0.1), CFrame = at(floor, x + 0.3, 10.7, BACK_Z + 1.5) * CFrame.Angles(0, 0, math.rad(-35)), Color = P.HotPink, Parent = dial })
-	end
-end
-ItemBuilders.FasterOvens2 = function(floor, item)
-	Style.Part({ Name = "Gauge", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.3, 2.4, 2.4), CFrame = at(floor, 34, 10.5, BACK_Z + 1.3) * CFrame.Angles(0, math.rad(90), 0), Color = P.White, Parent = item })
-	for _, x in { 6, 20, 34 } do
-		local fan = Style.Cylinder("TurboFan", 0.8, 2, at(floor, x - 2.5, 8.2, BACK_Z + 3.6), P.Sky, item)
-		fan.Material = Enum.Material.Neon
-	end
-end
-ItemBuilders.FasterOvens3 = function(floor, item)
-	for _, x in { 6, 20, 34 } do
-		local flame = Style.Ball("TurboFlame", 1.2, at(floor, x + 2.5, 10.5, BACK_Z + 3.6), Color3.fromRGB(255, 140, 60), item)
-		flame.Material = Enum.Material.Neon
-	end
-end
+-- Oven upgrades have no fixed model: the placed oven shows them (Baking/Ovens:
+-- a blue vent per speed level, a light per rack, a gold band for Golden Oven).
+local function noModel(_floor: CFrame, _item: Model) end
+ItemBuilders.FasterOvens1 = noModel
+ItemBuilders.FasterOvens2 = noModel
+ItemBuilders.FasterOvens3 = noModel
+ItemBuilders.OvenRack2 = noModel
+ItemBuilders.OvenRack3 = noModel
+ItemBuilders.OvenRack4 = noModel
 
 ItemBuilders.BigMixer = function(floor, item)
 	local bowl = Style.Cylinder("BigBowl", 3, 5.6, at(floor, -12, 5.3, -35), P.Steel, item)
 	bowl.Material = Enum.Material.Metal -- (no extra label: it would overlap the Mixer's sign)
 end
 
-ItemBuilders.GoldenOven = function(_floor, _item)
-	-- No fixed model: the crown is drawn on the placed oven (Baking/Ovens).
-end
+ItemBuilders.GoldenOven = noModel
 
 ItemBuilders.CakeCharm = function(floor, item)
 	Style.Part({ Name = "Chain", Size = Vector3.new(0.15, 2.4, 0.15), CFrame = at(floor, 20, 9.4, 32), Color = P.Gold, Parent = item })

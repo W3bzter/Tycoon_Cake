@@ -42,6 +42,16 @@ local function placedOfKind(plot: Model, kind: string): Model?
 	return nil
 end
 
+-- How many of the oven's racks are in `state` (Baking/Ovens).
+local function racksIn(oven: Model, state: string): number
+	local n = 0
+	local folder = oven:FindFirstChild("Racks")
+	for _, rack in (if folder then folder:GetChildren() else {}) do
+		n += if rack:GetAttribute("State") == state then 1 else 0
+	end
+	return n
+end
+
 -- Places one owned `id` on the first free grid cell (scanning the plot).
 local function placeAnywhere(player: Player, plot: Model, id: string): boolean
 	local BuildService = svc("BuildService")
@@ -134,6 +144,15 @@ function SmokeTest.Run(player: Player, withAnomalies: boolean?): string
 		assert(not BuildService.CanPlace(player, plot, "PottedPlant", 0, 15, 0), "entrance allowed")
 		return `{#plot.Placed:GetChildren()} items placed`
 	end)
+	step("oven racks", function()
+		task.wait() -- deferred UpgradeUnlocked handlers re-set up the oven
+		local oven = placedOfKind(plot, "Oven") :: Model
+		assert(oven, "no oven placed")
+		local racks = oven:GetAttribute("Racks")
+		assert(racks == 4, `expected 4 racks, got {racks}`)
+		assert(racksIn(oven, "Idle") + racksIn(oven, "Baking") + racksIn(oven, "Ready") == 4, "rack instances missing")
+		return `{oven:GetAttribute("CatalogId")}: {racks} racks`
+	end)
 	step("roll ingredients", function()
 		for _ = 1, 3 do
 			assert(Inventory.Roll(player), "roll refused")
@@ -151,13 +170,19 @@ function SmokeTest.Run(player: Player, withAnomalies: boolean?): string
 		local oven = placedOfKind(plot, "Oven") :: Model
 		near(player, oven:FindFirstChild("Body") :: BasePart)
 		assert(BakingPipeline.Interact(player, plot, oven), "bake refused")
+		-- Every batter goes in at once (a Big Mixer makes 2): wait for all racks.
+		local loaded = racksIn(oven, "Baking")
 		local deadline = os.clock() + 30
-		while oven:GetAttribute("OvenState") ~= "Ready" and os.clock() < deadline do
+		while racksIn(oven, "Baking") > 0 and os.clock() < deadline do
 			task.wait(0.5)
 		end
 		assert(oven:GetAttribute("OvenState") == "Ready", "never finished")
-		BakingPipeline.Interact(player, plot, oven)
-		return nil
+		local collected = 0
+		while oven:GetAttribute("OvenState") == "Ready" and collected < 4 do
+			BakingPipeline.Interact(player, plot, oven)
+			collected += 1
+		end
+		return `{loaded} racks baked, {collected} collected`
 	end)
 	step("display the cake", function()
 		local counter = placedOfKind(plot, "Counter") :: Model
