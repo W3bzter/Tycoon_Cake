@@ -26,6 +26,20 @@ Config.Rolling = {
 	Cooldown = 3, -- seconds between rolls (the reveal animation is ~1.5s)
 }
 
+-- Mixing minigame ------------------------------------------------------------------
+-- Keep the dot inside the drifting sweet spot. Score = share of time inside.
+-- Radius/speed are relative to the play area (0..1). Automation always mixes "Good".
+Config.Minigame = {
+	Duration = 4, -- seconds of play
+	ReadyTime = 0.8, -- "Get ready" before it starts
+	Grades = { { "Perfect", 0.85 }, { "Great", 0.65 }, { "Good", 0.4 }, { "Sloppy", 0 } },
+	Stations = {
+		PrepTable = { Radius = 0.11, Speed = 1.35, Label = "Hand whisk" }, -- hard
+		Mixer = { Radius = 0.17, Speed = 0.9, Label = "Mixer" }, -- easier
+	},
+	Timeout = 10, -- seconds after the start before an unanswered session is dropped
+}
+
 -- Baking ---------------------------------------------------------------------
 Config.BakeTime = 8 -- seconds in the oven
 Config.DisplaySlots = 3 -- cakes per display counter
@@ -126,6 +140,8 @@ Config.RemoteNames = {
 	"RollResult", -- server -> client: (items) for the roll reveal
 	"BagUpdate", -- server -> client: ({Items, Capacity, MixRecipe})
 	"BagAction", -- client -> server: ("pin" | "discard", id) or ("recipe", name)
+	"MixStart", -- server -> client: (sessionId, stationId, seed)
+	"MixSubmit", -- client -> server: (sessionId, score 0..1)
 }
 
 return Config

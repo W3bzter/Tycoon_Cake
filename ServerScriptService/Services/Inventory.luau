@@ -150,26 +150,31 @@ function Inventory.Roll(player: Player): boolean
 	return true
 end
 
--- Picks the ingredients for one batch: the chosen recipe (or the best one the
--- bag can make), pinned items first, then the most valuable. Removes them.
-function Inventory.TakeForRecipe(player: Player): (string?, { Rarity.Item }?)
+-- Which recipe the next mix would make (chosen recipe, or the best one the bag
+-- can make), without taking anything. nil if the bag can't make it.
+function Inventory.PeekRecipe(player: Player): string?
 	local data = DataManager.Get(player)
 	if not data then
-		return nil, nil
+		return nil
 	end
 	local unlocked = hasUnlockFn(player)
-	local cakeType: string? = nil
 	if data.MixRecipe ~= "Best" and Recipes.IsUnlocked(data.MixRecipe, unlocked) then
-		cakeType = data.MixRecipe
 		for _, ingredient in Recipes.Cakes[data.MixRecipe].Ingredients do
 			if (Inventory.Counts(player)[ingredient] or 0) < 1 then
-				return nil, nil
+				return nil
 			end
 		end
-	else
-		cakeType = Recipes.BestRecipe(Inventory.Counts(player), unlocked)
+		return data.MixRecipe
 	end
-	if not cakeType then
+	return Recipes.BestRecipe(Inventory.Counts(player), unlocked)
+end
+
+-- Picks the ingredients for one batch (see PeekRecipe): pinned items first,
+-- then the most valuable. Removes them from the bag.
+function Inventory.TakeForRecipe(player: Player): (string?, { Rarity.Item }?)
+	local data = DataManager.Get(player)
+	local cakeType = Inventory.PeekRecipe(player)
+	if not data or not cakeType then
 		return nil, nil
 	end
 

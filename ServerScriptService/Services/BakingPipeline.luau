@@ -420,12 +420,22 @@ function BakingPipeline.Mix(player: Player, station: Model, quality: string?): R
 	for _ = 1, batch do
 		ToolFactory.GiveCakeItem(player, "RawBatter", info)
 	end
-	notify(player, `Mixed {batch > 1 and `{batch}x ` or ""}{Rarity.Name(info.Rarity)} {cakeName(cakeType)} batter (${info.Value})!`)
+	notify(player, `{info.Quality} mix! {batch > 1 and `{batch}x ` or ""}{Rarity.Name(info.Rarity)} {cakeName(cakeType)} batter (${info.Value})`)
 	return info
 end
 
+-- Set by MixingGame: starts the minigame, which calls Mix with the grade.
+-- Without it, mixing happens instantly at "Good" quality.
+BakingPipeline.OnMixRequested = nil :: ((Player, Model) -> ())?
+
 local function mixHandler(player: Player, _plot: Model, station: Model)
-	BakingPipeline.Mix(player, station)
+	if not Inventory.PeekRecipe(player) then
+		BakingPipeline.Mix(player, station) -- explains what's missing
+	elseif BakingPipeline.OnMixRequested then
+		BakingPipeline.OnMixRequested(player, station)
+	else
+		BakingPipeline.Mix(player, station)
+	end
 end
 handlers.PrepTable = mixHandler
 handlers.Mixer = mixHandler

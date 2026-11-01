@@ -15,6 +15,7 @@ local ORDER = {
 	"Inventory",
 	"TycoonButtons",
 	"BakingPipeline",
+	"MixingGame",
 	"CustomerAI",
 	"AutoProduction",
 	"AnomalyManager",
