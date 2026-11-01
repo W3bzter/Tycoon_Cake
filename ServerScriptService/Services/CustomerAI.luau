@@ -1,6 +1,8 @@
 --!strict
--- Customer NPCs: spawn on the street, pathfind to a plot's display counter,
--- buy a cake (sound + hop/animation), pay the plot owner, walk off and despawn.
+-- Customer NPCs wearing the plot owner's friends' avatars (AvatarService).
+-- They spawn at the bus stop, pathfind to the display counter with idle/walk
+-- animations, show a bubble with the cake they want, buy (tipping 20% if it's the
+-- cake they wanted), react happily, pay the owner, then walk off and despawn.
 -- A cake slot is reserved before the customer spawns, so two customers never
 -- go for the same cake.
 
@@ -12,6 +14,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local Recipes = require(Shared:WaitForChild("Recipes"))
 
+local AvatarService = require(script.Parent.AvatarService)
 local BakingPipeline = require(script.Parent.BakingPipeline)
 local DataManager = require(script.Parent.DataManager)
 local PlotManager = require(script.Parent.PlotManager)
@@ -24,15 +27,17 @@ export type CustomerOptions = {
 	OnArrive: ((npc: Model, plot: Model, slot: BasePart) -> boolean?)?,
 	Decorate: ((npc: Model) -> ())?,
 	IgnoreCap: boolean?, -- anomaly NPCs spawn even when the street is full
+	Wanted: string?, -- cake type shown in the speech bubble
 }
 
 local active: { [Model]: boolean } = {}
+local spawning = 0 -- customers being built (avatar loading yields)
 local npcFolder: Folder
 
 -- NPC construction ---------------------------------------------------------------
 
 local function buildBlockNpc(): Model
-	-- Fallback rig: a few welded blocks + Humanoid. Walks fine without animations.
+	-- Last-resort rig if avatar creation fails: welded blocks + Humanoid.
 	local model = Instance.new("Model")
 	local root = Instance.new("Part")
 	root.Name = "HumanoidRootPart"
@@ -66,10 +71,15 @@ local function buildBlockNpc(): Model
 	return model
 end
 
-local function buildNpc(): Model
+local function buildNpc(visitor: AvatarService.Visitor): Model
 	local ok, model = pcall(function()
-		local description = Instance.new("HumanoidDescription")
-		return Players:CreateHumanoidModelFromDescription(description, Enum.HumanoidRigType.R15)
+		return Players:CreateHumanoidModelFromDescription(visitor.Description, Enum.HumanoidRigType.R15)
+	end)
+	if ok and model then
+		return model
+	end
+	ok, model = pcall(function() -- the friend's outfit failed to load: plain styled look
+		return Players:CreateHumanoidModelFromDescription(AvatarService.StyledDefault(), Enum.HumanoidRigType.R15)
 	end)
 	if ok and model then
 		return model
@@ -77,11 +87,208 @@ local function buildNpc(): Model
 	return buildBlockNpc()
 end
 
--- Movement ------------------------------------------------------------------------
+-- Animations -----------------------------------------------------------------------
 
--- Polls instead of MoveToFinished:Wait(), which never returns if the NPC is
--- destroyed mid-walk (e.g. a stopped Mimic) and would leak the coroutine.
+type Tracks = { idle: AnimationTrack?, walk: AnimationTrack?, cheer: AnimationTrack? }
+
+local function loadTrack(animator: Animator, id: string, priority: Enum.AnimationPriority): AnimationTrack?
+	if id == "" then
+		return nil
+	end
+	local animation = Instance.new("Animation")
+	animation.AnimationId = id
+	local ok, track = pcall(function()
+		return animator:LoadAnimation(animation)
+	end)
+	if ok and track then
+		track.Priority = priority
+		return track
+	end
+	return nil
+end
+
+-- Server-side tracks on a server-owned NPC replicate to every client.
+local function setupAnimations(npc: Model): Tracks
+	local humanoid = npc:FindFirstChildOfClass("Humanoid")
+	if not humanoid or humanoid.RigType ~= Enum.HumanoidRigType.R15 then
+		return {}
+	end
+	local animator = humanoid:FindFirstChildOfClass("Animator")
+	if not animator then
+		local created = Instance.new("Animator")
+		created.Parent = humanoid
+		animator = created
+	end
+	local a = animator :: Animator
+	local tracks: Tracks = {
+		idle = loadTrack(a, Config.Animations.Idle, Enum.AnimationPriority.Idle),
+		walk = loadTrack(a, Config.Animations.Walk, Enum.AnimationPriority.Movement),
+		cheer = loadTrack(a, Config.Animations.Cheer, Enum.AnimationPriority.Action),
+	}
+	if tracks.idle then
+		tracks.idle.Looped = true
+		tracks.idle:Play()
+	end
+	if tracks.walk then
+		tracks.walk.Looped = true
+	end
+	humanoid.Running:Connect(function(speed)
+		local walk = tracks.walk
+		if not walk then
+			return
+		end
+		if speed > 0.5 then
+			if not walk.IsPlaying then
+				walk:Play(0.2)
+			end
+			walk:AdjustSpeed(speed / 16)
+		elseif walk.IsPlaying then
+			walk:Stop(0.2)
+		end
+	end)
+	return tracks
+end
+
+-- Bubbles & effects ----------------------------------------------------------------------
+
+local function headOf(npc: Model): BasePart?
+	return npc:FindFirstChild("Head") :: BasePart?
+end
+
+local function setBubble(npc: Model, text: string?)
+	local head = headOf(npc)
+	if not head then
+		return
+	end
+	local existing = head:FindFirstChild("WantBubble")
+	if existing then
+		existing:Destroy()
+	end
+	if not text then
+		return
+	end
+	local gui = Instance.new("BillboardGui")
+	gui.Name = "WantBubble"
+	gui.Size = UDim2.fromScale(5, 1.6)
+	gui.StudsOffset = Vector3.new(0, 3.2, 0)
+	gui.MaxDistance = 80
+	gui.LightInfluence = 0
+	local frame = Instance.new("Frame")
+	frame.Size = UDim2.fromScale(1, 1)
+	frame.BackgroundColor3 = Color3.new(1, 1, 1)
+	frame.Parent = gui
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0.5, 0)
+	corner.Parent = frame
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = Color3.fromRGB(255, 105, 160)
+	stroke.Thickness = 2
+	stroke.Parent = frame
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.fromScale(0.92, 0.85)
+	label.Position = UDim2.fromScale(0.04, 0.075)
+	label.BackgroundTransparency = 1
+	label.TextScaled = true
+	label.Font = Enum.Font.FredokaOne
+	label.TextColor3 = Color3.fromRGB(140, 90, 70)
+	label.Text = text
+	label.Parent = frame
+	gui.Parent = head
+end
+
+local function popText(npc: Model, text: string, color: Color3)
+	local head = headOf(npc)
+	if not head then
+		return
+	end
+	local gui = Instance.new("BillboardGui")
+	gui.Size = UDim2.fromScale(5, 1.6)
+	gui.StudsOffset = Vector3.new(0, 5, 0)
+	gui.AlwaysOnTop = true
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.fromScale(1, 1)
+	label.BackgroundTransparency = 1
+	label.TextScaled = true
+	label.Font = Enum.Font.FredokaOne
+	label.TextColor3 = color
+	label.TextStrokeTransparency = 0.2
+	label.Text = text
+	label.Parent = gui
+	gui.Parent = head
+	task.delay(2.5, gui.Destroy, gui)
+end
+CustomerAI.PopText = popText
+
+local function playSound(parent: Instance, soundId: string)
+	if soundId == "" then
+		return
+	end
+	local sound = Instance.new("Sound")
+	sound.SoundId = soundId
+	sound.Parent = parent
+	sound:Play()
+	task.delay(3, sound.Destroy, sound)
+end
+
+local function happyBurst(npc: Model)
+	local head = headOf(npc)
+	if not head then
+		return
+	end
+	local emitter = Instance.new("ParticleEmitter")
+	emitter.Texture = "rbxasset://textures/particles/sparkles_main.dds" -- built-in texture
+	emitter.Color = ColorSequence.new(Color3.fromRGB(255, 120, 170), Color3.fromRGB(255, 220, 90))
+	emitter.LightEmission = 0.6
+	emitter.Size = NumberSequence.new(0.6, 0)
+	emitter.Lifetime = NumberRange.new(0.8, 1.2)
+	emitter.Speed = NumberRange.new(6, 10)
+	emitter.SpreadAngle = Vector2.new(60, 60)
+	emitter.Rate = 0
+	emitter.Parent = head
+	emitter:Emit(25)
+	task.delay(2, emitter.Destroy, emitter)
+end
+
+local function celebrate(npc: Model, tracks: Tracks)
+	happyBurst(npc)
+	if tracks.cheer then
+		tracks.cheer:Play()
+	else
+		local humanoid = npc:FindFirstChildOfClass("Humanoid")
+		if humanoid then
+			humanoid.Jump = true
+		end
+	end
+end
+
+local function defaultPurchase(npc: Model, plot: Model, slot: BasePart, wanted: string?, tracks: Tracks)
+	local ok, cakeType = BakingPipeline.TakeCake(plot, slot)
+	if not ok then
+		return
+	end
+	local cake = Recipes.Cakes[cakeType or "Vanilla"] or Recipes.Cakes.Vanilla
+	local gotWanted = wanted ~= nil and cakeType == wanted
+	local pay = if gotWanted then math.floor(cake.Price * (1 + Config.WantedTip) + 0.5) else cake.Price
+	local owner = PlotManager.GetOwner(plot)
+	if owner then
+		DataManager.AddCash(owner, pay)
+	end
+	setBubble(npc, if gotWanted then "😍 Yum!" else "😋 Thanks!")
+	playSound(npc.PrimaryPart :: BasePart, Config.Sounds.Sale)
+	popText(npc, if gotWanted then `+${pay} (tip!)` else `+${pay}`, Color3.fromRGB(120, 255, 120))
+	celebrate(npc, tracks)
+end
+
+-- Lifecycle ----------------------------------------------------------------------------
+
+local function counterStandPoint(slot: BasePart): Vector3
+	-- Plots face +Z (the street), so customers stand on the street side of the counter.
+	return Vector3.new(slot.Position.X, 0, slot.Position.Z + Config.CustomerStandOff)
+end
+
 local function moveTo(humanoid: Humanoid, position: Vector3): boolean
+	-- Polls instead of MoveToFinished:Wait(), which never returns if the NPC is
+	-- destroyed mid-walk (e.g. a stopped Mimic) and would leak the coroutine.
 	local done, reached = false, false
 	local conn = humanoid.MoveToFinished:Once(function(result)
 		done, reached = true, result
@@ -143,84 +350,6 @@ local function walkTo(npc: Model, target: Vector3): boolean
 	return false
 end
 
--- Purchase --------------------------------------------------------------------------
-
-local function playSound(parent: Instance, soundId: string)
-	if soundId == "" then
-		return
-	end
-	local sound = Instance.new("Sound")
-	sound.SoundId = soundId
-	sound.Parent = parent
-	sound:Play()
-	task.delay(3, sound.Destroy, sound)
-end
-
-local function popText(npc: Model, text: string, color: Color3)
-	local head = npc:FindFirstChild("Head") :: BasePart?
-	if not head then
-		return
-	end
-	local gui = Instance.new("BillboardGui")
-	gui.Size = UDim2.fromScale(4, 1.5)
-	gui.StudsOffset = Vector3.new(0, 2.5, 0)
-	gui.AlwaysOnTop = true
-	local label = Instance.new("TextLabel")
-	label.Size = UDim2.fromScale(1, 1)
-	label.BackgroundTransparency = 1
-	label.TextScaled = true
-	label.Font = Enum.Font.FredokaOne
-	label.TextColor3 = color
-	label.TextStrokeTransparency = 0.2
-	label.Text = text
-	label.Parent = gui
-	gui.Parent = head
-	task.delay(2, gui.Destroy, gui)
-end
-CustomerAI.PopText = popText
-
-local function celebrate(npc: Model)
-	local humanoid = npc:FindFirstChildOfClass("Humanoid")
-	if not humanoid then
-		return
-	end
-	if Config.Animations.Buy ~= "" then
-		local animator = humanoid:FindFirstChildOfClass("Animator") or Instance.new("Animator", humanoid)
-		local animation = Instance.new("Animation")
-		animation.AnimationId = Config.Animations.Buy
-		local ok, track = pcall(function()
-			return (animator :: Animator):LoadAnimation(animation)
-		end)
-		if ok and track then
-			track:Play()
-			return
-		end
-	end
-	humanoid.Jump = true
-end
-
-local function defaultPurchase(npc: Model, plot: Model, slot: BasePart)
-	local ok, cakeType = BakingPipeline.TakeCake(plot, slot)
-	if not ok then
-		return
-	end
-	local cake = Recipes.Cakes[cakeType or "Vanilla"] or Recipes.Cakes.Vanilla
-	local owner = PlotManager.GetOwner(plot)
-	if owner then
-		DataManager.AddCash(owner, cake.Price)
-	end
-	playSound(npc.PrimaryPart :: BasePart, Config.Sounds.Sale)
-	popText(npc, `+${cake.Price}`, Color3.fromRGB(120, 255, 120))
-	celebrate(npc)
-end
-
--- Lifecycle ----------------------------------------------------------------------------
-
-local function counterStandPoint(slot: BasePart): Vector3
-	-- Plots face +Z (the street), so customers stand on the street side of the counter.
-	return Vector3.new(slot.Position.X, 0, slot.Position.Z + Config.CustomerStandOff)
-end
-
 function CustomerAI.Spawn(plot: Model, slot: BasePart, options: CustomerOptions?): Model?
 	local street = workspace:FindFirstChild("Street")
 	local spawnPad = street and street:FindFirstChild("CustomerSpawn") :: BasePart?
@@ -230,11 +359,19 @@ function CustomerAI.Spawn(plot: Model, slot: BasePart, options: CustomerOptions?
 		return nil
 	end
 
-	local npc = buildNpc()
+	spawning += 1
+	local visitor = AvatarService.PickVisitor(plot)
+	local npc = buildNpc(visitor)
+	spawning -= 1
+
 	npc.Name = "Customer"
+	npc:SetAttribute("VisitorUserId", visitor.UserId)
 	local humanoid = npc:FindFirstChildOfClass("Humanoid") :: Humanoid
 	humanoid.WalkSpeed = Config.CustomerWalkSpeed
-	humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+	humanoid.DisplayName = visitor.DisplayName
+	humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.Viewer
+	humanoid.NameDisplayDistance = 50
+	humanoid.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOff
 	npc:PivotTo(spawnPad.CFrame * CFrame.new(0, 4, 0))
 	if options and options.Decorate then
 		options.Decorate(npc)
@@ -246,6 +383,13 @@ function CustomerAI.Spawn(plot: Model, slot: BasePart, options: CustomerOptions?
 	end)
 	active[npc] = true
 
+	local wanted = options and options.Wanted
+	if wanted and Recipes.Cakes[wanted] then
+		local cake = Recipes.Cakes[wanted]
+		setBubble(npc, `{cake.Icon} {cake.DisplayName}, please!`)
+	end
+	local tracks = setupAnimations(npc)
+
 	task.spawn(function()
 		local arrived = walkTo(npc, counterStandPoint(slot))
 		if arrived and npc.Parent and slot:GetAttribute("HasCake") then
@@ -254,14 +398,15 @@ function CustomerAI.Spawn(plot: Model, slot: BasePart, options: CustomerOptions?
 				doDefault = options.OnArrive(npc, plot, slot) ~= false
 			end
 			if doDefault then
-				defaultPurchase(npc, plot, slot)
+				defaultPurchase(npc, plot, slot, wanted, tracks)
 			end
-			task.wait(1)
+			task.wait(2)
 		else
 			BakingPipeline.ReleaseSlot(slot)
 		end
 
 		if npc.Parent then
+			setBubble(npc, nil)
 			walkTo(npc, despawnPad.Position)
 		end
 		active[npc] = nil
@@ -272,34 +417,54 @@ function CustomerAI.Spawn(plot: Model, slot: BasePart, options: CustomerOptions?
 end
 
 function CustomerAI.Count(): number
-	local n = 0
+	local n = spawning
 	for _ in active do
 		n += 1
 	end
 	return n
 end
 
--- Picks a random owned plot with an unreserved cake for sale and sends a customer.
+-- Picks a random owned plot with cakes for sale, decides which cake this customer
+-- wants (from the owner's unlocked recipes), and reserves that cake if it's on
+-- display, otherwise any cake.
 function CustomerAI.TrySpawnForAnyPlot(options: CustomerOptions?): Model?
 	if CustomerAI.Count() >= Config.MaxCustomers and not (options and options.IgnoreCap) then
 		return nil
 	end
-	local candidates = {}
+	local plots = {}
 	for _, plot in (workspace:WaitForChild("Plots") :: Folder):GetChildren() do
-		if plot:IsA("Model") and PlotManager.GetOwner(plot) then
-			for _, slot in BakingPipeline.GetSaleSlots(plot) do
-				table.insert(candidates, { plot = plot, slot = slot })
-			end
+		if plot:IsA("Model") and PlotManager.GetOwner(plot) and #BakingPipeline.GetSaleSlots(plot) > 0 then
+			table.insert(plots, plot)
 		end
 	end
-	if #candidates == 0 then
+	if #plots == 0 then
 		return nil
 	end
-	local pick = candidates[math.random(#candidates)]
-	if not BakingPipeline.ReserveSlot(pick.slot) then
+	local plot = plots[math.random(#plots)]
+	local owner = PlotManager.GetOwner(plot) :: Player
+	local menu = Recipes.Unlocked(function(id)
+		return DataManager.HasUnlock(owner, id)
+	end)
+	local wanted = menu[math.random(#menu)]
+
+	local slots = BakingPipeline.GetSaleSlots(plot)
+	local slot = slots[math.random(#slots)]
+	for _, s in slots do
+		if s:GetAttribute("CakeType") == wanted then
+			slot = s
+			break
+		end
+	end
+	if not BakingPipeline.ReserveSlot(slot) then
 		return nil
 	end
-	return CustomerAI.Spawn(pick.plot, pick.slot, options)
+
+	local opts: CustomerOptions = {}
+	for k, v in (options or {}) :: any do
+		(opts :: any)[k] = v
+	end
+	opts.Wanted = opts.Wanted or wanted
+	return CustomerAI.Spawn(plot, slot, opts)
 end
 
 function CustomerAI.Init()
@@ -310,7 +475,7 @@ function CustomerAI.Init()
 	task.spawn(function()
 		while true do
 			task.wait(Config.CustomerInterval)
-			CustomerAI.TrySpawnForAnyPlot()
+			task.spawn(CustomerAI.TrySpawnForAnyPlot) -- avatar loading yields; keep the timer steady
 		end
 	end)
 end

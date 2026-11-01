@@ -53,9 +53,14 @@ Config.Anomalies = {
 	},
 }
 
--- Animations (rbxassetid:// strings; empty = skip and just do a hop)
+Config.WantedTip = 0.2 -- customers tip 20% when they get the cake they asked for
+
+-- Customer animations: Roblox's default R15 animations. Empty = skip
+-- (the cheer falls back to a hop).
 Config.Animations = {
-	Buy = "",
+	Idle = "rbxassetid://507766388",
+	Walk = "rbxassetid://507777826",
+	Cheer = "rbxassetid://507770677",
 }
 
 -- Sounds (built-in rbxasset:// files so they work without uploads; swap for
