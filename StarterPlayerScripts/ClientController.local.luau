@@ -182,11 +182,11 @@ for order, name in { "BuildToggle", "BagToggle", "AchievementsToggle", "RebirthT
 		b.Parent = sideBar
 	end
 end
--- The Build shop panel sits on the right too: keep it left of the column.
-local buildPanel = screen:FindFirstChild("BuildPanel")
-if buildPanel and buildPanel:IsA("GuiObject") then
-	buildPanel.Position = UDim2.new(1, -160, buildPanel.Position.Y.Scale, buildPanel.Position.Y.Offset)
-end
+-- Build mode takes the whole right side for its shop: the column steps aside
+-- (BuildMenu sets the HUD's BuildActive attribute; the shop has its own close button).
+screen:GetAttributeChangedSignal("BuildActive"):Connect(function()
+	sideBar.Visible = screen:GetAttribute("BuildActive") ~= true
+end)
 safe("RollReveal", RollReveal.Mount, screen)
 Remotes:WaitForChild("RollResult").OnClientEvent:Connect(RollReveal.Show)
 safe("MixGame", MixGame.Mount, screen)

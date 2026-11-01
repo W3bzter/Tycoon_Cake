@@ -10,7 +10,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local BuildCatalog = require(Shared:WaitForChild("BuildCatalog"))
-local Config = require(Shared:WaitForChild("Config"))
 local PlotLayout = require(Shared:WaitForChild("PlotLayout"))
 local BuildRows = require(script.Parent:WaitForChild("BuildRows"))
 
@@ -33,7 +32,7 @@ export type Handlers = {
 }
 
 local TABS = { { "Kitchen", "🍳 Kitchen" }, { "Decor", "🌷 Decor" }, { "Upgrades", "⭐ Upgrades" } }
-local PANEL_TOP = 120 -- pixels: below the top-centre buttons and the clock
+local PANEL_TOP = 54 -- pixels from the top of the screen: just under the clock
 BuildMenu.PanelTop = PANEL_TOP
 
 function BuildMenu.Mount(screen: ScreenGui, player: Player, h: Handlers)
@@ -52,28 +51,31 @@ function BuildMenu.Mount(screen: ScreenGui, player: Player, h: Handlers)
 	toggle.AnchorPoint = Vector2.new(0, 1)
 	toggle.Position = UDim2.new(0, 746, 1, -16)
 
-	-- Shop panel (right side)
+	-- Shop panel: the whole right side, top to bottom. While Build mode is on the
+	-- side button column and the hotbar hide (HUD attribute BuildActive) to make room.
 	local panel = Instance.new("Frame")
 	panel.Name = "BuildPanel"
-	-- Between the top buttons and the hint bar + hotbar at the bottom, so it never
-	-- covers them (ClientController moves it left of the side bar).
-	local bottomClear = Config.Hotbar.BottomOffset + Config.Hotbar.SlotSize + 100
 	panel.AnchorPoint = Vector2.new(1, 0)
 	panel.Position = UDim2.new(1, -16, 0, PANEL_TOP)
-	panel.Size = UDim2.new(0, 360, 1, -(PANEL_TOP + bottomClear))
+	panel.Size = UDim2.new(0.36, 0, 1, -(PANEL_TOP + 16))
 	panel.BackgroundColor3 = C.Dark
 	panel.BackgroundTransparency = 0.1
 	panel.Visible = false
 	panel.Parent = screen
 	corner(panel, 12)
 	local limit = Instance.new("UISizeConstraint")
-	limit.MaxSize = Vector2.new(360, 500)
+	limit.MinSize = Vector2.new(330, 200)
+	limit.MaxSize = Vector2.new(480, 760)
 	limit.Parent = panel
 	local stroke = Instance.new("UIStroke")
 	stroke.Color = C.Orange
 	stroke.Thickness = 2
 	stroke.Parent = panel
 	label(panel, "  🔨 Build Shop", UDim2.new(1, 0, 0, 30))
+	local close = button(panel, "✖", C.Red, UDim2.fromOffset(30, 26), h.Toggle)
+	close.Name = "CloseButton"
+	close.AnchorPoint = Vector2.new(1, 0)
+	close.Position = UDim2.new(1, -6, 0, 3)
 
 	local tabs = Instance.new("Frame")
 	tabs.BackgroundTransparency = 1
@@ -138,7 +140,7 @@ function BuildMenu.Mount(screen: ScreenGui, player: Player, h: Handlers)
 		end
 	end
 	for _, t in TABS do
-		tabButtons[t[1]] = button(tabs, t[2], C.Grey, UDim2.fromOffset(108, 28), function()
+		tabButtons[t[1]] = button(tabs, t[2], C.Grey, UDim2.new(1 / 3, -4, 0, 28), function()
 			tab = t[1]
 			render()
 		end)
@@ -149,7 +151,7 @@ function BuildMenu.Mount(screen: ScreenGui, player: Player, h: Handlers)
 	local bar = Instance.new("Frame")
 	bar.Name = "BuildActionBar"
 	bar.AnchorPoint = Vector2.new(0.5, 1)
-	bar.Position = UDim2.new(0.5, 0, 1, -(Config.Hotbar.BottomOffset + Config.Hotbar.SlotSize + 16))
+	bar.Position = UDim2.new(0.5, 0, 1, -16) -- the hotbar is hidden in Build mode
 	bar.Size = UDim2.fromOffset(0, 0)
 	bar.AutomaticSize = Enum.AutomaticSize.XY
 	bar.BackgroundColor3 = C.Dark
@@ -232,6 +234,11 @@ function BuildMenu.Mount(screen: ScreenGui, player: Player, h: Handlers)
 		panel.Visible = active and not placing and selected == nil
 		card.Visible = active and not placing and selected ~= nil
 		bar.Visible = active and selected == nil
+		-- Centred in the free gap between the bottom-left money buttons and the shop.
+		local gem = screen:FindFirstChild("GemShopToggle") :: GuiObject?
+		local left = if gem and gem.Visible then gem.AbsolutePosition.X + gem.AbsoluteSize.X + 16 else 0
+		local right = if panel.Visible then panel.AbsolutePosition.X - 16 else screen.AbsoluteSize.X
+		bar.Position = UDim2.new(0, (left + right) / 2, 1, -16)
 		if placing then
 			hintLabel.Text = "Click to place · R rotate · right-click cancel"
 			button(barButtons, "🔄 Rotate", C.Blue, size, h.Rotate)
@@ -282,6 +289,7 @@ function BuildMenu.Mount(screen: ScreenGui, player: Player, h: Handlers)
 
 	function menu.SetActive(isActive: boolean)
 		active = isActive
+		screen:SetAttribute("BuildActive", isActive) -- Hotbar and the side column step aside
 		toggle.Text = if active then "✖ Close" else "🔨 Build"
 		if not active then
 			panel.Visible, card.Visible, bar.Visible = false, false, false

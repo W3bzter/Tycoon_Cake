@@ -31,6 +31,7 @@ local gridList: ScrollingFrame
 local cameras: { Camera } = {}
 local shimmer: { UIGradient } = {}
 local dirty = true
+local hiddenByBuild = false -- the HUD's BuildActive attribute: Build mode needs the room
 
 local function corner(inst: GuiObject, r: number)
 	local c = Instance.new("UICorner")
@@ -212,7 +213,7 @@ local function render()
 			slot.LayoutOrder = i
 		end
 	end
-	bar.Visible = #order > 0
+	bar.Visible = #order > 0 and not hiddenByBuild
 end
 
 local function track(tool: Instance)
@@ -284,6 +285,13 @@ function Hotbar.Mount(screen: ScreenGui)
 	end
 	screen:GetPropertyChangedSignal("AbsoluteSize"):Connect(rescale)
 	rescale()
+	screen:GetAttributeChangedSignal("BuildActive"):Connect(function()
+		hiddenByBuild = screen:GetAttribute("BuildActive") == true
+		if hiddenByBuild then
+			grid.Visible = false
+		end
+		dirty = true
+	end)
 
 	grid = Instance.new("Frame")
 	grid.Name = "HotbarGrid"
