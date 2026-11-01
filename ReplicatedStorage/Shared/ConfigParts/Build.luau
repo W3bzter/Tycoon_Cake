@@ -15,6 +15,17 @@ local B = {
 	DoorHalf = 8, -- the doorway is x -DoorHalf..DoorHalf
 	WallHeight = 18,
 	DeckY = 18.5, -- second-floor deck height
+	-- Factory Annex (an expansion bought from the Upgrades tab): a room behind the
+	-- back wall that holds all the automation (World/ItemBuilders). Doorway in the
+	-- bakery's back wall at x DoorX0..DoorX1, sealed until the annex is owned.
+	Annex = {
+		Z0 = -60, -- shared wall with the bakery (the plot's back edge)
+		Z1 = -100, -- annex back wall
+		DoorX0 = -42,
+		DoorX1 = -30,
+		LineZ = -78, -- production line 1 row (hopper -> mixer -> oven)
+		UnitZ = -92, -- Production Line 2/3 units
+	},
 }
 Config.Building = B
 

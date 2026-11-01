@@ -48,10 +48,26 @@ local function syncItems(plot: Model, owner: Player)
 	end
 end
 
+-- Parts tagged HideWhenOwned = "<upgradeId>" (e.g. the panel sealing the Factory
+-- Annex doorway in the back wall) disappear once the owner has that upgrade.
+local function applyHideRules(plot: Model, owner: Player?)
+	local items = plot:FindFirstChild("Items") :: Folder
+	for _, item in items:GetChildren() do
+		local itemVisible = item:GetAttribute("Visible") == true
+		for _, d in item:GetDescendants() do
+			local id = d:GetAttribute("HideWhenOwned")
+			if typeof(id) == "string" and d:IsA("BasePart") then
+				WorldBuilder.SetVisible(d, itemVisible and not (owner and DataManager.HasUnlock(owner, id)))
+			end
+		end
+	end
+end
+
 local function resetPlot(plot: Model)
 	for _, upgrade in PlotLayout.Upgrades do
 		showItem(plot, upgrade.Id, false)
 	end
+	applyHideRules(plot, nil)
 end
 
 -- Lets other services announce an unlock the same way a button purchase does.
@@ -92,14 +108,20 @@ function TycoonButtons.TryPurchase(player: Player, plot: Model, upgradeId: strin
 			showItem(plot, other.Id, false) -- the machine takes the hand tool's spot
 		end
 	end
+	applyHideRules(plot, player)
 	unlockedEvent:Fire(player, plot, upgradeId)
 	return true
 end
 
 function TycoonButtons.Init()
 	local function onClaimed(player: Player, plot: Model)
+		-- Saves from before the Factory Annex: automation already owned gets the room free.
+		if (DataManager.HasUnlock(player, "IngredientConveyor") or DataManager.HasUnlock(player, "ProductionLine2")) and not DataManager.HasUnlock(player, "FactoryAnnex") then
+			DataManager.Unlock(player, "FactoryAnnex")
+		end
 		resetPlot(plot)
 		syncItems(plot, player)
+		applyHideRules(plot, player)
 	end
 
 	PlotManager.PlotClaimed:Connect(onClaimed)

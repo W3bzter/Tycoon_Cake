@@ -23,7 +23,7 @@ File types: `*.server.luau` = Script, `*.local.luau` = LocalScript, plain `*.lua
 | `Core/` | `Remotes` (creates `Config.RemoteNames`), `Prompts` (creates every ProximityPrompt and decides when it shows), `DataManager` (load/save, stats, `ApplyReset`), `PlayerDataSchema` (data type + template), `PlotManager` (claim/release plots), `PlotStats` (totals upgrade Effects, Gem upgrades, rebirth bonus), `ToolFactory` (all Tools), `GamePasses`, `RobuxShop`, `DevTools` (Studio reset button), `SmokeTest` |
 | `World/` | `WorldBuilder` (plots, street), `ItemBuilders` (one builder per upgrade id), `Style` (palette, shapes, billboards), `Assets` (mesh templates with primitive fallbacks), `LightingSetup`, `TycoonButtons` (fixed-upgrade purchases + showing owned ones; no floor pads any more), `Repairs` (broken machines) |
 | `Baking/` | `BakingPipeline` (interactions + setup; re-exports the others), `Ovens` (the one bakery oven: racks `Racks/RackN` each bake a cake, count = `PlotStats.OvenRacks` from Oven Rack upgrades; speed = Oven Speed / Golden Oven; upgrade lights/vents drawn on the oven; `FinishBake` = bake-time rolls), `Display` (counter slots, cakes on them), `Pantry` (bins, roll pop-up), `BakeUtil`, `Inventory` (Ingredient Bag, rolls, auto-delete), `MixingGame` (minigame sessions) |
-| `Factory/` | `AutoProduction` (production lines, hoppers, Full Automation auto-load) |
+| `Factory/` | `AutoProduction` (production lines in the Factory Annex, hoppers, Full Automation auto-load) |
 | `Customers/` | `CustomerAI` (spawn, walk, buy), `CustomerLook` (rigs, animations, bubbles), `AvatarService` (friends' avatars), `NPCKit` (walking, gliding, hit system/Frying Pan) |
 | `Anomalies/` | `AnomalyManager` (timer, trigger), `AnomalyCommon` (shields, cutscenes, rewards), `Creatures` (Brute/Rat/Gremlin/Phantom models), `Kinds/<Name>` (one module per anomaly: `{CanRun, Run(cfg, deadline), Cleanup}`) |
 | `Economy/` | `GemShop` (consumables, Gem upgrades, Cash storage upgrades), `Rebirth`, `Achievements` |
@@ -47,6 +47,7 @@ Cash, Gems, UnlockedUpgrades, ShieldCharges, BoostEndsAt, Stats (lifetime counte
 - Every bake ends in `Ovens.FinishBake` (fires `Baked`). Stats go through `DataManager.AddStat/MaxStat` → `StatChanged` → achievements.
 - Fixed upgrades live in `plot.Items` (by upgrade id); placed items in `plot.Placed` (`<Id>_<uid>`, attributes `CatalogId`, `Kind`, `Uid`). Find machines with `BakeUtil.findMachine(plot, idOrName)`. `Broken`, `Visible`, `IsOven` are attributes.
 - Building size: `Config.Building` (ConfigParts/Build). Walls, floor, fence, entrance, deck and placement bounds all read it; don't hard-code building edges.
+- Factory Annex (`FactoryAnnex` upgrade, `Config.Building.Annex`): a room behind the back wall holding all automation (line 1 row at `Annex.LineZ`, Production Line 2/3 at `Annex.UnitZ`, restock rack on the shared wall). The back-wall doorway is sealed by a part tagged `HideWhenOwned = "FactoryAnnex"` (TycoonButtons hides such parts once owned). Automation requires the annex; old saves with automation get it free on claim.
 
 ## Testing
 - Stop the playtest, let Script Sync push the edits, start again (edits never reach a running test).

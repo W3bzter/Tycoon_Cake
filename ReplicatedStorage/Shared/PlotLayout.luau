@@ -45,8 +45,9 @@ PlotLayout.Upgrades = {
 	{ Id = "OvenRack3", DisplayName = "Oven Rack III", Icon = "🧁", Category = "Kitchen", Tier = 3, Price = 7500, Requires = { "OvenRack2", "FasterOvens1" }, Effects = { OvenRacks = 1 } },
 	{ Id = "VIPLounge", DisplayName = "VIP Lounge", Icon = "👑", Category = "Decor", Tier = 3, Price = 15000, Requires = { "SecondFloor" }, Effects = { VIPChance = 0.12 } },
 
-	-- Tier 4: Automation (production line 1, bought in order) ------------------------------
-	{ Id = "IngredientConveyor", DisplayName = "Ingredient Conveyor", Icon = "📦", Category = "Auto", Tier = 4, Price = 12000, Requires = { "RecipeStrawberry", "FasterOvens2" } },
+	-- Tier 4: Factory Annex (a new room behind the bakery), then automation inside it (line 1, bought in order) ------------------------------
+	{ Id = "FactoryAnnex", DisplayName = "Factory Annex", Icon = "🏭", Category = "Build", Tier = 4, Price = 10000, Requires = { "RecipeStrawberry", "FasterOvens2" } },
+	{ Id = "IngredientConveyor", DisplayName = "Ingredient Conveyor", Icon = "📦", Category = "Auto", Tier = 4, Price = 12000, Requires = { "FactoryAnnex" } },
 	{ Id = "AutoMixer", DisplayName = "Auto-Mixer", Icon = "🤖", Category = "Auto", Tier = 4, Price = 18000, Requires = { "IngredientConveyor" } },
 	{ Id = "AutoOven", DisplayName = "Auto-Oven", Icon = "🤖", Category = "Auto", Tier = 4, Price = 27000, Requires = { "AutoMixer" } },
 	{ Id = "CounterConveyor", DisplayName = "Counter Conveyor", Icon = "➡️", Category = "Auto", Tier = 4, Price = 40000, Requires = { "AutoOven" } },

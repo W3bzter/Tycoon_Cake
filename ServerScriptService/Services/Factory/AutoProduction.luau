@@ -346,11 +346,14 @@ local function tickLine(plot: Model, owner: Player, state: PlotState, line: Line
 			end
 		elseif not isUnit and math.abs(line.deliverT - TICK) < 1e-6 then
 			-- Show the cake riding the belt for this delivery.
+			-- Same path as World/ItemBuilders.CounterConveyor: Auto-Oven -> annex hatch.
 			local floor = (plot.PrimaryPart :: BasePart).CFrame * CFrame.new(0, 0.6, 0)
+			local annex = Config.Building.Annex
+			local turnZ = annex.Z0 - 4
 			slide(plot, line.tray[1], {
-				(floor * CFrame.new(4, 0, -15)).Position,
-				(floor * CFrame.new(4, 0, 27)).Position,
-				(floor * CFrame.new(9, 0, 27)).Position,
+				(floor * CFrame.new(4, 0, annex.LineZ + 3)).Position,
+				(floor * CFrame.new(4, 0, turnZ)).Position,
+				(floor * CFrame.new(9, 0, turnZ)).Position,
 			}, A.DeliverTime)
 		end
 	end
