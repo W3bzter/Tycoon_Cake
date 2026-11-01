@@ -7,6 +7,8 @@ local player = Players.LocalPlayer
 local Remotes = ReplicatedStorage:WaitForChild("Remotes")
 local UI = script.Parent:WaitForChild("UI")
 
+local loadedUI: { [string]: any } = {} -- name -> running module (for the Studio ClientBridge)
+
 -- A broken or missing UI module (e.g. a new file Script Sync hasn't copied into
 -- Studio yet) must not take the whole HUD down: it's skipped with a warning and
 -- replaced by a stub whose functions do nothing.
@@ -18,6 +20,7 @@ local function loadUI(folder: string, name: string): any
 		return require(module :: ModuleScript)
 	end)
 	if ok then
+		loadedUI[name] = result
 		return result
 	end
 	warn(`[ClientController] {folder}/{name} failed to load, skipping it: {result}`)
@@ -182,7 +185,7 @@ end
 -- The Build shop panel sits on the right too: keep it left of the column.
 local buildPanel = screen:FindFirstChild("BuildPanel")
 if buildPanel and buildPanel:IsA("GuiObject") then
-	buildPanel.Position = UDim2.new(1, -160, 0.45, 0)
+	buildPanel.Position = UDim2.new(1, -160, buildPanel.Position.Y.Scale, buildPanel.Position.Y.Offset)
 end
 safe("RollReveal", RollReveal.Mount, screen)
 Remotes:WaitForChild("RollResult").OnClientEvent:Connect(RollReveal.Show)
@@ -213,4 +216,20 @@ local active = ReplicatedStorage:GetAttribute("ActiveAnomaly")
 local endsAt = ReplicatedStorage:GetAttribute("AnomalyEndsAt")
 if active and endsAt then
 	AnomalyAlert.Show(active, endsAt)
+end
+
+-- Studio-only test hook (the client twin of ServerStorage.DebugBridge): calls into
+-- the *running* UI modules, which a require() from MCP can't reach.
+--   game.Players.LocalPlayer.PlayerScripts.ClientBridge:Invoke("BuildMode", "Toggle")
+if game:GetService("RunService"):IsStudio() then
+	local bridge = Instance.new("BindableFunction")
+	bridge.Name = "ClientBridge"
+	bridge.OnInvoke = function(moduleName: string, method: string, ...)
+		local module = loadedUI[moduleName]
+		assert(module, `ClientBridge: unknown UI module {moduleName}`)
+		local fn = module[method]
+		assert(type(fn) == "function", `ClientBridge: {moduleName}.{method} is not a function`)
+		return fn(...)
+	end
+	bridge.Parent = player:WaitForChild("PlayerScripts")
 end

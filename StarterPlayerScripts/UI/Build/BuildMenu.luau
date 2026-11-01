@@ -33,6 +33,8 @@ export type Handlers = {
 }
 
 local TABS = { { "Kitchen", "🍳 Kitchen" }, { "Decor", "🌷 Decor" }, { "Upgrades", "⭐ Upgrades" } }
+local PANEL_TOP = 120 -- pixels: below the top-centre buttons and the clock
+BuildMenu.PanelTop = PANEL_TOP
 
 function BuildMenu.Mount(screen: ScreenGui, player: Player, h: Handlers)
 	local menu = {}
@@ -53,9 +55,12 @@ function BuildMenu.Mount(screen: ScreenGui, player: Player, h: Handlers)
 	-- Shop panel (right side)
 	local panel = Instance.new("Frame")
 	panel.Name = "BuildPanel"
-	panel.AnchorPoint = Vector2.new(1, 0.5)
-	panel.Position = UDim2.new(1, -16, 0.45, 0)
-	panel.Size = UDim2.new(0, 360, 0.62, 0)
+	-- Between the top buttons and the hint bar + hotbar at the bottom, so it never
+	-- covers them (ClientController moves it left of the side bar).
+	local bottomClear = Config.Hotbar.BottomOffset + Config.Hotbar.SlotSize + 100
+	panel.AnchorPoint = Vector2.new(1, 0)
+	panel.Position = UDim2.new(1, -16, 0, PANEL_TOP)
+	panel.Size = UDim2.new(0, 360, 1, -(PANEL_TOP + bottomClear))
 	panel.BackgroundColor3 = C.Dark
 	panel.BackgroundTransparency = 0.1
 	panel.Visible = false
@@ -139,78 +144,151 @@ function BuildMenu.Mount(screen: ScreenGui, player: Player, h: Handlers)
 		end)
 	end
 
-	-- Action bar (above the hotbar)
+	-- Hint bar above the hotbar: one line of help + at most three buttons, so it
+	-- stays narrow (it used to carry the upgrade button too and ran under the shop).
 	local bar = Instance.new("Frame")
 	bar.Name = "BuildActionBar"
 	bar.AnchorPoint = Vector2.new(0.5, 1)
 	bar.Position = UDim2.new(0.5, 0, 1, -(Config.Hotbar.BottomOffset + Config.Hotbar.SlotSize + 16))
-	bar.Size = UDim2.fromOffset(0, 40)
-	bar.AutomaticSize = Enum.AutomaticSize.X
+	bar.Size = UDim2.fromOffset(0, 0)
+	bar.AutomaticSize = Enum.AutomaticSize.XY
 	bar.BackgroundColor3 = C.Dark
 	bar.BackgroundTransparency = 0.15
 	bar.Visible = false
 	bar.Parent = screen
 	corner(bar, 10)
 	local barLayout = Instance.new("UIListLayout")
-	barLayout.FillDirection = Enum.FillDirection.Horizontal
-	barLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-	barLayout.Padding = UDim.new(0, 6)
+	barLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	barLayout.Padding = UDim.new(0, 4)
 	barLayout.SortOrder = Enum.SortOrder.LayoutOrder
 	barLayout.Parent = bar
 	local barPad = Instance.new("UIPadding")
-	barPad.PaddingLeft = UDim.new(0, 8)
-	barPad.PaddingRight = UDim.new(0, 8)
-	barPad.Parent = bar
-
-	local function hint(text: string, width: number)
-		local l = label(bar, text, UDim2.fromOffset(width, 22))
-		l.TextXAlignment = Enum.TextXAlignment.Center
+	for _, side in { "PaddingTop", "PaddingBottom", "PaddingLeft", "PaddingRight" } do
+		(barPad :: any)[side] = UDim.new(0, 6)
 	end
+	barPad.Parent = bar
+	local barButtons = Instance.new("Frame")
+	barButtons.BackgroundTransparency = 1
+	barButtons.AutomaticSize = Enum.AutomaticSize.XY
+	barButtons.LayoutOrder = 2
+	barButtons.Parent = bar
+	local rowLayout = Instance.new("UIListLayout")
+	rowLayout.FillDirection = Enum.FillDirection.Horizontal
+	rowLayout.Padding = UDim.new(0, 6)
+	rowLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	rowLayout.Parent = barButtons
+	local hintLabel = label(bar, "", UDim2.fromOffset(300, 20))
+	hintLabel.LayoutOrder = 1
+	hintLabel.TextXAlignment = Enum.TextXAlignment.Center
 
-	-- mode: "idle" | "place" | "move". selected: the clicked placed model (idle only).
-	function menu.SetMode(mode: string, selected: Model?)
-		for _, child in bar:GetChildren() do
-			if child:IsA("GuiObject") then
+	-- Selection card (left side, clear of the shop panel, the side bar, the
+	-- currency panel and the hotbar): the selected item's upgrade + actions.
+	local card = Instance.new("Frame")
+	card.Name = "BuildSelectionCard"
+	card.AnchorPoint = Vector2.new(0, 0.5)
+	card.Position = UDim2.new(0, 16, 0.4, 0)
+	card.Size = UDim2.fromOffset(250, 0)
+	card.AutomaticSize = Enum.AutomaticSize.Y
+	card.BackgroundColor3 = C.Dark
+	card.BackgroundTransparency = 0.1
+	card.Visible = false
+	card.Parent = screen
+	corner(card, 12)
+	local cardStroke = Instance.new("UIStroke")
+	cardStroke.Color = C.Orange
+	cardStroke.Thickness = 2
+	cardStroke.Parent = card
+	local cardLayout = Instance.new("UIListLayout")
+	cardLayout.Padding = UDim.new(0, 6)
+	cardLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	cardLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	cardLayout.Parent = card
+	local cardPad = barPad:Clone()
+	for _, side in { "PaddingTop", "PaddingBottom", "PaddingLeft", "PaddingRight" } do
+		(cardPad :: any)[side] = UDim.new(0, 10)
+	end
+	cardPad.Parent = card
+
+	local function clear(frame: Instance)
+		for _, child in frame:GetChildren() do
+			if child:IsA("GuiObject") and child ~= hintLabel and child ~= barButtons then
 				child:Destroy()
 			end
 		end
+	end
+
+	local active = false
+	local currentMode = "idle"
+	local currentSelected: Model? = nil
+
+	-- mode: "idle" | "place" | "move". selected: the clicked placed model (idle only).
+	function menu.SetMode(mode: string, selected: Model?)
+		currentMode, currentSelected = mode, selected
+		clear(barButtons)
+		clear(card)
 		local size = UDim2.fromOffset(96, 30)
-		if mode == "place" or mode == "move" then
-			hint("Click to place · R rotate · right-click cancel", 330)
-			button(bar, "🔄 Rotate", C.Blue, size, h.Rotate)
-			button(bar, "✅ Place", C.Green, size, h.Confirm)
-			button(bar, "✖ Cancel", C.Red, size, h.Cancel)
+		local placing = mode == "place" or mode == "move"
+		-- The shop only shows while you're browsing (not placing, nothing selected).
+		panel.Visible = active and not placing and selected == nil
+		card.Visible = active and not placing and selected ~= nil
+		bar.Visible = active and selected == nil
+		if placing then
+			hintLabel.Text = "Click to place · R rotate · right-click cancel"
+			button(barButtons, "🔄 Rotate", C.Blue, size, h.Rotate)
+			button(barButtons, "✅ Place", C.Green, size, h.Confirm)
+			button(barButtons, "✖ Cancel", C.Red, size, h.Cancel)
 		elseif selected then
 			local id = selected:GetAttribute("CatalogId") :: string
-			hint(BuildRows.NameOf(id), 150)
-			button(bar, "✋ Move", C.Blue, size, h.Move)
-			button(bar, "🔄 Rotate", C.Blue, size, h.Rotate)
-			button(bar, "📦 Store", C.Grey, size, h.Store)
+			local title = label(card, BuildRows.NameOf(id), UDim2.new(1, 0, 0, 26))
+			title.LayoutOrder = 1
+			title.TextXAlignment = Enum.TextXAlignment.Center
 			local nextEntry = BuildCatalog.NextUpgrade(id)
 			if nextEntry then
-				local ready = true
+				local missing = {}
 				for _, req in nextEntry.Requires or {} do
-					ready = ready and table.find(state.Unlocked, req) ~= nil
+					if not table.find(state.Unlocked, req) then
+						table.insert(missing, BuildRows.NameOf(req))
+					end
 				end
-				local text = if ready then `⬆️ {nextEntry.Name} {BuildRows.PriceText(nextEntry.Currency, nextEntry.Price)}` else `🔒 {nextEntry.Name}`
-				button(bar, text, if ready then C.Orange else C.Grey, UDim2.fromOffset(190, 30), function()
+				local ready = #missing == 0
+				local text = if ready
+					then `⬆️ {nextEntry.Name}  {BuildRows.PriceText(nextEntry.Currency, nextEntry.Price)}`
+					else `🔒 {nextEntry.Name}: needs {table.concat(missing, ", ")}`
+				local up = button(card, text, if ready then C.Orange else C.Grey, UDim2.new(1, 0, 0, 40), function()
 					h.Upgrade(nextEntry.Id)
 				end)
+				up.Name = "UpgradeButton"
+				up.LayoutOrder = 2
 			end
-			button(bar, "✖", C.Red, UDim2.fromOffset(34, 30), h.Cancel)
+			local row = Instance.new("Frame")
+			row.BackgroundTransparency = 1
+			row.Size = UDim2.new(1, 0, 0, 30)
+			row.LayoutOrder = 3
+			row.Parent = card
+			local grid = Instance.new("UIGridLayout")
+			grid.CellSize = UDim2.new(1 / 3, -4, 1, 0)
+			grid.CellPadding = UDim2.fromOffset(6, 0)
+			grid.Parent = row
+			button(row, "✋ Move", C.Blue, size, h.Move)
+			button(row, "🔄 Rotate", C.Blue, size, h.Rotate)
+			button(row, "📦 Store", C.Grey, size, h.Store)
+			local close = button(card, "✖ Deselect", C.Red, UDim2.new(1, 0, 0, 28), h.Cancel)
+			close.LayoutOrder = 4
 		else
-			hint("Click an item to move it · B to leave", 290)
-			button(bar, "Done", C.Orange, size, h.Toggle)
+			hintLabel.Text = "Click an item to move or upgrade it · B to leave"
+			button(barButtons, "Done", C.Orange, size, h.Toggle)
 		end
 	end
 
-	function menu.SetActive(active: boolean)
-		panel.Visible = active
-		bar.Visible = active
+	function menu.SetActive(isActive: boolean)
+		active = isActive
 		toggle.Text = if active then "✖ Close" else "🔨 Build"
-		if active then
-			render()
+		if not active then
+			panel.Visible, card.Visible, bar.Visible = false, false, false
+			return
 		end
+		render()
+		menu.SetMode(currentMode, currentSelected)
 	end
 
 	function menu.Refresh(newState: BuildRows.SyncState)
@@ -218,6 +296,7 @@ function BuildMenu.Mount(screen: ScreenGui, player: Player, h: Handlers)
 		if panel.Visible then
 			render()
 		end
+		-- (BuildMode re-selects an upgraded item and calls SetMode again.)
 	end
 
 	-- Prices turn green/grey as money changes.

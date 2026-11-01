@@ -241,6 +241,14 @@ function BuildMode.IsActive(): boolean
 	return active
 end
 
+-- Test hooks (ClientBridge): open/close Build mode, select a placed model.
+function BuildMode.Toggle()
+	setActive(not active)
+end
+function BuildMode.Select(model: Model?)
+	selectModel(model)
+end
+
 function BuildMode.Mount(screen: ScreenGui)
 	local remotes = ReplicatedStorage:WaitForChild("Remotes")
 	action = remotes:WaitForChild("BuildAction") :: RemoteEvent
@@ -286,9 +294,18 @@ function BuildMode.Mount(screen: ScreenGui)
 		if mode == "place" and placingId and (owned[placingId] or 0) <= 0 then
 			stopGhost()
 		end
-		-- An upgrade rebuilds the model: drop a selection that no longer exists.
+		-- An upgrade rebuilds the model: keep the same item selected (same Uid).
 		if selected and not selected:IsDescendantOf(workspace) then
-			selectModel(nil)
+			local uid = selected:GetAttribute("Uid")
+			local plot = BuildGhost.Plot()
+			local folder = plot and plot:FindFirstChild("Placed")
+			local replacement: Model? = nil
+			for _, model in (if folder then folder:GetChildren() else {}) do
+				if model:IsA("Model") and model:GetAttribute("Uid") == uid then
+					replacement = model
+				end
+			end
+			selectModel(replacement)
 		elseif selected then
 			menu.SetMode(mode, selected)
 		end
