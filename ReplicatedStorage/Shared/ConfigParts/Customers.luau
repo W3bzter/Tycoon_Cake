@@ -33,4 +33,17 @@ Config.DineIn = {
 	TipMax = 0.3,
 }
 
+-- Drive-thru (fixed upgrade "DriveThru", Customers/DriveThru): cars come out of a
+-- tunnel, drive into the lane beside your bakery, buy a cake at the window and
+-- leave. Lane geometry is plot-local (+Z = towards the street; the plot ends at 60).
+Config.DriveThru = {
+	Interval = 25, -- seconds between cars per bakery (x the customer-rate upgrades)
+	Speed = 34, -- studs per second
+	StopTime = 2.5, -- seconds at the window
+	PayMult = 1.15, -- drive-thru customers pay a little extra
+	LaneX = 66, -- lane centre, beside the plot (plot edge at 60)
+	WindowZ = 30, -- where cars stop at the kiosk
+	EndZ = 9, -- turnaround pad
+}
+
 return Config

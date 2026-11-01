@@ -33,6 +33,7 @@ PlotLayout.Upgrades = {
 
 	-- Tier 1: Manual machines (each replaces its hand tool in the same spot) -----------
 	{ Id = "Awning", DisplayName = "Striped Awning", Icon = "⛱️", Category = "Decor", Tier = 1, Price = 200, Requires = { "Walls" } },
+	{ Id = "DriveThru", DisplayName = "Drive-Thru", Icon = "🚗", Category = "Build", Tier = 1, Price = 2500, Requires = { "Walls", "DisplayCounter" } },
 	{ Id = "BakeryExpansion1", DisplayName = "Bigger Bakery I", Icon = "📐", Category = "Build", Tier = 1, Price = 1500, Requires = { "Awning" } },
 
 	-- Tier 2: Shopfront --------------------------------------------------------------

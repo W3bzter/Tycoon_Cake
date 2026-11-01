@@ -27,6 +27,7 @@ local ORDER = {
 	"MixingGame",
 	"DineIn",
 	"CustomerAI",
+	"DriveThru",
 	"AutoProduction",
 	"Repairs",
 	"Achievements",

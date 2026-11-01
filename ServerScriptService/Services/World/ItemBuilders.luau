@@ -518,6 +518,33 @@ ItemBuilders.VIPLounge = function(floor, item)
 	Style.MachineSign(item, crown, "👑", "VIP Lounge")
 end
 
+-- Drive-thru: a car lane beside the plot (outside its floor, x 62..70) from the
+-- street to a turnaround pad, a pickup kiosk at the window and a street sign.
+-- Cars: Customers/DriveThru (Config.DriveThru).
+ItemBuilders.DriveThru = function(floor, item)
+	local D = Config.DriveThru
+	local x = D.LaneX
+	local z0, z1 = D.EndZ - 5, B.FrontZ
+	Style.Part({ Name = "Lane", Size = Vector3.new(8, 1, z1 - z0), CFrame = at(floor, x, -0.5, (z0 + z1) / 2), Color = P.Asphalt, Parent = item })
+	for _, side in { -1, 1 } do
+		Style.Part({ Name = "Curb", Size = Vector3.new(0.5, 0.5, z1 - z0), CFrame = at(floor, x + side * 4.25, 0.25, (z0 + z1) / 2), Color = P.White, Parent = item })
+	end
+	for z = z0 + 6, z1 - 4, 6 do
+		Style.Part({ Name = "Dash", Size = Vector3.new(0.4, 0.05, 2.4), CFrame = at(floor, x, 0.03, z), Color = P.Butter, CanCollide = false, Parent = item })
+	end
+	Style.Cylinder("Turnaround", 0.06, 8, at(floor, x, 0.04, D.EndZ), P.HotPink, item).CanCollide = false
+	-- Pickup kiosk on the bakery side of the lane, window facing the lane (+X).
+	local kz = D.WindowZ
+	Style.RoundedBox("Kiosk", Vector3.new(2.4, 6.5, 7), at(floor, 60.8, 3.25, kz), P.Cream, item, 0.5)
+	Style.Part({ Name = "KioskWindow", Size = Vector3.new(0.2, 2.4, 3.4), CFrame = at(floor, 62.05, 3.6, kz), Color = P.Glass, Material = Enum.Material.Glass, Transparency = 0.4, Parent = item })
+	Style.Trim("Sill", Vector3.new(1.2, 0.3, 3.8), at(floor, 62.3, 2.35, kz), P.HotPink, item)
+	Style.Part({ Name = "KioskRoof", Size = Vector3.new(4.2, 0.4, 8), CFrame = at(floor, 61.6, 6.7, kz) * CFrame.Angles(0, 0, math.rad(-12)), Color = P.HotPink, Parent = item })
+	panel("PickupSign", Vector3.new(3.6, 1.2, 0.3), at(floor, 62.25, 5.4, kz) * CFrame.Angles(0, math.rad(90), 0), P.White, "🍰 PICK UP", P.HotPink, item)
+	-- Street sign at the lane mouth.
+	Style.Cylinder("SignPost", 7, 0.5, at(floor, x + 5.2, 3.5, z1 - 3), P.White, item)
+	panel("DriveThruSign", Vector3.new(6, 2.4, 0.4), at(floor, x + 5.2, 7.6, z1 - 3), P.HotPink, "🚗 DRIVE-THRU", P.White, item)
+end
+
 -- Factory Annex: a room behind the bakery's back wall (Config.Building.Annex) that
 -- holds all the automation below. Its own floor, walls and a doorway from the bakery.
 local ANNEX = B.Annex
