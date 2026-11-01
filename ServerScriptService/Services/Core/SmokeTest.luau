@@ -165,6 +165,9 @@ function SmokeTest.Run(player: Player, withAnomalies: boolean?): string
 		return `+{after - before} ingredients`
 	end)
 	step("roll ingredients", function()
+		local bagData = DataManager.Get(player)
+		table.clear(bagData.Bag) -- the auto-roll step filled it; start empty so 3 rolls fit
+		Inventory.Sync(player)
 		for _ = 1, 3 do
 			assert(Inventory.Roll(player), "roll refused")
 			task.wait(Config.Rolling.Cooldown + 0.1)
@@ -216,10 +219,12 @@ function SmokeTest.Run(player: Player, withAnomalies: boolean?): string
 			end
 		end
 		assert(moved, "could not move the counter anywhere nearby")
+		task.wait() -- ItemMoved handlers are deferred (they run at the end of the frame)
 		local slot = counter.Slots:GetChildren()[1] :: BasePart
 		if slot:GetAttribute("HasCake") then
 			local cake = plot.Cakes:FindFirstChild(slot.Name) :: Model
-			assert((cake:GetPivot().Position - slot.Position).Magnitude < 4, "cake didn't follow its counter")
+			local gap = (cake:GetPivot().Position - slot.Position).Magnitude
+			assert(gap < 4, `cake didn't follow its counter: {slot.Name} gap {math.floor(gap)} offset {cake:GetAttribute("SlotOffset")}`)
 			assert(not BuildService.Store(player, uid), "stored a counter with cakes on it")
 		end
 		local decor = nil

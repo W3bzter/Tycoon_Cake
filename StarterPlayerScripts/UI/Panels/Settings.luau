@@ -97,7 +97,10 @@ function Settings.Mount(screen: ScreenGui, player: Player)
 		row.Size = UDim2.new(1, 0, 0, 34)
 		row.LayoutOrder = order
 		row.Parent = panel
-		label(row, title, UDim2.new(0.45, 0, 1, 0))
+		local titleLabel = label(row, title, UDim2.new(0.45, 0, 1, 0))
+		local cap = Instance.new("UITextSizeConstraint")
+		cap.MaxTextSize = 18 -- so "Music" and "Sound effects" match
+		cap.Parent = titleLabel
 		local minus = button(row, "−", BLUE, UDim2.fromOffset(34, 30))
 		minus.Position = UDim2.new(0.48, 0, 0, 2)
 		local value = label(row, "", UDim2.fromOffset(60, 30))

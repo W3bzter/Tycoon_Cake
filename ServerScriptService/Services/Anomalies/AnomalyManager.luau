@@ -74,10 +74,13 @@ function AnomalyManager.Trigger(name: string, durationOverride: number?): (boole
 	return true
 end
 
-local function pickAnomaly(): string?
+-- `timeLeft`: seconds until morning; anomalies that wouldn't finish by then are
+-- skipped (the intro cutscene plays first, so it counts too).
+local function pickAnomaly(timeLeft: number?): string?
 	local options, total = {}, 0
 	for name, def in defs do
-		if def.CanRun() then
+		local fits = timeLeft == nil or Config.Anomalies[name].Duration + Config.Cutscene.Length <= timeLeft
+		if fits and def.CanRun() then
 			local weight = Config.Anomalies[name].Weight
 			total += weight
 			table.insert(options, { name = name, weight = weight })
@@ -121,7 +124,8 @@ function AnomalyManager.Init()
 				nextAt = os.clock() + Config.DayNight.FirstAnomaly
 			elseif os.clock() >= nextAt and not running then
 				nextAt = os.clock() + Config.DayNight.AnomalyEvery
-				local name = pickAnomaly()
+				local nightLeft = ((ReplicatedStorage:GetAttribute("PhaseEndsAt") :: number?) or math.huge) - workspace:GetServerTimeNow()
+				local name = pickAnomaly(nightLeft) -- never one that runs into the morning
 				if name then
 					task.spawn(AnomalyManager.Trigger, name)
 				end

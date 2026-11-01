@@ -17,7 +17,7 @@ Config.Sounds = {
 	Achievement = "rbxasset://sounds/electronicpingshort.wav",
 	-- Build mode
 	Place = "rbxasset://sounds/snap.wav",
-	Store = "rbxasset://sounds/swoosh.wav",
+	Store = "rbxasset://sounds/snap.wav", -- (swoosh.wav fails to load in-game: "not approved")
 	UIClick = "rbxasset://sounds/button.wav",
 	-- Baking and customers
 	BakeDone = "rbxasset://sounds/electronicpingshort.wav", -- a rack finished (pitched up)
