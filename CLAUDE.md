@@ -33,7 +33,7 @@ File types: `*.server.luau` = Script, `*.local.luau` = LocalScript, plain `*.lua
 `Config` + `ConfigParts/*`, `PlotLayout` (upgrade metadata + button spots; floor plan in its header), `Recipes`, `Rarity` (tiers, ingredient traits, MakeCake; re-exports `CakeRolls`), `CakeRolls` (cake traits, mutations, RollBake), `CakeData` (CakeInfo ⇄ attributes), `RebirthDefs`, `Achievements` (definitions).
 
 ## Client (`StarterPlayerScripts/`)
-`ClientController.local.luau` mounts everything and wires remotes. `UI/HUD/` (currency, toasts, button prices, highlighter, anomaly banner, recipe preview), `UI/Panels/` (Bag + auto-delete, Shop, Achievements, Rebirth, MixGame), `UI/Effects/` (RollReveal, Cutscene, WorldFX tag animations, ScreenShake).
+`ClientController.local.luau` mounts everything and wires remotes. `UI/HUD/` (currency, toasts, button prices, highlighter, anomaly banner, recipe preview), `UI/Panels/` (Bag + auto-delete, Shop, Achievements, Rebirth, MixGame), `UI/Effects/` (RollReveal, Cutscene, WorldFX tag animations, ScreenShake), `UI/Hotbar/` (custom hotbar replacing Roblox's backpack bar: `Hotbar` slots/keys 1-9/overflow grid, `ItemIcon` 3D ViewportFrame icons + rarity look, `Tooltip`).
 
 ## Remotes (`Config.RemoteNames`)
 Server→client: `Notify`, `AnomalyStarted/Ended`, `Cutscene`, `ScreenShake`, `RollResult`, `BagUpdate`, `MixStart`, `AchievementSync/Unlocked`.
