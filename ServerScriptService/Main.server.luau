@@ -11,6 +11,7 @@ local ORDER = {
 	"WorldBuilder",
 	"DataManager",
 	"PlotManager",
+	"TycoonButtons",
 }
 
 local loaded: { [string]: any } = {}

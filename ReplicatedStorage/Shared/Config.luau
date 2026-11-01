@@ -7,7 +7,17 @@ local Config = {}
 Config.DataStoreName = "BakeryData_v1"
 Config.DataMaxRetries = 3
 Config.AutosaveInterval = 180 -- seconds
-Config.StartingCash = 50
+Config.StartingCash = 250 -- enough to buy the core pipeline (Walls..DisplayCounter = 210)
+
+-- Tycoon ---------------------------------------------------------------------
+Config.ButtonCooldown = 1 -- seconds between purchase attempts per player
+
+-- Sounds (built-in rbxasset:// files so they work without uploads; swap for
+-- rbxassetid:// IDs any time). An empty string means "silent".
+Config.Sounds = {
+	Purchase = "rbxasset://sounds/electronicpingshort.wav",
+	Denied = "rbxasset://sounds/clickfast.wav",
+}
 
 -- World ----------------------------------------------------------------------
 Config.PlotCount = 4
