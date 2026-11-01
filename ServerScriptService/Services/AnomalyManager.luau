@@ -103,7 +103,23 @@ function AnomalyManager.UseExtinguisher(player: Player): boolean
 		return false
 	end
 	BakingPipeline.SetOvenBlocked(best, false)
+	DataManager.AddGems(player, Config.Gems.ExtinguishReward)
+	Remotes.Get("Notify"):FireClient(player, `🧯 Oven saved! +💎{Config.Gems.ExtinguishReward}`)
 	return true
+end
+
+-- Anomaly Shield: each owner with a charge uses one and their plot is skipped.
+-- Returns the set of protected plots for this anomaly.
+local function consumeShields(): { [Model]: boolean }
+	local protected = {}
+	for _, plot in ownedPlots() do
+		local owner = PlotManager.GetOwner(plot)
+		if owner and DataManager.UseShield(owner) then
+			protected[plot] = true
+			Remotes.Get("Notify"):FireClient(owner, "🛡️ Your Anomaly Shield protected your bakery!")
+		end
+	end
+	return protected
 end
 
 local function giveExtinguisher(player: Player)
@@ -128,9 +144,12 @@ defs.OverheatCrisis = {
 		return false
 	end,
 	Run = function(_cfg, deadline)
+		local protected = consumeShields()
 		for _, plot in ownedPlots() do
-			for _, oven in BakingPipeline.GetOvens(plot) do
-				BakingPipeline.SetOvenBlocked(oven, true)
+			if not protected[plot] then
+				for _, oven in BakingPipeline.GetOvens(plot) do
+					BakingPipeline.SetOvenBlocked(oven, true)
+				end
 			end
 		end
 		-- Re-check every tick so respawned/new players also get an extinguisher.
@@ -162,7 +181,11 @@ function AnomalyManager.StopMimic(player: Player): boolean
 	end
 	npc:SetAttribute("Stopped", true)
 	DataManager.AddCash(player, Config.Anomalies.MimicCustomer.StopReward)
-	Remotes.Get("Notify"):FireClient(player, `You stopped the Mimic! +${Config.Anomalies.MimicCustomer.StopReward}`)
+	DataManager.AddGems(player, Config.Gems.MimicReward)
+	Remotes.Get("Notify"):FireClient(
+		player,
+		`You stopped the Mimic! +${Config.Anomalies.MimicCustomer.StopReward} +💎{Config.Gems.MimicReward}`
+	)
 	npc:Destroy() -- CustomerAI sees the NPC gone and releases the reserved slot
 	return true
 end
@@ -225,10 +248,14 @@ defs.MimicCustomer = {
 		return false
 	end,
 	Run = function(_cfg, deadline)
+		local protected = consumeShields()
 		mimic = CustomerAI.TrySpawnForAnyPlot({
 			Decorate = decorateMimic,
 			OnArrive = mimicArrives,
 			IgnoreCap = true,
+			PlotFilter = function(plot)
+				return not protected[plot]
+			end,
 		})
 		waitUntil(deadline, function()
 			return mimic == nil or (mimic :: Model).Parent == nil

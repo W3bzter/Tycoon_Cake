@@ -108,6 +108,7 @@ Config.RemoteNames = {
 	"Notify", -- server -> client: (message: string)
 	"AnomalyStarted", -- server -> client: (name: string, duration: number)
 	"AnomalyEnded", -- server -> client: (name: string)
+	"BuyGemItem", -- client -> server: (itemId: "Shield" | "Boost")
 }
 
 return Config
