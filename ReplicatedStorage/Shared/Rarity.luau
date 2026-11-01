@@ -20,7 +20,8 @@ export type BakeContext = CakeRolls.BakeContext
 local Rarity = {}
 
 -- Fx: how loud the roll reveal / world effects get for this tier
--- ("none" | "glow" | "shake" | "rays" | "mythic" | "divine" | "anomalous").
+-- ("none" | "glow" | "shake" | "rays" | "mythic" | "divine" | "anomalous" | "void" | "celestial").
+-- Void and Celestial play a full-screen cutscene (UI/Effects/RarityCutscene).
 Rarity.Tiers = {
 	{ Name = "Common", Color = Color3.fromRGB(205, 205, 215), Mult = 1, Weight = 60, Glow = 0, Fx = "none" },
 	{ Name = "Uncommon", Color = Color3.fromRGB(90, 220, 120), Mult = 1.5, Weight = 25, Glow = 0.5, Fx = "none" },
@@ -30,6 +31,8 @@ Rarity.Tiers = {
 	{ Name = "Mythic", Color = Color3.fromRGB(255, 60, 140), Mult = 40, Weight = 0.1, Glow = 3, Fx = "mythic" },
 	{ Name = "Divine", Color = Color3.fromRGB(255, 245, 190), Mult = 100, Weight = 0.02, Glow = 4, Fx = "divine" },
 	{ Name = "Anomalous", Color = Color3.fromRGB(40, 255, 200), Mult = 300, Weight = 0.005, Glow = 5, Fx = "anomalous" },
+	{ Name = "Void", Color = Color3.fromRGB(140, 60, 255), Mult = 1000, Weight = 0.0007, Glow = 6, Fx = "void" }, -- blackout cutscene
+	{ Name = "Celestial", Color = Color3.fromRGB(255, 255, 255), Mult = 3000, Weight = 0.00014, Glow = 7, Fx = "celestial" }, -- white-out cutscene
 }
 Rarity.MYTHIC = 6 -- tiers at or above this index get the big effects
 

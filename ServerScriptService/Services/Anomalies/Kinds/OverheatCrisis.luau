@@ -60,9 +60,9 @@ local function useExtinguisher(player: Player): boolean
 	if body then
 		VFX.Burst(body.Position, "Smoke", Color3.fromRGB(230, 240, 255))
 	end
-	DataManager.AddGems(player, Config.Gems.ExtinguishReward)
+	local gems = DataManager.EarnGems(player, Config.Gems.ExtinguishReward)
 	DataManager.AddStat(player, "OvensSaved", 1)
-	Common.notify(player, `🧯 Oven saved! +💎{Config.Gems.ExtinguishReward}`)
+	Common.notify(player, `🧯 Oven saved! +💎{gems}`)
 	return true
 end
 

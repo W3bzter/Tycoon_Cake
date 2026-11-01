@@ -170,7 +170,7 @@ local function rarityAura(folder: Folder, att: Attachment, size: Vector3, base: 
 				weld.Parent = ring
 			end
 			CollectionService:AddTag(ring, "FxSpin")
-			if rarity == 8 then
+			if rarity >= 8 then
 				CollectionService:AddTag(ring, "FxRainbow")
 			end
 		end

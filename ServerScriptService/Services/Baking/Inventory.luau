@@ -20,6 +20,7 @@ local Recipes = require(Shared:WaitForChild("Recipes"))
 
 local Services = script:FindFirstAncestor("Services") :: Folder
 local DataManager = require(Services.Core.DataManager)
+local GamePasses = require(Services.Core.GamePasses)
 local Remotes = require(Services.Core.Remotes)
 
 local Inventory = {}
@@ -182,8 +183,9 @@ function Inventory.RollFits(player: Player): boolean
 		return false
 	end
 	local count = 0
+	local copies = if GamePasses.Active(player, "DoubleRoll") then 2 else 1
 	for _ in Recipes.NeededIngredients(hasUnlockFn(player)) do
-		count += 1
+		count += copies
 	end
 	return #bag + count <= Inventory.Capacity(player)
 end
@@ -198,14 +200,16 @@ Inventory.Rolled = rollEvent.Event -- (player, items)
 -- `reveal` forces the on-screen reveal even when quiet (the Auto-Roller).
 function Inventory.Roll(player: Player, quiet: boolean?, reveal: boolean?): boolean
 	local now = os.clock()
-	if now - (lastRoll[player] or 0) < Config.Rolling.Cooldown then
+	local cooldown = if GamePasses.Active(player, "InstantRoll") then Config.Rolling.InstantCooldown else Config.Rolling.Cooldown
+	if now - (lastRoll[player] or 0) < cooldown then
 		return false
 	end
+	local copies = if GamePasses.Active(player, "DoubleRoll") then 2 else 1 -- 2x Roll pass: same odds, twice the items
 	local needed = Recipes.NeededIngredients(hasUnlockFn(player))
 	local count = 0
 	for _, ingredient in Recipes.IngredientOrder do
 		if needed[ingredient] then
-			count += 1
+			count += copies
 		end
 	end
 	local bag = bagOf(player)
@@ -216,15 +220,17 @@ function Inventory.Roll(player: Player, quiet: boolean?, reveal: boolean?): bool
 		return false
 	end
 	local rolled, kept = {}, {}
-	for _, ingredient in Recipes.IngredientOrder do
-		if needed[ingredient] then
-			local item: any = Inventory.MakeItem(player, ingredient)
-			if Inventory.ShouldDelete(player, "Ingredient", item.Rarity, Rarity.IsSpecial(item)) then
-				item.Deleted = true -- shown greyed out in the reveal, never stored
-			else
-				table.insert(kept, item)
+	for _ = 1, copies do
+		for _, ingredient in Recipes.IngredientOrder do
+			if needed[ingredient] then
+				local item: any = Inventory.MakeItem(player, ingredient)
+				if Inventory.ShouldDelete(player, "Ingredient", item.Rarity, Rarity.IsSpecial(item)) then
+					item.Deleted = true -- shown greyed out in the reveal, never stored
+				else
+					table.insert(kept, item)
+				end
+				table.insert(rolled, item)
 			end
-			table.insert(rolled, item)
 		end
 	end
 	Inventory.AddItems(player, kept)

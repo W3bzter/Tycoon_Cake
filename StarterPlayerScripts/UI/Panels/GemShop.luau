@@ -204,6 +204,8 @@ function GemShop.Mount(screen: ScreenGui, player: Player)
 		b.LayoutOrder = nextOrder()
 		local price = ""
 		local function refreshPass()
+			-- Roll passes give random items: only sold where paid random items are allowed.
+			b.Visible = not def.RandomItems or player:GetAttribute("LuckAllowed") == true
 			if player:GetAttribute(key) == true then
 				b.Text = `{def.Label} ✅ OWNED\n{def.Description}`
 				b.BackgroundColor3 = Color3.fromRGB(70, 120, 90)
@@ -215,6 +217,7 @@ function GemShop.Mount(screen: ScreenGui, player: Player)
 			passPrompt:FireServer(key)
 		end)
 		player:GetAttributeChangedSignal(key):Connect(refreshPass)
+		player:GetAttributeChangedSignal("LuckAllowed"):Connect(refreshPass)
 		refreshPass()
 		if ready then
 			task.spawn(function()

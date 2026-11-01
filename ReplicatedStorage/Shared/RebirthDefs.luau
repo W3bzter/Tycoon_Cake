@@ -48,7 +48,7 @@ function RebirthDefs.Requirements(done: number): { Requirement }
 	local extra = n - #LIST
 	local named = { "Molten", "Frozen", "Electric", "Galaxy", "Rainbow" }
 	return {
-		{ Count = 1 + extra // 2, MinRarity = math.min(#Rarity.Tiers, 6 + extra // 3), AnyMutation = true },
+		{ Count = 1 + extra // 2, MinRarity = math.min(8, 6 + extra // 3) -- never asks for Void/Celestial, AnyMutation = true },
 		{ Count = 1, Mutation = named[(n % #named) + 1] },
 	}
 end

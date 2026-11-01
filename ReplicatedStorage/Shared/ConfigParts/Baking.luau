@@ -8,6 +8,7 @@ local Config = {}
 Config.Rolling = {
 	BagSize = 40, -- ingredients the bag can hold
 	Cooldown = 3, -- seconds between rolls (the reveal animation is ~1.5s)
+	InstantCooldown = 0.75, -- with the Instant Roll game pass
 }
 
 -- Mixing minigame ------------------------------------------------------------------

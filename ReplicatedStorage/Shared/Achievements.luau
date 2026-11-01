@@ -33,6 +33,8 @@ Achievements.List = {
 	a("Mythical", "💖", "Mythical", "Roll a Mythic ingredient", "BestRoll", 6, 25),
 	a("BeyondMyth", "😇", "Beyond Myth", "Roll a Divine ingredient", "BestRoll", 7, 60),
 	a("Anomalous", "🌀", "Anomalous!", "Roll an Anomalous ingredient", "BestRoll", 8, 150),
+	a("IntoTheVoid", "🕳️", "Into the Void", "Roll a Void ingredient", "BestRoll", 9, 400),
+	a("Celestial", "✨", "Celestial!", "Roll a Celestial ingredient", "BestRoll", 10, 1000),
 	a("Hoarder", "🎲", "Hoarder", "Roll 500 ingredients", "IngredientsRolled", 500, 15),
 	-- Baking
 	a("Perfectionist", "🎯", "Perfectionist", "Make 10 Perfect mixes", "PerfectMixes", 10, 10),

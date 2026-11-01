@@ -54,6 +54,16 @@ function GamePasses.Owns(player: Player, key: string): boolean
 	return owned[player] ~= nil and owned[player][key] == true
 end
 
+-- Owned AND allowed to work here: RandomItems passes need the paid-random-items
+-- policy check (Economy/GemShop sets LuckAllowed; missing = not allowed).
+function GamePasses.Active(player: Player, key: string): boolean
+	local def = Config.GamePasses[key]
+	if def and def.RandomItems and player:GetAttribute("LuckAllowed") ~= true then
+		return false
+	end
+	return GamePasses.Owns(player, key)
+end
+
 -- Studio-only test hook (DebugBridge): pretend the player owns a pass.
 function GamePasses.SetTestOwned(player: Player, key: string, value: boolean): boolean
 	if not RunService:IsStudio() then
@@ -89,6 +99,9 @@ function GamePasses.Init()
 		if def.Id == 0 then
 			Remotes.Get("Notify"):FireClient(player, `{def.Label} isn't set up yet (coming soon!)`)
 			return
+		end
+		if def.RandomItems and player:GetAttribute("LuckAllowed") ~= true then
+			return -- not sold where paid random items are restricted
 		end
 		if GamePasses.Owns(player, key) then
 			Remotes.Get("Notify"):FireClient(player, `You already own {def.Label}!`)

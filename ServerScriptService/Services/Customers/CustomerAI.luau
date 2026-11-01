@@ -2,7 +2,8 @@
 -- Customer NPCs wearing the plot owner's friends' avatars (AvatarService).
 -- They spawn at the bus stop, pathfind to the display counter with idle/walk
 -- animations, show a bubble with the cake they want, buy (tipping 20% if it's the
--- cake they wanted), react happily, pay the owner, then walk off and despawn.
+-- cake they wanted), react happily, pay the owner, maybe sit at a café table to
+-- eat and tip (Customers/DineIn), then walk off and despawn.
 -- A cake slot is reserved before the customer spawns, so two customers never
 -- go for the same cake.
 
@@ -16,6 +17,7 @@ local Recipes = require(Shared:WaitForChild("Recipes"))
 local Services = script:FindFirstAncestor("Services") :: Folder
 local AvatarService = require(Services.Customers.AvatarService)
 local CustomerLook = require(Services.Customers.CustomerLook)
+local DineIn = require(Services.Customers.DineIn)
 local BakingPipeline = require(Services.Baking.BakingPipeline)
 local DataManager = require(Services.Core.DataManager)
 local PlotManager = require(Services.Core.PlotManager)
@@ -45,10 +47,12 @@ local active: { [Model]: boolean } = {}
 local spawning = 0 -- customers being built (avatar loading yields)
 local npcFolder: Folder
 
-local function defaultPurchase(npc: Model, plot: Model, slot: BasePart, options: CustomerOptions, tracks: Tracks)
+-- Buys the reserved cake. Returns what the owner was paid and the cake type
+-- (nil if the cake was gone).
+local function defaultPurchase(npc: Model, plot: Model, slot: BasePart, options: CustomerOptions, tracks: Tracks): (number?, string?)
 	local ok, info = BakingPipeline.TakeCake(plot, slot)
 	if not ok or not info then
-		return
+		return nil, nil
 	end
 	local cakeType = info.Type
 	local owner = PlotManager.GetOwner(plot)
@@ -73,11 +77,11 @@ local function defaultPurchase(npc: Model, plot: Model, slot: BasePart, options:
 		gems += rare[2]
 	end
 	if owner then
-		DataManager.AddCash(owner, pay)
+		pay = DataManager.EarnCash(owner, pay)
 		DataManager.RecordSale(owner)
 		DataManager.AddStat(owner, "TotalEarned", pay)
 		if gems > 0 then
-			DataManager.AddGems(owner, gems)
+			gems = DataManager.EarnGems(owner, gems)
 		end
 	end
 
@@ -86,6 +90,7 @@ local function defaultPurchase(npc: Model, plot: Model, slot: BasePart, options:
 	local text = `+${pay}` .. (if gotWanted then " (tip!)" else "") .. (if gems > 0 then ` +💎{gems}` else "")
 	popText(npc, text, if options.VIP then Color3.fromRGB(255, 215, 80) else Color3.fromRGB(120, 255, 120))
 	celebrate(npc, tracks)
+	return pay, cakeType
 end
 
 -- Lifecycle ----------------------------------------------------------------------------
@@ -151,10 +156,14 @@ function CustomerAI.Spawn(plot: Model, slot: BasePart, options: CustomerOptions?
 			if opts.OnArrive then
 				doDefault = opts.OnArrive(npc, plot, slot) ~= false
 			end
+			local paid, cakeType = nil, nil
 			if doDefault then
-				defaultPurchase(npc, plot, slot, opts, tracks)
+				paid, cakeType = defaultPurchase(npc, plot, slot, opts, tracks)
 			end
 			task.wait(2)
+			if paid then
+				DineIn.TrySit(npc, plot, paid, cakeType, tracks) -- maybe sit, eat and tip (yields)
+			end
 		else
 			BakingPipeline.ReleaseSlot(slot)
 		end

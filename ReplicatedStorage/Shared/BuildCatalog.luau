@@ -49,7 +49,7 @@ BuildCatalog.List = {
 	{ Id = "PottedPlant", Name = "Potted Plant", Icon = "🌷", Kind = "Decor", Category = "Decor", Price = 25, Requires = { "Walls" }, Max = 12, Unlocks = { [1] = "Plants" }, Description = "A cheerful plant." },
 	{ Id = "Rug", Name = "Cosy Rug", Icon = "🟪", Kind = "Decor", Category = "Decor", Price = 60, Requires = { "Walls" }, Max = 6, Description = "A soft round rug." },
 	{ Id = "Balloons", Name = "Balloon Bunch", Icon = "🎈", Kind = "Decor", Category = "Decor", Price = 150, Requires = { "Walls" }, Max = 6, Description = "Party balloons on a weight." },
-	{ Id = "CafeTable", Name = "Café Table", Icon = "☕", Kind = "Decor", Category = "Decor", Price = 225, Requires = { "Walls" }, Max = 8, Unlocks = { [1] = "Seating" }, Description = "A table with two chairs." },
+	{ Id = "CafeTable", Name = "Café Table", Icon = "☕", Kind = "Decor", Category = "Decor", Price = 225, Requires = { "Walls" }, Max = 8, Unlocks = { [1] = "Seating" }, Description = "Customers sit here to eat and leave a tip." },
 	{ Id = "StreetSign", Name = "Street Sign", Icon = "🪧", Kind = "Decor", Category = "Decor", Price = 1100, Requires = { "Awning" }, Max = 1, Effects = { CustomerRate = 0.85 }, Description = "Customers come 15% more often." },
 	{ Id = "RadioAd", Name = "Radio Ad", Icon = "📻", Kind = "Decor", Category = "Decor", Price = 10000, Requires = { "StreetSign" }, Max = 1, Effects = { CustomerRate = 0.8 }, Description = "Customers come 20% more often." },
 	{ Id = "CupcakeStatue", Name = "Cupcake Statue", Icon = "🧁", Kind = "Decor", Category = "Decor", Price = 5000, Requires = { "SecondFloor" }, Max = 2, Description = "A giant cupcake. Very important." },

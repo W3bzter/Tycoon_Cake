@@ -9,6 +9,8 @@
 --              and that card's reveal is slowed down for suspense
 --   divine     white-gold flash + double rays on top of mythic
 --   anomalous  glitch: RGB-split title, flickering inverted tint, heavy shake
+--   void / celestial  a full-screen blackout / white-out cutscene first
+--              (UI/Effects/RarityCutscene), then the divine show
 -- Purely visual: the server already put the items in the bag. Auto-deleted items
 -- (item.Deleted) are shown greyed with a bin.
 
@@ -21,6 +23,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local Rarity = require(Shared:WaitForChild("Rarity"))
 local Recipes = require(Shared:WaitForChild("Recipes"))
+local RarityCutscene = require(script.Parent:WaitForChild("RarityCutscene"))
 local ScreenShake = require(script.Parent:WaitForChild("ScreenShake"))
 
 local RollReveal = {}
@@ -34,7 +37,7 @@ local confettiLayer: Frame
 local token = 0
 local fxConn: RBXScriptConnection? = nil
 
-local FX_LEVEL = { none = 0, glow = 1, shake = 2, rays = 3, mythic = 4, divine = 5, anomalous = 6 }
+local FX_LEVEL = { none = 0, glow = 1, shake = 2, rays = 3, mythic = 4, divine = 5, anomalous = 6, void = 7, celestial = 8 }
 
 local function playSound(id: string?, speed: number?, volume: number?)
 	if not id or id == "" then
@@ -136,7 +139,7 @@ function RollReveal.Mount(screen: ScreenGui)
 	container.Name = "RollReveal"
 	container.AnchorPoint = Vector2.new(0.5, 0.5)
 	container.Position = UDim2.fromScale(0.5, 0.42)
-	container.Size = UDim2.fromOffset(700, 130)
+	container.Size = UDim2.fromOffset(720, 264) -- two rows when a 2x Roll reveals 14 cards
 	container.BackgroundTransparency = 1
 	container.Visible = false
 	container.ZIndex = 20
@@ -147,6 +150,7 @@ function RollReveal.Mount(screen: ScreenGui)
 	layout.VerticalAlignment = Enum.VerticalAlignment.Center
 	layout.Padding = UDim.new(0, 8)
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Wraps = true
 	layout.Parent = container
 
 	local function titleLabel(name: string, z: number): TextLabel
@@ -372,17 +376,28 @@ function RollReveal.Show(items: { any })
 				TweenService:Create(frame, TweenInfo.new(0.15, Enum.EasingStyle.Back, Enum.EasingDirection.Out, 2, true), { Size = UDim2.fromOffset(104, 124) }):Play()
 			end
 			if i == bestIndex and level >= FX_LEVEL.rays and mine == token then
-				bigMoment(tier, level, item.Type, function()
+				local function finish()
 					if mine == token then
 						container.Visible = false
 					end
-				end)
+				end
+				if level >= FX_LEVEL.void then
+					-- Void / Celestial: full-screen blackout / white-out first, then the big show.
+					local ingredient = Recipes.Ingredients[item.Type]
+					RarityCutscene.Play(tier.Fx, tier.Name, tier.Color, ingredient and ingredient.Icon, function()
+						if mine == token then
+							bigMoment(tier, FX_LEVEL.divine, item.Type, finish)
+						end
+					end)
+				else
+					bigMoment(tier, level, item.Type, finish)
+				end
 			end
 		end)
 	end
 
 	-- Legendary+ hide when their big moment ends (see bigMoment); this is a fallback.
-	local hold = if level >= FX_LEVEL.mythic then 12 elseif level >= FX_LEVEL.rays then 6 else 3.2
+	local hold = if level >= FX_LEVEL.void then 20 elseif level >= FX_LEVEL.mythic then 12 elseif level >= FX_LEVEL.rays then 6 else 3.2
 	task.delay(hold, function()
 		if mine == token then
 			container.Visible = false

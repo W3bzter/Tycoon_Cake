@@ -13,6 +13,7 @@ local RunService = game:GetService("RunService")
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
 
 local Schema = require(script.Parent.PlayerDataSchema)
+local GamePasses = require(script.Parent.GamePasses) -- 2x Cash / 2x Gems (requires only Remotes: no cycle)
 export type PlayerData = Schema.PlayerData
 local TEMPLATE: PlayerData = Schema.TEMPLATE
 
@@ -185,6 +186,21 @@ function DataManager.AddCash(player: Player, amount: number)
 	end
 	data.Cash += amount
 	updateLeaderstat(player, "Cash", data.Cash)
+end
+
+-- Cash / Gems earned in play (sales, tips, rewards, achievements): doubled by the
+-- 2x Cash / 2x Gems game passes. Robux purchases use AddCash/AddGems directly.
+-- Returns the amount actually given.
+function DataManager.EarnCash(player: Player, amount: number): number
+	local mult = if amount > 0 and GamePasses.Owns(player, "DoubleCash") then 2 else 1
+	DataManager.AddCash(player, amount * mult)
+	return amount * mult
+end
+
+function DataManager.EarnGems(player: Player, amount: number): number
+	local mult = if amount > 0 and GamePasses.Owns(player, "DoubleGems") then 2 else 1
+	DataManager.AddGems(player, amount * mult)
+	return amount * mult
 end
 
 -- Returns true and deducts if the player can afford it.

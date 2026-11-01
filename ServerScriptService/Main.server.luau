@@ -22,6 +22,7 @@ local ORDER = {
 	"BakingPipeline",
 	"AutoRoll",
 	"MixingGame",
+	"DineIn",
 	"CustomerAI",
 	"AutoProduction",
 	"Repairs",

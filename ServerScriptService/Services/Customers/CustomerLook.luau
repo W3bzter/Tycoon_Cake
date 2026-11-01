@@ -68,7 +68,7 @@ end
 
 -- Animations -----------------------------------------------------------------------
 
-export type Tracks = { idle: AnimationTrack?, walk: AnimationTrack?, cheer: AnimationTrack? }
+export type Tracks = { idle: AnimationTrack?, walk: AnimationTrack?, cheer: AnimationTrack?, sit: AnimationTrack? }
 
 local function loadTrack(animator: Animator, id: string, priority: Enum.AnimationPriority): AnimationTrack?
 	if id == "" then
@@ -103,7 +103,11 @@ local function setupAnimations(npc: Model): Tracks
 		idle = loadTrack(a, Config.Animations.Idle, Enum.AnimationPriority.Idle),
 		walk = loadTrack(a, Config.Animations.Walk, Enum.AnimationPriority.Movement),
 		cheer = loadTrack(a, Config.Animations.Cheer, Enum.AnimationPriority.Action),
+		sit = loadTrack(a, Config.Animations.Sit or "", Enum.AnimationPriority.Action),
 	}
+	if tracks.sit then
+		tracks.sit.Looped = true
+	end
 	if tracks.idle then
 		tracks.idle.Looped = true
 		tracks.idle:Play()

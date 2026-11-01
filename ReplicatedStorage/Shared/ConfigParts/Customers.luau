@@ -21,6 +21,16 @@ Config.Animations = {
 	Idle = "rbxassetid://507766388",
 	Walk = "rbxassetid://507777826",
 	Cheer = "rbxassetid://507770677",
+	Sit = "rbxassetid://2506281703", -- dine-in customers
+}
+
+-- Dine-in (Customers/DineIn): after buying, some customers sit at a free chair of a
+-- placed Café Table, eat, and leave a tip on top of what they paid.
+Config.DineIn = {
+	Chance = 0.5, -- of customers who sit down (if a chair is free)
+	EatTime = 10, -- seconds at the table
+	TipMin = 0.1, -- tip = this..TipMax share of what they paid
+	TipMax = 0.3,
 }
 
 return Config

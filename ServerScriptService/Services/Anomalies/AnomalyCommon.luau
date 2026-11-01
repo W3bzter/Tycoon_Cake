@@ -170,10 +170,10 @@ end
 -- Cash/Gems reward + a stat for achievements.
 function Common.reward(player: Player, cash: number, gems: number, stat: string?, message: string)
 	if cash > 0 then
-		DataManager.AddCash(player, cash)
+		cash = DataManager.EarnCash(player, cash)
 	end
 	if gems > 0 then
-		DataManager.AddGems(player, gems)
+		gems = DataManager.EarnGems(player, gems)
 	end
 	if stat then
 		DataManager.AddStat(player, stat, 1)

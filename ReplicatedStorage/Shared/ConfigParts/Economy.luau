@@ -9,8 +9,17 @@ local Config = {}
 -- FullAutomation: hoppers load themselves from your bag (cheapest unpinned
 -- ingredients first) and the pantry auto-rolls (normal cooldown and odds) when
 -- the bag can't fill a hopper. It only automates free actions.
+-- RandomItems = true: the pass gives more free rolls (random items), so it is only
+-- sold and only works where PolicyService allows paid random items (same gate as
+-- the Luck upgrade: player attribute LuckAllowed, fails closed). Never changes odds.
+-- DoubleCash / DoubleGems double what you EARN in play (sales, tips, rewards,
+-- achievements), not Robux purchases.
 Config.GamePasses = {
 	FullAutomation = { Id = 0, Label = "🤖 Full Automation", Description = "Hoppers load themselves from your bag" },
+	DoubleRoll = { Id = 0, Label = "🎲 2x Roll", Description = "Every roll gives 2 of each ingredient", RandomItems = true },
+	InstantRoll = { Id = 0, Label = "⚡ Instant Roll", Description = "Roll again almost instantly", RandomItems = true },
+	DoubleCash = { Id = 0, Label = "💵 2x Cash", Description = "Earn double Cash" },
+	DoubleGems = { Id = 0, Label = "💎 2x Gems", Description = "Earn double Gems" },
 }
 
 -- Gem upgrades (levelled; cost = BaseCost * CostGrowth ^ level) -------------------
@@ -30,6 +39,8 @@ Config.RareCakeGems = {
 	[6] = { 1, 5 }, -- Mythic
 	[7] = { 1, 12 }, -- Divine
 	[8] = { 1, 40 }, -- Anomalous
+	[9] = { 1, 120 }, -- Void
+	[10] = { 1, 400 }, -- Celestial
 }
 
 -- Robux developer products. Create these on the Creator Dashboard

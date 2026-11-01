@@ -43,7 +43,7 @@ local function unlock(player: Player, def: Defs.Achievement)
 	end
 	data.Achievements[def.Id] = os.time()
 	if def.Gems > 0 then
-		DataManager.AddGems(player, def.Gems)
+		DataManager.EarnGems(player, def.Gems)
 	end
 	Remotes.Get("AchievementUnlocked"):FireClient(player, def.Id)
 	if def.BadgeId ~= 0 then
