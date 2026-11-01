@@ -85,6 +85,11 @@ local function syncSettings(player: Player)
 	player:SetAttribute("MusicVolume", data.Settings.MusicVolume or 0.6)
 	player:SetAttribute("SfxVolume", data.Settings.SfxVolume or 1)
 	player:SetAttribute("AutoRollPopups", data.Settings.AutoRollPopups ~= false)
+	-- World labels a player chose to hide (UI/Effects/WorldLabels): Machines, Cakes, Customers.
+	local hidden = data.Settings.HideLabels or {}
+	for _, kind in Config.LabelKinds do
+		player:SetAttribute(`Hide{kind}Labels`, hidden[kind] == true)
+	end
 end
 Inventory.SyncSettings = syncSettings
 
@@ -107,6 +112,9 @@ function Inventory.SettingsAction(player: Player, action: any, a: any, b: any)
 		end
 	elseif action == "autorollpopups" and typeof(a) == "boolean" then
 		data.Settings.AutoRollPopups = a
+	elseif action == "hidelabels" and typeof(a) == "string" and table.find(Config.LabelKinds, a) and typeof(b) == "boolean" then
+		data.Settings.HideLabels = data.Settings.HideLabels or {}
+		data.Settings.HideLabels[a] = if b then true else nil
 	else
 		return
 	end

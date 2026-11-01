@@ -2,9 +2,12 @@
 -- Settings panel (⚙️ button in the right-side bar): Music and Sound effects volume
 -- (0..100% in 10% steps) and whether Auto-Roller rolls pop up on screen. Saved
 -- by the server (Remotes.Settings -> Inventory.SettingsAction) and mirrored back
--- as player attributes; UI/Audio applies the volumes.
+-- as player attributes; UI/Audio applies the volumes. Also which world labels
+-- show (equipment names, cake tags, customer bubbles: UI/Effects/WorldLabels).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
 
 local Settings = {}
 
@@ -56,7 +59,8 @@ function Settings.Mount(screen: ScreenGui, player: Player)
 	panel.Name = "SettingsPanel"
 	panel.AnchorPoint = Vector2.new(0.5, 0.5)
 	panel.Position = UDim2.fromScale(0.5, 0.5)
-	panel.Size = UDim2.fromOffset(320, 230)
+	panel.Size = UDim2.fromOffset(320, 0)
+	panel.AutomaticSize = Enum.AutomaticSize.Y
 	panel.BackgroundColor3 = DARK
 	panel.BackgroundTransparency = 0.08
 	panel.Visible = false
@@ -71,6 +75,7 @@ function Settings.Mount(screen: ScreenGui, player: Player)
 	pad.PaddingLeft = UDim.new(0, 14)
 	pad.PaddingRight = UDim.new(0, 14)
 	pad.PaddingTop = UDim.new(0, 10)
+	pad.PaddingBottom = UDim.new(0, 12)
 	pad.Parent = panel
 	local layout = Instance.new("UIListLayout")
 	layout.Padding = UDim.new(0, 10)
@@ -141,6 +146,27 @@ function Settings.Mount(screen: ScreenGui, player: Player)
 	local note = label(panel, "(Legendary and better always show)", UDim2.new(1, 0, 0, 18))
 	note.LayoutOrder = 4
 	note.TextColor3 = Color3.fromRGB(200, 185, 160)
+
+	-- World labels (UI/Effects/WorldLabels): one on/off button per kind.
+	local labelsTitle = label(panel, "🏷️ Labels in the world", UDim2.new(1, 0, 0, 22))
+	labelsTitle.LayoutOrder = 5
+	local NAMES = { Machines = "🔧 Equipment names", Cakes = "🍰 Cake price tags", Customers = "💬 Customer bubbles" }
+	for i, kind in Config.LabelKinds do
+		local attr = `Hide{kind}Labels`
+		local row = button(panel, "", GREEN, UDim2.new(1, 0, 0, 32))
+		row.Name = `Labels{kind}`
+		row.LayoutOrder = 5 + i
+		local function render()
+			local shown = player:GetAttribute(attr) ~= true
+			row.Text = `{NAMES[kind] or kind}: {if shown then "SHOWN" else "HIDDEN"}`
+			row.BackgroundColor3 = if shown then GREEN else GREY
+		end
+		row.Activated:Connect(function()
+			remote:FireServer("hidelabels", kind, player:GetAttribute(attr) ~= true)
+		end)
+		player:GetAttributeChangedSignal(attr):Connect(render)
+		render()
+	end
 
 	toggle.Activated:Connect(function()
 		panel.Visible = not panel.Visible

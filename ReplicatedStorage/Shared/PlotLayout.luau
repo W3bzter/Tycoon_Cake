@@ -40,6 +40,9 @@ PlotLayout.Upgrades = {
 	{ Id = "RecipeChocolate", DisplayName = "Chocolate Recipe", Icon = "🍫", Category = "Kitchen", Tier = 2, Price = 600, Requires = { "Oven" } },
 	{ Id = "FasterOvens1", DisplayName = "Oven Speed I", Icon = "⏱️", Category = "Kitchen", Tier = 2, Price = 1500, Requires = { "Oven" }, Effects = { BakeTime = 0.8 } },
 	{ Id = "OvenRack2", DisplayName = "Oven Rack II", Icon = "🧁", Category = "Kitchen", Tier = 2, Price = 1000, Requires = { "Oven" }, Effects = { OvenRacks = 1 } },
+	{ Id = "LoadingDock", DisplayName = "Loading Dock", Icon = "🚚", Category = "Auto", Tier = 2, Price = 6000, Requires = { "Walls", "DisplayCounter2" } },
+	{ Id = "FasterTrucks", DisplayName = "Faster Trucks", Icon = "⏩", Category = "Auto", Tier = 2, Price = 20000, Requires = { "LoadingDock" }, Effects = { TruckInterval = 0.6 } },
+	{ Id = "BiggerTruck1", DisplayName = "Bigger Truck I", Icon = "📦", Category = "Auto", Tier = 2, Price = 15000, Requires = { "LoadingDock" }, Effects = { TruckCapacity = 4 } },
 
 	-- Tier 3: Expansion ----------------------------------------------------------------
 	{ Id = "RecipeStrawberry", DisplayName = "Strawberry Recipe", Icon = "🍓", Category = "Kitchen", Tier = 3, Price = 3000, Requires = { "RecipeChocolate", "DisplayCounter2" } },
@@ -51,6 +54,7 @@ PlotLayout.Upgrades = {
 
 	-- Tier 4 -------------------------------------------------------------------------------
 	{ Id = "OvenRack4", DisplayName = "Oven Rack IV", Icon = "🧁", Category = "Kitchen", Tier = 4, Price = 40000, Requires = { "OvenRack3", "FasterOvens2" }, Effects = { OvenRacks = 1 } },
+	{ Id = "BiggerTruck2", DisplayName = "Bigger Truck II", Icon = "📦", Category = "Auto", Tier = 4, Price = 60000, Requires = { "BiggerTruck1", "BakeryExpansion2" }, Effects = { TruckCapacity = 6 } },
 
 	-- Tier 5 -------------------------------------------------------------------------------
 	{ Id = "FasterOvens3", DisplayName = "Oven Speed III", Icon = "⏱️", Category = "Kitchen", Tier = 5, Price = 135000, Requires = { "FasterOvens2", "AutoBaker" }, Effects = { BakeTime = 0.75 } },

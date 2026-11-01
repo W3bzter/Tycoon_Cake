@@ -7,8 +7,9 @@
 --   SalePrice     x  cake price multiplier (Cake Charm, Golden Shopfront)
 --   MixBatch      +  extra batters per mix (Big Mixer)
 --   VIPChance     +  chance a customer is a VIP (VIP Lounge, Golden Shopfront)
---   StorageSlots  +  overflow cake storage (Auto-Restock)
 --   OvenRacks     +  cakes the bakery oven bakes at once (base 1, Oven Rack upgrades)
+--   TruckCapacity +  extra cakes per delivery truck (Bigger Truck upgrades)
+--   TruckInterval x  time between delivery trucks (Faster Trucks)
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -23,7 +24,7 @@ local DataManager = require(Services.Core.DataManager)
 
 local PlotStats = {}
 
-local MULTIPLIERS = { BakeTime = true, CustomerRate = true, SalePrice = true }
+local MULTIPLIERS = { BakeTime = true, CustomerRate = true, SalePrice = true, TruckInterval = true }
 
 -- Everything that can carry Effects: floor upgrades and placeable items (Big Mixer, Cake Charm).
 local SOURCES: { any } = table.clone(PlotLayout.Upgrades :: any)
@@ -39,6 +40,8 @@ export type Stats = {
 	VIPChance: number,
 	StorageSlots: number,
 	OvenRacks: number,
+	TruckCapacity: number,
+	TruckInterval: number,
 }
 
 function PlotStats.Get(player: Player?): Stats
@@ -50,6 +53,8 @@ function PlotStats.Get(player: Player?): Stats
 		VIPChance = 0,
 		StorageSlots = 0,
 		OvenRacks = 1,
+		TruckCapacity = 0,
+		TruckInterval = 1,
 	}
 	if not player then
 		return stats :: any

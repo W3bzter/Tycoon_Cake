@@ -28,6 +28,7 @@ local ORDER = {
 	"DineIn",
 	"CustomerAI",
 	"DriveThru",
+	"DeliveryTrucks",
 	"CakeRacks",
 	"AutoBakers",
 	"Repairs",

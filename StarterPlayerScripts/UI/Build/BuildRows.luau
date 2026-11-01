@@ -102,11 +102,17 @@ local function describe(upgrade: PlotLayout.Upgrade): string
 			table.insert(parts, `+{math.round(value * 100)}% VIP customers`)
 		elseif key == "OvenRacks" then
 			table.insert(parts, "Your oven bakes 1 more cake at once")
+		elseif key == "TruckCapacity" then
+			table.insert(parts, `Trucks carry {value} more cakes`)
+		elseif key == "TruckInterval" then
+			table.insert(parts, `Trucks come {math.round((1 / value - 1) * 100)}% more often`)
 		elseif key == "StorageSlots" then
 			table.insert(parts, `+{value} storage slots`)
 		end
 	end
-	if upgrade.Id == "AutoRoller" then
+	if upgrade.Id == "LoadingDock" then
+		return "Delivery trucks buy your cakes in bulk (+20%)."
+	elseif upgrade.Id == "AutoRoller" then
 		return "Rolls ingredients for you. T at the pantry: on/off."
 	elseif string.sub(upgrade.Id, 1, 15) == "BakeryExpansion" then
 		return "Moves your walls out: more room to build."

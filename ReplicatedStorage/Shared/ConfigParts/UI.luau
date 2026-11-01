@@ -10,4 +10,10 @@ Config.Hotbar = {
 	BottomOffset = 60, -- pixels above the bottom edge (clears the button row)
 }
 
+-- World labels a player can hide in Settings (UI/Effects/WorldLabels):
+--   Machines  machine name/status signs and pantry bin labels (a broken machine's sign still shows)
+--   Cakes     price tags on cakes for sale
+--   Customers want/thanks bubbles and names over customers
+Config.LabelKinds = { "Machines", "Cakes", "Customers" }
+
 return Config

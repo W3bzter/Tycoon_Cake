@@ -13,6 +13,7 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local BuildCatalog = require(Shared:WaitForChild("BuildCatalog"))
 local Config = require(Shared:WaitForChild("Config"))
+local Rarity = require(Shared:WaitForChild("Rarity"))
 local PlotLayout = require(Shared:WaitForChild("PlotLayout"))
 
 local Services = script:FindFirstAncestor("Services") :: Folder
@@ -267,6 +268,23 @@ function SmokeTest.Run(player: Player, withAnomalies: boolean?): string
 		end
 		assert((data.Stats.CakesBaked or 0) > before, "no cake baked: " .. AutoBakers.Describe(plot))
 		return AutoBakers.Describe(plot):sub(1, 90)
+	end)
+	step("delivery truck loads and pays", function()
+		local CakeRacks = svc("CakeRacks")
+		local DeliveryTrucks = svc("DeliveryTrucks")
+		assert(DataManager.HasUnlock(player, "LoadingDock"), "Loading Dock not bought")
+		for _ = 1, 3 do
+			CakeRacks.Store(plot, Rarity.MakeCake("Vanilla", 10, {}, "Good"))
+		end
+		local ready = DeliveryTrucks.Ready(plot)
+		assert(ready >= 3, `only {ready} cakes ready`)
+		local data = DataManager.Get(player)
+		local cash = data.Cash
+		local t0 = os.clock()
+		local took = DeliveryTrucks.SendNow(plot)
+		assert(took > 0, "truck took no cakes")
+		assert(data.Cash > cash, "truck didn't pay")
+		return `{took} cakes, +${data.Cash - cash} in {math.floor(os.clock() - t0)}s`
 	end)
 	step("prompt rules (working vs broken)", function()
 		local Prompts = svc("Prompts")

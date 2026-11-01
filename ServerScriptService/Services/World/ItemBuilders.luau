@@ -11,6 +11,7 @@ local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Co
 local Recipes = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Recipes"))
 local Services = script:FindFirstAncestor("Services") :: Folder
 local Assets = require(Services.World.Assets)
+local DockBuilders = require(Services.World.DockBuilders)
 local Style = require(Services.World.Style)
 
 local P = Style.Palette
@@ -377,6 +378,10 @@ ItemBuilders.BigMixer = function(floor, item)
 end
 
 ItemBuilders.GoldenOven = noModel
+ItemBuilders.LoadingDock = DockBuilders.LoadingDock -- trucks: Customers/DeliveryTrucks
+ItemBuilders.FasterTrucks = noModel
+ItemBuilders.BiggerTruck1 = noModel
+ItemBuilders.BiggerTruck2 = noModel
 
 ItemBuilders.CakeCharm = function(floor, item)
 	Style.Part({ Name = "Chain", Size = Vector3.new(0.15, 2.4, 0.15), CFrame = at(floor, 20, 9.4, 32), Color = P.Gold, Parent = item })
