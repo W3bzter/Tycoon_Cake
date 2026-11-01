@@ -22,6 +22,24 @@ screen.IgnoreGuiInset = true -- lets the anomaly flash cover the whole screen
 screen.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 screen.Parent = player:WaitForChild("PlayerGui")
 
+-- Studio-only DevMode marker (the server sets this attribute only inside Studio).
+local devTag = Instance.new("TextLabel")
+devTag.Name = "DevModeTag"
+devTag.AnchorPoint = Vector2.new(0.5, 0)
+devTag.Position = UDim2.new(0.5, 0, 0, 8)
+devTag.Size = UDim2.fromOffset(220, 26)
+devTag.BackgroundColor3 = Color3.fromRGB(255, 70, 90)
+devTag.TextColor3 = Color3.new(1, 1, 1)
+devTag.Font = Enum.Font.FredokaOne
+devTag.TextScaled = true
+devTag.Text = "🛠️ DEV MODE (Studio only)"
+devTag.Visible = player:GetAttribute("DevMode") == true
+devTag.Parent = screen
+Instance.new("UICorner").Parent = devTag
+player:GetAttributeChangedSignal("DevMode"):Connect(function()
+	devTag.Visible = player:GetAttribute("DevMode") == true
+end)
+
 CurrencyDisplay.Mount(screen, player)
 Toast.Mount(screen)
 AnomalyAlert.Mount(screen)

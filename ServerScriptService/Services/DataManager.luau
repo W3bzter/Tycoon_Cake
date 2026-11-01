@@ -8,6 +8,7 @@
 local DataStoreService = game:GetService("DataStoreService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
 
@@ -81,8 +82,14 @@ local function withRetries<T>(label: string, fn: () -> T): (boolean, T | string)
 	return false, tostring(lastErr)
 end
 
+-- DevMode: only ever active inside Studio (checked here, on the server). It uses a
+-- separate save key, because Studio and the live game share DataStores; the
+-- live save is never touched by a dev session.
+local DEV_ACTIVE = Config.DevMode == true and RunService:IsStudio()
+DataManager.DevActive = DEV_ACTIVE
+
 local function keyFor(player: Player): string
-	return `Player_{player.UserId}`
+	return if DEV_ACTIVE then `Dev_{player.UserId}` else `Player_{player.UserId}`
 end
 
 local function updateLeaderstat(player: Player, stat: string, value: number)
@@ -130,6 +137,13 @@ local function load(player: Player)
 
 	if player.Parent == nil then
 		return -- left while loading
+	end
+
+	if DEV_ACTIVE then
+		data.Cash = Config.DevModeAmount
+		data.Gems = Config.DevModeAmount
+		player:SetAttribute("DevMode", true)
+		print(`[DataManager] DevMode: {player.Name} topped up to {Config.DevModeAmount} Cash/Gems (dev save key)`)
 	end
 
 	sessions[player] = { data = data, canSave = canSave }

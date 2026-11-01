@@ -3,6 +3,14 @@
 
 local Config = {}
 
+-- DevMode ----------------------------------------------------------------------
+-- Studio-only testing aid. Set DevMode = false to turn it off. Even when true it
+-- does nothing in the live game: the server also requires RunService:IsStudio().
+-- While active, your Cash and Gems are set to DevModeAmount on every join, and a
+-- separate save key (Dev_<UserId>) is used so your real save is never touched.
+Config.DevMode = true
+Config.DevModeAmount = 1e12
+
 -- Data -----------------------------------------------------------------------
 Config.DataStoreName = "BakeryData_v1"
 Config.DataMaxRetries = 3
