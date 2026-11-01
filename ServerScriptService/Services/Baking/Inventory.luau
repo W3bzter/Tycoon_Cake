@@ -195,7 +195,8 @@ Inventory.Rolled = rollEvent.Event -- (player, items)
 
 -- One free roll: one of every ingredient the unlocked recipes use.
 -- `quiet` skips the "bag full" toast (Full Automation auto-rolls).
-function Inventory.Roll(player: Player, quiet: boolean?): boolean
+-- `reveal` forces the on-screen reveal even when quiet (the Auto-Roller).
+function Inventory.Roll(player: Player, quiet: boolean?, reveal: boolean?): boolean
 	local now = os.clock()
 	if now - (lastRoll[player] or 0) < Config.Rolling.Cooldown then
 		return false
@@ -233,7 +234,7 @@ function Inventory.Roll(player: Player, quiet: boolean?): boolean
 	for _, item in rolled do
 		best = math.max(best, item.Rarity)
 	end
-	if not quiet or best >= 5 then
+	if not quiet or reveal or best >= 5 then
 		Remotes.Get("RollResult"):FireClient(player, rolled)
 	end
 	rollEvent:Fire(player, rolled)

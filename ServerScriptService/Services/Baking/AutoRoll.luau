@@ -1,8 +1,8 @@
 --!strict
 -- Auto-Roller (fixed upgrade "AutoRoller"): rolls ingredients for you at the
 -- pantry's normal cooldown and odds, wherever you are, while your bag has room.
--- Quiet rolls (Inventory.Roll(player, true)): Rare+ still pop out of the pantry,
--- the full reveal only shows for Legendary or better.
+-- Quiet rolls (no "bag full" toast each time), but every roll still shows the
+-- on-screen reveal, like rolling by hand.
 -- On/off: T on the pantry (PlayerData.Settings.AutoRoll; missing = on).
 -- Needs a placed, working pantry (not broken) on the owner's plot.
 
@@ -94,7 +94,7 @@ local function tick()
 	for _, player in Players:GetPlayers() do
 		local plot = PlotManager.GetPlot(player)
 		if plot and DataManager.IsLoaded(player) and AutoRoll.IsOn(player) and workingPantry(plot) then
-			if Inventory.Roll(player, true) then
+			if Inventory.Roll(player, true, true) then
 				bagFullNotified[player] = nil
 			elseif not Inventory.RollFits(player) and not bagFullNotified[player] then
 				bagFullNotified[player] = true
