@@ -23,7 +23,9 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local Rarity = require(Shared:WaitForChild("Rarity"))
 local Recipes = require(Shared:WaitForChild("Recipes"))
-local RarityCutscene = require(script.Parent:WaitForChild("RarityCutscene"))
+-- Optional: if the cutscene module is missing, Void/Celestial just get the big show.
+local cutsceneModule = script.Parent:WaitForChild("RarityCutscene", 10)
+local RarityCutscene = if cutsceneModule then require(cutsceneModule :: ModuleScript) :: any else nil
 local ScreenShake = require(script.Parent:WaitForChild("ScreenShake"))
 
 local RollReveal = {}
@@ -381,7 +383,7 @@ function RollReveal.Show(items: { any })
 						container.Visible = false
 					end
 				end
-				if level >= FX_LEVEL.void then
+				if level >= FX_LEVEL.void and RarityCutscene then
 					-- Void / Celestial: full-screen blackout / white-out first, then the big show.
 					local ingredient = Recipes.Ingredients[item.Type]
 					RarityCutscene.Play(tier.Fx, tier.Name, tier.Color, ingredient and ingredient.Icon, function()
@@ -390,7 +392,7 @@ function RollReveal.Show(items: { any })
 						end
 					end)
 				else
-					bigMoment(tier, level, item.Type, finish)
+					bigMoment(tier, math.min(level, FX_LEVEL.anomalous), item.Type, finish)
 				end
 			end
 		end)

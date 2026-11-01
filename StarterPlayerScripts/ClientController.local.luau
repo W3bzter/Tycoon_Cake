@@ -7,22 +7,49 @@ local player = Players.LocalPlayer
 local Remotes = ReplicatedStorage:WaitForChild("Remotes")
 local UI = script.Parent:WaitForChild("UI")
 
-local AnomalyAlert = require(UI:WaitForChild("HUD"):WaitForChild("AnomalyAlert"))
-local Bag = require(UI:WaitForChild("Panels"):WaitForChild("Bag"))
-local RollReveal = require(UI:WaitForChild("Effects"):WaitForChild("RollReveal"))
-local MixGame = require(UI:WaitForChild("Panels"):WaitForChild("MixGame"))
-local CurrencyDisplay = require(UI:WaitForChild("HUD"):WaitForChild("CurrencyDisplay"))
-local GemShop = require(UI:WaitForChild("Panels"):WaitForChild("GemShop"))
-local InteractHighlighter = require(UI:WaitForChild("HUD"):WaitForChild("InteractHighlighter"))
-local RecipePreview = require(UI:WaitForChild("HUD"):WaitForChild("RecipePreview"))
-local Toast = require(UI:WaitForChild("HUD"):WaitForChild("Toast"))
-local WorldFX = require(UI:WaitForChild("Effects"):WaitForChild("WorldFX"))
-local Cutscene = require(UI:WaitForChild("Effects"):WaitForChild("Cutscene"))
-local Achievements = require(UI:WaitForChild("Panels"):WaitForChild("Achievements"))
-local Rebirth = require(UI:WaitForChild("Panels"):WaitForChild("Rebirth"))
-local ScreenShake = require(UI:WaitForChild("Effects"):WaitForChild("ScreenShake"))
-local Hotbar = require(UI:WaitForChild("Hotbar"):WaitForChild("Hotbar"))
-local BuildMode = require(UI:WaitForChild("Build"):WaitForChild("BuildMode"))
+-- A broken or missing UI module (e.g. a new file Script Sync hasn't copied into
+-- Studio yet) must not take the whole HUD down: it's skipped with a warning and
+-- replaced by a stub whose functions do nothing.
+local function loadUI(folder: string, name: string): any
+	local ok, result = pcall(function()
+		local holder = UI:WaitForChild(folder, 15)
+		local module = holder and holder:WaitForChild(name, 15)
+		assert(module, `UI/{folder}/{name} is missing (has Script Sync copied it into Studio?)`)
+		return require(module :: ModuleScript)
+	end)
+	if ok then
+		return result
+	end
+	warn(`[ClientController] {folder}/{name} failed to load, skipping it: {result}`)
+	return setmetatable({}, { __index = function()
+		return function() end
+	end })
+end
+
+-- Mounts one piece of UI; an error there is reported but the rest still loads.
+local function safe(label: string, fn: (...any) -> ...any, ...: any)
+	local ok, err = pcall(fn, ...)
+	if not ok then
+		warn(`[ClientController] {label} failed to start: {err}`)
+	end
+end
+
+local AnomalyAlert = loadUI("HUD", "AnomalyAlert")
+local Bag = loadUI("Panels", "Bag")
+local RollReveal = loadUI("Effects", "RollReveal")
+local MixGame = loadUI("Panels", "MixGame")
+local CurrencyDisplay = loadUI("HUD", "CurrencyDisplay")
+local GemShop = loadUI("Panels", "GemShop")
+local InteractHighlighter = loadUI("HUD", "InteractHighlighter")
+local RecipePreview = loadUI("HUD", "RecipePreview")
+local Toast = loadUI("HUD", "Toast")
+local WorldFX = loadUI("Effects", "WorldFX")
+local Cutscene = loadUI("Effects", "Cutscene")
+local Achievements = loadUI("Panels", "Achievements")
+local Rebirth = loadUI("Panels", "Rebirth")
+local ScreenShake = loadUI("Effects", "ScreenShake")
+local Hotbar = loadUI("Hotbar", "Hotbar")
+local BuildMode = loadUI("Build", "BuildMode")
 
 local screen = Instance.new("ScreenGui")
 screen.Name = "BakeryHUD"
@@ -106,28 +133,28 @@ for i, preview in { { "Void", "🕳️ Test Void" }, { "Celestial", "✨ Test Ce
 	end)
 end
 
-CurrencyDisplay.Mount(screen, player)
-Toast.Mount(screen)
-AnomalyAlert.Mount(screen)
-InteractHighlighter.Mount(player)
-RecipePreview.Mount(player)
-GemShop.Mount(screen, player)
-Bag.Mount(screen, player)
-Achievements.Mount(screen)
-Rebirth.Mount(screen, player)
-Hotbar.Mount(screen)
-BuildMode.Mount(screen)
-RollReveal.Mount(screen)
+safe("CurrencyDisplay", CurrencyDisplay.Mount, screen, player)
+safe("Toast", Toast.Mount, screen)
+safe("AnomalyAlert", AnomalyAlert.Mount, screen)
+safe("InteractHighlighter", InteractHighlighter.Mount, player)
+safe("RecipePreview", RecipePreview.Mount, player)
+safe("GemShop", GemShop.Mount, screen, player)
+safe("Bag", Bag.Mount, screen, player)
+safe("Achievements", Achievements.Mount, screen)
+safe("Rebirth", Rebirth.Mount, screen, player)
+safe("Hotbar", Hotbar.Mount, screen)
+safe("BuildMode", BuildMode.Mount, screen)
+safe("RollReveal", RollReveal.Mount, screen)
 Remotes:WaitForChild("RollResult").OnClientEvent:Connect(RollReveal.Show)
-MixGame.Mount(screen)
+safe("MixGame", MixGame.Mount, screen)
 Remotes:WaitForChild("MixStart").OnClientEvent:Connect(MixGame.Play)
 
-WorldFX.Mount()
+safe("WorldFX", WorldFX.Mount)
 Remotes:WaitForChild("ScreenShake").OnClientEvent:Connect(ScreenShake.Shake)
 
 Remotes:WaitForChild("Notify").OnClientEvent:Connect(Toast.Show)
 -- Anomaly intro cutscene first, then the alert banner.
-Cutscene.Mount(player)
+safe("Cutscene", Cutscene.Mount, player)
 Remotes:WaitForChild("Cutscene").OnClientEvent:Connect(Cutscene.Play)
 Remotes:WaitForChild("AnomalyStarted").OnClientEvent:Connect(function(name: string, duration: number)
 	local endsAt = workspace:GetServerTimeNow() + duration

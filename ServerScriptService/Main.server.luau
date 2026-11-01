@@ -50,11 +50,20 @@ end
 
 local loaded: { [string]: any } = {}
 
+-- One service failing (a bug, or a new file Script Sync hasn't copied yet) is
+-- reported and skipped; the others still start.
+local failed: { string } = {}
 for _, name in ORDER do
-	local module = require(findModule(name)) :: any
-	loaded[name] = module
-	if type(module.Init) == "function" then
-		module.Init()
+	local ok, err = pcall(function()
+		local module = require(findModule(name)) :: any
+		loaded[name] = module
+		if type(module.Init) == "function" then
+			module.Init()
+		end
+	end)
+	if not ok then
+		table.insert(failed, name)
+		warn(`[Main] {name} failed to start, skipping it: {err}`)
 	end
 end
 
@@ -79,4 +88,8 @@ if RunService:IsStudio() then
 	bridge.Parent = ServerStorage
 end
 
-print("[Main] All services initialised")
+if #failed == 0 then
+	print("[Main] All services initialised")
+else
+	warn(`[Main] Started with errors in: {table.concat(failed, ", ")} (see the warnings above)`)
+end
