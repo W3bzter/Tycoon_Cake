@@ -12,6 +12,7 @@ local ORDER = {
 	"WorldBuilder",
 	"DataManager",
 	"PlotManager",
+	"Inventory",
 	"TycoonButtons",
 	"BakingPipeline",
 	"CustomerAI",

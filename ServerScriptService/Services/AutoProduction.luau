@@ -18,11 +18,13 @@ local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
+local Rarity = require(Shared:WaitForChild("Rarity"))
 local Recipes = require(Shared:WaitForChild("Recipes"))
 
 local Assets = require(script.Parent.Assets)
 local BakingPipeline = require(script.Parent.BakingPipeline)
 local DataManager = require(script.Parent.DataManager)
+local Inventory = require(script.Parent.Inventory)
 local PlotManager = require(script.Parent.PlotManager)
 local PlotStats = require(script.Parent.PlotStats)
 local Remotes = require(script.Parent.Remotes)
@@ -39,17 +41,17 @@ type Line = {
 	recipe: string,
 	hopper: number,
 	batter: number,
-	tray: { string }, -- finished cakes waiting (their types)
+	tray: { Rarity.CakeInfo }, -- finished cakes waiting
 	feedT: number,
 	mixT: number,
 	bakeRemaining: number?, -- nil = oven idle
-	bakingType: string,
+	baking: Rarity.CakeInfo?, -- the cake currently in the oven
 	deliverT: number,
 }
 
 type PlotState = {
 	lines: { Line },
-	storage: { string }, -- cake types on the restock rack
+	storage: { Rarity.CakeInfo }, -- cakes on the restock rack
 }
 
 local states: { [Model]: PlotState } = {}
@@ -65,7 +67,7 @@ local function newLine(name: string, unitId: string?): Line
 		feedT = 0,
 		mixT = 0,
 		bakeRemaining = nil,
-		bakingType = "Vanilla",
+		baking = nil,
 		deliverT = 0,
 	}
 end
@@ -173,10 +175,10 @@ local function refreshStorage(plot: Model, state: PlotState)
 	end
 	local folder = Instance.new("Folder")
 	folder.Name = "StoredCakes"
-	for i, cakeType in state.storage do
+	for i, info in state.storage do
 		local marker = markers:FindFirstChild(`Store{i}`) :: BasePart?
 		if marker then
-			local model = Assets.Clone("Cakes", cakeType)
+			local model = Assets.Clone("Cakes", info.Type)
 			model:ScaleTo(model:GetScale() * 0.6)
 			Assets.Anchor(model, marker.CFrame, folder)
 		end
@@ -186,13 +188,13 @@ end
 
 -- Production -------------------------------------------------------------------------------
 
-local function deliver(plot: Model, owner: Player, state: PlotState, cakeType: string): boolean
-	if BakingPipeline.PlaceCakeInFreeSlot(plot, cakeType) then
+local function deliver(plot: Model, owner: Player, state: PlotState, info: Rarity.CakeInfo): boolean
+	if BakingPipeline.PlaceCakeInFreeSlot(plot, info) then
 		return true
 	end
 	local cap = PlotStats.Get(owner).StorageSlots
 	if #state.storage < cap then
-		table.insert(state.storage, cakeType)
+		table.insert(state.storage, info)
 		refreshStorage(plot, state)
 		return true
 	end
@@ -236,14 +238,16 @@ local function tickLine(plot: Model, owner: Player, state: PlotState, line: Line
 		if line.bakeRemaining == nil then
 			if line.batter > 0 and #line.tray < A.TrayCap and not blocked then
 				line.batter -= 1
-				line.bakingType = line.recipe
+				-- Automated lines roll their ingredients too, with a fixed "Good" mix.
+				line.baking = BakingPipeline.RollCake(owner, line.recipe)
 				line.bakeRemaining = PlotStats.BakeDuration(owner, oven, Config.BakeTime * A.BakeMult)
 			end
 		elseif not blocked then
 			line.bakeRemaining = (line.bakeRemaining :: number) - TICK
 			if (line.bakeRemaining :: number) <= 0 then
 				line.bakeRemaining = nil
-				table.insert(line.tray, line.bakingType)
+				table.insert(line.tray, line.baking :: Rarity.CakeInfo)
+				line.baking = nil
 			end
 		end
 		BakingPipeline.SetDoorGlow(oven, line.bakeRemaining ~= nil and not blocked)
@@ -260,7 +264,7 @@ local function tickLine(plot: Model, owner: Player, state: PlotState, line: Line
 		elseif not isUnit and math.abs(line.deliverT - TICK) < 1e-6 then
 			-- Show the cake riding the belt for this delivery.
 			local floor = (plot.PrimaryPart :: BasePart).CFrame * CFrame.new(0, 0.6, 0)
-			slide(plot, line.tray[1], {
+			slide(plot, line.tray[1].Type, {
 				(floor * CFrame.new(4, 0, -15)).Position,
 				(floor * CFrame.new(4, 0, 27)).Position,
 				(floor * CFrame.new(9, 0, 27)).Position,
@@ -368,15 +372,16 @@ function AutoProduction.GrabKit(player: Player, plot: Model)
 	if not line or line.hopper <= 0 or DataManager.HasUnlock(player, "AutoMixer") then
 		return false
 	end
-	local needed = #Recipes.Cakes[line.recipe].Ingredients
-	if ToolFactory.Count(player, "Ingredient") + needed > Config.MaxIngredientsHeld then
-		notify(player, "Your hands are too full for a whole recipe kit!")
+	-- The kit goes into the Ingredient Bag as freshly rolled ingredients.
+	local items = {}
+	for _, ingredient in Recipes.Cakes[line.recipe].Ingredients do
+		table.insert(items, Inventory.MakeItem(player, ingredient))
+	end
+	if not Inventory.AddItems(player, items) then
+		notify(player, "🎒 Your bag is too full for a whole recipe kit!")
 		return false
 	end
 	line.hopper -= 1
-	for _, ingredient in Recipes.Cakes[line.recipe].Ingredients do
-		ToolFactory.Give(player, "Ingredient", ingredient)
-	end
 	return true
 end
 
@@ -386,7 +391,7 @@ function AutoProduction.TakeBatter(player: Player, plot: Model)
 		return false
 	end
 	line.batter -= 1
-	ToolFactory.Give(player, "RawBatter", line.recipe)
+	ToolFactory.GiveCakeItem(player, "RawBatter", BakingPipeline.RollCake(player, line.recipe))
 	return true
 end
 
@@ -395,7 +400,7 @@ function AutoProduction.TakeCake(player: Player, plot: Model)
 	if not line or #line.tray <= 0 or DataManager.HasUnlock(player, "CounterConveyor") then
 		return false
 	end
-	ToolFactory.Give(player, "FinishedCake", table.remove(line.tray, 1))
+	ToolFactory.GiveCakeItem(player, "FinishedCake", table.remove(line.tray, 1) :: Rarity.CakeInfo)
 	return true
 end
 

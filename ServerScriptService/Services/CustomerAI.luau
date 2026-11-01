@@ -31,6 +31,7 @@ export type CustomerOptions = {
 	Wanted: string?, -- cake type shown in the speech bubble
 	VIP: boolean?, -- gold glow, pays Config.VIPPayMult, may tip Gems
 	PlotFilter: ((plot: Model) -> boolean)?, -- restricts which plots can be picked
+	PreferAnomaly: boolean?, -- Mimics go for Anomaly-touched cakes first
 }
 
 local active: { [Model]: boolean } = {}
@@ -268,15 +269,15 @@ local function celebrate(npc: Model, tracks: Tracks)
 end
 
 local function defaultPurchase(npc: Model, plot: Model, slot: BasePart, options: CustomerOptions, tracks: Tracks)
-	local ok, cakeType = BakingPipeline.TakeCake(plot, slot)
-	if not ok then
+	local ok, info = BakingPipeline.TakeCake(plot, slot)
+	if not ok or not info then
 		return
 	end
+	local cakeType = info.Type
 	local owner = PlotManager.GetOwner(plot)
 	local stats = PlotStats.Get(owner)
-	local cake = Recipes.Cakes[cakeType or "Vanilla"] or Recipes.Cakes.Vanilla
 	local gotWanted = options.Wanted ~= nil and cakeType == options.Wanted
-	local pay = cake.Price * stats.SalePrice
+	local pay = info.Value * stats.SalePrice -- value from ingredient rarities/traits/mix quality
 	if gotWanted then
 		pay *= 1 + Config.WantedTip
 	end
@@ -496,6 +497,14 @@ function CustomerAI.TrySpawnForPlot(plot: Model, options: CustomerOptions?): Mod
 		if s:GetAttribute("CakeType") == opts.Wanted then
 			slot = s
 			break
+		end
+	end
+	if opts.PreferAnomaly then
+		for _, s in slots do
+			if s:GetAttribute("Anomaly") then
+				slot = s -- Mimics are drawn to Anomaly-touched cakes
+				break
+			end
 		end
 	end
 	if not BakingPipeline.ReserveSlot(slot) then

@@ -14,10 +14,12 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
+local Rarity = require(Shared:WaitForChild("Rarity"))
 local Recipes = require(Shared:WaitForChild("Recipes"))
 
 local Assets = require(script.Parent.Assets)
 local DataManager = require(script.Parent.DataManager)
+local Inventory = require(script.Parent.Inventory)
 local PlotManager = require(script.Parent.PlotManager)
 local PlotStats = require(script.Parent.PlotStats)
 local Remotes = require(script.Parent.Remotes)
@@ -33,6 +35,7 @@ local COUNTER_IDS = { "DisplayCounter", "DisplayCounter2" }
 local BASIC_OVEN_SPEED = 2 -- bake-time multiplier
 local HAND_MIX_HOLD = 1.5 -- seconds to hold the prompt when whisking by hand
 local MACHINE_PART = {
+	IngredientCrate = "Crate", -- the roll prompt
 	PrepTable = "Body",
 	BasicOven = "Body",
 	Mixer = "Body",
@@ -105,7 +108,11 @@ local function setOvenState(oven: Model, state: string)
 end
 
 local function runBake(oven: Model, plot: Model)
-	oven:SetAttribute("BakeRemaining", PlotStats.BakeDuration(PlotManager.GetOwner(plot), oven))
+	local duration = PlotStats.BakeDuration(PlotManager.GetOwner(plot), oven)
+	if oven:GetAttribute("Fresh") then
+		duration *= Rarity.FreshBakeMult -- Fresh ingredients bake faster
+	end
+	oven:SetAttribute("BakeRemaining", duration)
 	setOvenState(oven, "Baking")
 	local prompt = getPrompt(oven)
 	while (oven:GetAttribute("BakeRemaining") :: number) > 0 do
@@ -219,27 +226,91 @@ local function cakesFolder(plot: Model): Folder
 	return folder :: Folder
 end
 
-local function placeCake(plot: Model, slot: BasePart, cakeType: string)
-	local model = Assets.Clone("Cakes", cakeType)
-	model.Name = slot.Name
-	model:SetAttribute("CakeType", cakeType)
-	Assets.Anchor(model, slot.CFrame * CFrame.new(0, slot.Size.Y / 2, 0), cakesFolder(plot))
+-- Rarity glow ring + always-on-top "Rare $123" label under/over a displayed cake.
+local function decorateCake(model: Model, info: Rarity.CakeInfo)
+	local tier = Rarity.Tiers[info.Rarity] or Rarity.Tiers[1]
+	local _, size = model:GetBoundingBox()
+	local pivot = model:GetPivot()
+	local ring = Instance.new("Part")
+	ring.Name = "RarityRing"
+	ring.Shape = Enum.PartType.Cylinder
+	ring.Size = Vector3.new(0.15, 2.6, 2.6)
+	ring.CFrame = CFrame.new(pivot.Position - Vector3.new(0, size.Y / 2 - 0.05, 0)) * CFrame.Angles(0, 0, math.rad(90))
+	ring.Color = tier.Color
+	ring.Material = if tier.Glow > 0 then Enum.Material.Neon else Enum.Material.SmoothPlastic
+	ring.Anchored = true
+	ring.CanCollide = false
+	ring.CanQuery = false
+	ring.Parent = model
+	if tier.Glow > 0 then
+		local light = Instance.new("PointLight")
+		light.Color = tier.Color
+		light.Range = 4 + tier.Glow * 2
+		light.Brightness = tier.Glow
+		light.Parent = ring
+	end
 
-	slot:SetAttribute("CakeType", cakeType)
+	local gui = Instance.new("BillboardGui")
+	gui.Name = "ValueTag"
+	gui.Size = UDim2.fromScale(3.6, 1)
+	gui.StudsOffsetWorldSpace = Vector3.new(0, size.Y / 2 + 0.9, 0)
+	gui.AlwaysOnTop = true
+	gui.LightInfluence = 0
+	gui.MaxDistance = 30
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.fromScale(1, 1)
+	label.BackgroundColor3 = Color3.fromRGB(30, 22, 18)
+	label.BackgroundTransparency = 0.25
+	label.TextColor3 = tier.Color
+	label.TextScaled = true
+	label.Font = Enum.Font.FredokaOne
+	label.Text = `{info.Anomaly and "👁️ " or ""}{tier.Name} ${info.Value}`
+	label.Parent = gui
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0.4, 0)
+	corner.Parent = label
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = tier.Color
+	stroke.Thickness = 1.5
+	stroke.Parent = label
+	gui.Parent = model.PrimaryPart or ring
+end
+
+local function placeCake(plot: Model, slot: BasePart, info: Rarity.CakeInfo)
+	local model = Assets.Clone("Cakes", info.Type)
+	model.Name = slot.Name
+	model:SetAttribute("CakeType", info.Type)
+	Assets.Anchor(model, slot.CFrame * CFrame.new(0, slot.Size.Y / 2, 0), cakesFolder(plot))
+	decorateCake(model, info)
+
+	slot:SetAttribute("CakeType", info.Type)
+	slot:SetAttribute("CakeValue", info.Value)
+	slot:SetAttribute("CakeRarity", info.Rarity)
+	slot:SetAttribute("Anomaly", info.Anomaly)
+	slot:SetAttribute("Quality", info.Quality)
 	slot:SetAttribute("HasCake", true)
 	slot:SetAttribute("ForSale", true)
 	slot:SetAttribute("Reserved", false)
 end
 
 -- Puts a cake on the first free display slot (used by automation). False if full.
-function BakingPipeline.PlaceCakeInFreeSlot(plot: Model, cakeType: string): boolean
+function BakingPipeline.PlaceCakeInFreeSlot(plot: Model, info: Rarity.CakeInfo): boolean
 	for _, slot in getSlots(plot) do
 		if not slot:GetAttribute("HasCake") then
-			placeCake(plot, slot, cakeType)
+			placeCake(plot, slot, info)
 			return true
 		end
 	end
 	return false
+end
+
+-- A rolled cake of `cakeType` with fixed "Good" quality (automation uses this).
+function BakingPipeline.RollCake(owner: Player, cakeType: string): Rarity.CakeInfo
+	local items = {}
+	for _, ingredient in Recipes.Cakes[cakeType].Ingredients do
+		table.insert(items, Inventory.MakeItem(owner, ingredient))
+	end
+	return Rarity.MakeCake(cakeType, Recipes.Cakes[cakeType].Price, items, "Good")
 end
 
 -- Slots with a cake for sale that no customer has claimed yet.
@@ -265,21 +336,31 @@ function BakingPipeline.ReleaseSlot(slot: BasePart)
 	slot:SetAttribute("Reserved", false)
 end
 
--- Removes the cake from a slot. Returns true and its type if there was one.
-function BakingPipeline.TakeCake(plot: Model, slot: BasePart): (boolean, string?)
+-- Removes the cake from a slot. Returns true and its info if there was one.
+function BakingPipeline.TakeCake(plot: Model, slot: BasePart): (boolean, Rarity.CakeInfo?)
 	if not slot:GetAttribute("HasCake") then
 		return false, nil
 	end
-	local cakeType = slot:GetAttribute("CakeType") :: string?
+	local cakeType = (slot:GetAttribute("CakeType") :: string?) or "Vanilla"
+	local info: Rarity.CakeInfo = {
+		Type = cakeType,
+		Value = (slot:GetAttribute("CakeValue") :: number?) or Recipes.Cakes[cakeType].Price,
+		Rarity = (slot:GetAttribute("CakeRarity") :: number?) or 1,
+		Anomaly = slot:GetAttribute("Anomaly") == true,
+		Fresh = false,
+		Quality = (slot:GetAttribute("Quality") :: string?) or "Good",
+	}
 	local cake = cakesFolder(plot):FindFirstChild(slot.Name)
 	if cake then
 		cake:Destroy()
 	end
+	for _, attr in { "CakeType", "CakeValue", "CakeRarity", "Anomaly", "Quality" } do
+		slot:SetAttribute(attr, nil)
+	end
 	slot:SetAttribute("HasCake", false)
 	slot:SetAttribute("ForSale", false)
 	slot:SetAttribute("Reserved", false)
-	slot:SetAttribute("CakeType", nil)
-	return true, cakeType or "Vanilla"
+	return true, info
 end
 
 -- Pantry ---------------------------------------------------------------------------
@@ -314,39 +395,37 @@ end
 
 local handlers: { [string]: (Player, Model, Model, string?) -> () } = {}
 
-handlers.IngredientCrate = function(player, _plot, _item, ingredient)
-	if not ingredient then
-		return
-	end
-	if ToolFactory.Count(player, "Ingredient") >= Config.MaxIngredientsHeld then
-		notify(player, `You can only carry {Config.MaxIngredientsHeld} ingredients.`)
-		return
-	end
-	ToolFactory.Give(player, "Ingredient", ingredient)
+-- The pantry is a free roll: one of every needed ingredient into the bag.
+handlers.IngredientCrate = function(player)
+	Inventory.Roll(player)
 end
 
-local function mixHandler(player: Player, _plot: Model, station: Model)
-	local held: { [string]: number } = {}
-	for _, tool in ToolFactory.Find(player, "Ingredient") do
-		local name = tool:GetAttribute("Variant") :: string?
-		if name then
-			held[name] = (held[name] or 0) + 1
-		end
+-- Mixes one batch from the Ingredient Bag (pinned first, then most valuable).
+-- `quality` comes from the mixing minigame (Phase 4); "Good" until then.
+function BakingPipeline.Mix(player: Player, station: Model, quality: string?): Rarity.CakeInfo?
+	local cakeType, items = Inventory.TakeForRecipe(player)
+	if not cakeType or not items then
+		local chosen = DataManager.Get(player) and (DataManager.Get(player) :: any).MixRecipe
+		notify(
+			player,
+			if chosen and chosen ~= "Best"
+				then `Your bag is missing ingredients for {cakeName(chosen)}. Roll at the pantry!`
+				else "Not enough ingredients for any recipe. Roll at the pantry! 🎲"
+		)
+		return nil
 	end
-	local cakeType = Recipes.BestRecipe(held, hasUnlockFn(player))
-	if not cakeType then
-		notify(player, "No recipe matches! Vanilla needs 🌾 Flour, 🥚 Eggs and 🍬 Sugar.")
-		return
-	end
-	for _, ingredient in Recipes.Cakes[cakeType].Ingredients do
-		ToolFactory.Take(player, "Ingredient", 1, ingredient)
-	end
+	local info = Rarity.MakeCake(cakeType, Recipes.Cakes[cakeType].Price, items, quality)
 	-- Big Mixer makes 2 per mix; the hand bowl always makes 1.
 	local batch = if station.Name == "Mixer" then PlotStats.Get(player).MixBatch else 1
 	for _ = 1, batch do
-		ToolFactory.Give(player, "RawBatter", cakeType)
+		ToolFactory.GiveCakeItem(player, "RawBatter", info)
 	end
-	notify(player, if batch > 1 then `Mixed {batch}x {cakeName(cakeType)} batter!` else `Mixed {cakeName(cakeType)} batter!`)
+	notify(player, `Mixed {batch > 1 and `{batch}x ` or ""}{Rarity.Name(info.Rarity)} {cakeName(cakeType)} batter (${info.Value})!`)
+	return info
+end
+
+local function mixHandler(player: Player, _plot: Model, station: Model)
+	BakingPipeline.Mix(player, station)
 end
 handlers.PrepTable = mixHandler
 handlers.Mixer = mixHandler
@@ -363,13 +442,26 @@ local function ovenHandler(player: Player, plot: Model, oven: Model)
 			notify(player, "You need Raw Batter from the mixer.")
 			return
 		end
-		oven:SetAttribute("CakeType", batter:GetAttribute("Variant") or "Vanilla")
+		local info = ToolFactory.GetCakeInfo(batter)
+		oven:SetAttribute("CakeType", info.Type)
+		oven:SetAttribute("CakeValue", info.Value)
+		oven:SetAttribute("CakeRarity", info.Rarity)
+		oven:SetAttribute("Anomaly", info.Anomaly)
+		oven:SetAttribute("Fresh", info.Fresh)
+		oven:SetAttribute("Quality", info.Quality)
 		batter:Destroy()
 		task.spawn(runBake, oven, plot)
 	elseif state == "Ready" then
 		local cakeType = (oven:GetAttribute("CakeType") :: string?) or "Vanilla"
 		setOvenState(oven, "Idle")
-		ToolFactory.Give(player, "FinishedCake", cakeType)
+		ToolFactory.GiveCakeItem(player, "FinishedCake", {
+			Type = cakeType,
+			Value = (oven:GetAttribute("CakeValue") :: number?) or Recipes.Cakes[cakeType].Price,
+			Rarity = (oven:GetAttribute("CakeRarity") :: number?) or 1,
+			Anomaly = oven:GetAttribute("Anomaly") == true,
+			Fresh = oven:GetAttribute("Fresh") == true,
+			Quality = (oven:GetAttribute("Quality") :: string?) or "Good",
+		})
 	end
 end
 for _, id in OVEN_IDS do
@@ -396,9 +488,9 @@ local function counterHandler(player: Player, plot: Model, counter: Model)
 		notify(player, "You need a finished cake from the oven.")
 		return
 	end
-	local cakeType = (cake:GetAttribute("Variant") :: string?) or "Vanilla"
+	local info = ToolFactory.GetCakeInfo(cake)
 	cake:Destroy()
-	placeCake(plot, free :: BasePart, cakeType)
+	placeCake(plot, free :: BasePart, info)
 end
 handlers.DisplayCounter = counterHandler
 handlers.DisplayCounter2 = counterHandler
@@ -418,19 +510,8 @@ function BakingPipeline.Interact(player: Player, plot: Model, machineId: string,
 		return false
 	end
 
-	local target: Instance? = item
-	local part: BasePart?
-	if machineId == "IngredientCrate" then
-		local bin = arg and getBin(plot, arg)
-		if not bin or not bin:GetAttribute("Visible") then
-			return false -- unknown ingredient or not unlocked yet
-		end
-		target = bin
-		part = bin:FindFirstChild("Bin") :: BasePart?
-	else
-		part = item:FindFirstChild(MACHINE_PART[machineId]) :: BasePart?
-	end
-	local prompt = target and getPrompt(target)
+	local part = item:FindFirstChild(MACHINE_PART[machineId]) :: BasePart?
+	local prompt = part and part:FindFirstChild("Prompt") :: ProximityPrompt?
 	if not part or not prompt or not isNear(player, part, prompt) then
 		return false
 	end
@@ -441,6 +522,7 @@ end
 -- Setup ------------------------------------------------------------------------
 
 local PROMPT_TEXT = {
+	IngredientCrate = { "🎲 Roll Ingredients", "Pantry (free)" },
 	PrepTable = { "Whisk Batter", "Mixing Bowl" },
 	BasicOven = { "Bake Batter", "Basic Oven" },
 	Mixer = { "Mix Batter", "Mixer" },
@@ -508,21 +590,7 @@ local function setupPlot(plot: Model)
 		end
 	end
 
-	-- One prompt per pantry bin.
-	local pantry = getItem(plot, "IngredientCrate")
-	if pantry then
-		for _, ingredient in Recipes.IngredientOrder do
-			local bin = getBin(plot, ingredient)
-			local binPart = bin and bin:FindFirstChild("Bin") :: BasePart?
-			if bin and binPart then
-				local info = Recipes.Ingredients[ingredient]
-				local prompt = makePrompt(binPart, `Take {info.DisplayName}`, `{info.Icon} Pantry`, bin:GetAttribute("Visible") == true, 6)
-				prompt.Triggered:Connect(function(player)
-					BakingPipeline.Interact(player, plot, "IngredientCrate", ingredient)
-				end)
-			end
-		end
-	end
+	-- (Pantry bins are decorative stock now; the single roll prompt is on the cabinet.)
 
 	-- Invisible markers on top of each counter where cakes are shown.
 	for _, counterId in COUNTER_IDS do

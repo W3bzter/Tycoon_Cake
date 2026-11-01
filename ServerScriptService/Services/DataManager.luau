@@ -19,6 +19,9 @@ export type PlayerData = {
 	ShieldCharges: number, -- Anomaly Shields (Gem shop)
 	BoostEndsAt: number, -- os.time() when the Bake Boost runs out
 	Stats: { CakesSold: number },
+	Bag: { any },
+	NextItemId: number,
+	MixRecipe: string,
 }
 
 type Session = {
@@ -35,6 +38,9 @@ local TEMPLATE: PlayerData = {
 	ShieldCharges = 0,
 	BoostEndsAt = 0,
 	Stats = { CakesSold = 0 },
+	Bag = {}, -- rolled ingredients (Shared/Rarity Item)
+	NextItemId = 1,
+	MixRecipe = "Best", -- "Best" or a cake type
 }
 
 local store: DataStore? = nil

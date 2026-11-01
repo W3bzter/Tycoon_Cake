@@ -9,19 +9,11 @@ local Recipes = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("R
 
 local RecipePreview = {}
 
+-- Ingredient counts in the bag, mirrored by the server as "Flour:2,Eggs:1,...".
 local function heldIngredients(player: Player): { [string]: number }
 	local held: { [string]: number } = {}
-	for _, container in { player:FindFirstChildOfClass("Backpack"), player.Character } do
-		if container then
-			for _, tool in (container :: Instance):GetChildren() do
-				if tool:IsA("Tool") and tool:GetAttribute("ItemKind") == "Ingredient" then
-					local name = tool:GetAttribute("Variant") :: string?
-					if name then
-						held[name] = (held[name] or 0) + 1
-					end
-				end
-			end
-		end
+	for name, n in string.gmatch((player:GetAttribute("BagCounts") :: string?) or "", "(%w+):(%d+)") do
+		held[name] = tonumber(n) or 0
 	end
 	return held
 end
@@ -55,8 +47,20 @@ local function refresh(player: Player)
 		end
 		return false
 	end
-	local best = Recipes.BestRecipe(heldIngredients(player), hasUnlock)
-	local text = "Mix (need a recipe's ingredients)"
+	local held = heldIngredients(player)
+	local chosen = (player:GetAttribute("MixRecipe") :: string?) or "Best"
+	local best: string?
+	if chosen ~= "Best" and Recipes.Cakes[chosen] then
+		best = chosen
+		for _, ingredient in Recipes.Cakes[chosen].Ingredients do
+			if (held[ingredient] or 0) < 1 then
+				best = nil
+			end
+		end
+	else
+		best = Recipes.BestRecipe(held, hasUnlock)
+	end
+	local text = "Mix (roll ingredients first 🎲)"
 	if best then
 		local cake = Recipes.Cakes[best]
 		text = `Mix → {cake.Icon} {(cake.DisplayName:gsub(" Cake", ""))} Batter`

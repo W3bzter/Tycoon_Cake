@@ -20,8 +20,13 @@ Config.StartingCash = 100 -- covers the hand-tool start (Pantry..Display Counter
 -- Tycoon ---------------------------------------------------------------------
 Config.ButtonCooldown = 1 -- seconds between purchase attempts per player
 
+-- Ingredient rolls (always free; see Shared/Rarity for rarities and traits) ------
+Config.Rolling = {
+	BagSize = 40, -- ingredients the bag can hold
+	Cooldown = 3, -- seconds between rolls (the reveal animation is ~1.5s)
+}
+
 -- Baking ---------------------------------------------------------------------
-Config.MaxIngredientsHeld = 8 -- recipes and prices live in Shared/Recipes
 Config.BakeTime = 8 -- seconds in the oven
 Config.DisplaySlots = 3 -- cakes per display counter
 Config.InteractSlack = 6 -- extra studs allowed beyond a prompt's range (lag tolerance)
@@ -118,6 +123,9 @@ Config.RemoteNames = {
 	"AnomalyEnded", -- server -> client: (name: string)
 	"BuyGemItem", -- client -> server: (itemId: "Shield" | "Boost")
 	"DevResetData", -- client -> server, Studio only: reset your save to a new player
+	"RollResult", -- server -> client: (items) for the roll reveal
+	"BagUpdate", -- server -> client: ({Items, Capacity, MixRecipe})
+	"BagAction", -- client -> server: ("pin" | "discard", id) or ("recipe", name)
 }
 
 return Config

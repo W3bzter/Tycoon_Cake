@@ -253,6 +253,7 @@ defs.MimicCustomer = {
 			Decorate = decorateMimic,
 			OnArrive = mimicArrives,
 			IgnoreCap = true,
+			PreferAnomaly = true,
 			PlotFilter = function(plot)
 				return not protected[plot]
 			end,
