@@ -19,11 +19,25 @@ Config.BakeTime = 8 -- seconds in the oven
 Config.DisplaySlots = 3 -- cakes per display counter
 Config.InteractSlack = 6 -- extra studs allowed beyond a prompt's range (lag tolerance)
 
+-- Customers ------------------------------------------------------------------
+Config.CakePrice = 25
+Config.CustomerInterval = 5 -- seconds between spawn checks
+Config.MaxCustomers = 6
+Config.CustomerWalkSpeed = 18
+Config.CustomerTripTimeout = 60 -- give up on a leg of the trip after this long
+Config.CustomerStandOff = 5 -- studs in front of the counter where customers stop
+
+-- Animations (rbxassetid:// strings; empty = skip and just do a hop)
+Config.Animations = {
+	Buy = "",
+}
+
 -- Sounds (built-in rbxasset:// files so they work without uploads; swap for
 -- rbxassetid:// IDs any time). An empty string means "silent".
 Config.Sounds = {
 	Purchase = "rbxasset://sounds/electronicpingshort.wav",
 	Denied = "rbxasset://sounds/clickfast.wav",
+	Sale = "rbxasset://sounds/electronicpingshort.wav",
 }
 
 -- World ----------------------------------------------------------------------
