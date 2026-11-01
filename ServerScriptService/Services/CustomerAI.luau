@@ -18,6 +18,7 @@ local AvatarService = require(script.Parent.AvatarService)
 local BakingPipeline = require(script.Parent.BakingPipeline)
 local DataManager = require(script.Parent.DataManager)
 local PlotManager = require(script.Parent.PlotManager)
+local PlotStats = require(script.Parent.PlotStats)
 
 local CustomerAI = {}
 
@@ -28,6 +29,8 @@ export type CustomerOptions = {
 	Decorate: ((npc: Model) -> ())?,
 	IgnoreCap: boolean?, -- anomaly NPCs spawn even when the street is full
 	Wanted: string?, -- cake type shown in the speech bubble
+	VIP: boolean?, -- gold glow, pays Config.VIPPayMult, may tip Gems
+	PlotFilter: ((plot: Model) -> boolean)?, -- restricts which plots can be picked
 }
 
 local active: { [Model]: boolean } = {}
@@ -261,22 +264,54 @@ local function celebrate(npc: Model, tracks: Tracks)
 	end
 end
 
-local function defaultPurchase(npc: Model, plot: Model, slot: BasePart, wanted: string?, tracks: Tracks)
+local function defaultPurchase(npc: Model, plot: Model, slot: BasePart, options: CustomerOptions, tracks: Tracks)
 	local ok, cakeType = BakingPipeline.TakeCake(plot, slot)
 	if not ok then
 		return
 	end
-	local cake = Recipes.Cakes[cakeType or "Vanilla"] or Recipes.Cakes.Vanilla
-	local gotWanted = wanted ~= nil and cakeType == wanted
-	local pay = if gotWanted then math.floor(cake.Price * (1 + Config.WantedTip) + 0.5) else cake.Price
 	local owner = PlotManager.GetOwner(plot)
+	local stats = PlotStats.Get(owner)
+	local cake = Recipes.Cakes[cakeType or "Vanilla"] or Recipes.Cakes.Vanilla
+	local gotWanted = options.Wanted ~= nil and cakeType == options.Wanted
+	local pay = cake.Price * stats.SalePrice
+	if gotWanted then
+		pay *= 1 + Config.WantedTip
+	end
+	if options.VIP then
+		pay *= Config.VIPPayMult
+	end
+	pay = math.floor(pay + 0.5)
+
+	local gems = 0
+	if options.VIP and math.random() < Config.Gems.VIPGemChance then
+		gems = math.random(1, Config.Gems.VIPGemMax)
+	end
 	if owner then
 		DataManager.AddCash(owner, pay)
+		DataManager.RecordSale(owner)
+		if gems > 0 then
+			DataManager.AddGems(owner, gems)
+		end
 	end
-	setBubble(npc, if gotWanted then "😍 Yum!" else "😋 Thanks!")
+
+	setBubble(npc, if options.VIP then "👑 Exquisite!" elseif gotWanted then "😍 Yum!" else "😋 Thanks!")
 	playSound(npc.PrimaryPart :: BasePart, Config.Sounds.Sale)
-	popText(npc, if gotWanted then `+${pay} (tip!)` else `+${pay}`, Color3.fromRGB(120, 255, 120))
+	local text = `+${pay}` .. (if gotWanted then " (tip!)" else "") .. (if gems > 0 then ` +💎{gems}` else "")
+	popText(npc, text, if options.VIP then Color3.fromRGB(255, 215, 80) else Color3.fromRGB(120, 255, 120))
 	celebrate(npc, tracks)
+end
+
+local function makeVIP(npc: Model)
+	npc:SetAttribute("IsVIP", true)
+	local highlight = Instance.new("Highlight")
+	highlight.FillColor = Color3.fromRGB(255, 205, 60)
+	highlight.FillTransparency = 0.75
+	highlight.OutlineColor = Color3.fromRGB(255, 230, 120)
+	highlight.Parent = npc
+	local humanoid = npc:FindFirstChildOfClass("Humanoid")
+	if humanoid then
+		humanoid.DisplayName = "👑 " .. humanoid.DisplayName
+	end
 end
 
 -- Lifecycle ----------------------------------------------------------------------------
@@ -373,8 +408,12 @@ function CustomerAI.Spawn(plot: Model, slot: BasePart, options: CustomerOptions?
 	humanoid.NameDisplayDistance = 50
 	humanoid.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOff
 	npc:PivotTo(spawnPad.CFrame * CFrame.new(0, 4, 0))
-	if options and options.Decorate then
-		options.Decorate(npc)
+	local opts: CustomerOptions = options or {}
+	if opts.VIP then
+		makeVIP(npc)
+	end
+	if opts.Decorate then
+		opts.Decorate(npc)
 	end
 	npc.Parent = npcFolder
 	local root = npc.PrimaryPart :: BasePart
@@ -383,10 +422,10 @@ function CustomerAI.Spawn(plot: Model, slot: BasePart, options: CustomerOptions?
 	end)
 	active[npc] = true
 
-	local wanted = options and options.Wanted
+	local wanted = opts.Wanted
 	if wanted and Recipes.Cakes[wanted] then
 		local cake = Recipes.Cakes[wanted]
-		setBubble(npc, `{cake.Icon} {cake.DisplayName}, please!`)
+		setBubble(npc, (if opts.VIP then "👑 " else "") .. `{cake.Icon} {cake.DisplayName}, please!`)
 	end
 	local tracks = setupAnimations(npc)
 
@@ -394,11 +433,11 @@ function CustomerAI.Spawn(plot: Model, slot: BasePart, options: CustomerOptions?
 		local arrived = walkTo(npc, counterStandPoint(slot))
 		if arrived and npc.Parent and slot:GetAttribute("HasCake") then
 			local doDefault = true
-			if options and options.OnArrive then
-				doDefault = options.OnArrive(npc, plot, slot) ~= false
+			if opts.OnArrive then
+				doDefault = opts.OnArrive(npc, plot, slot) ~= false
 			end
 			if doDefault then
-				defaultPurchase(npc, plot, slot, wanted, tracks)
+				defaultPurchase(npc, plot, slot, opts, tracks)
 			end
 			task.wait(2)
 		else
@@ -424,38 +463,16 @@ function CustomerAI.Count(): number
 	return n
 end
 
--- Picks a random owned plot with cakes for sale, decides which cake this customer
--- wants (from the owner's unlocked recipes), and reserves that cake if it's on
--- display, otherwise any cake.
-function CustomerAI.TrySpawnForAnyPlot(options: CustomerOptions?): Model?
+-- Sends a customer to `plot`: decides what they want (from the owner's unlocked
+-- recipes; VIPs want the priciest), and reserves that cake if it's on display,
+-- otherwise any cake for sale.
+function CustomerAI.TrySpawnForPlot(plot: Model, options: CustomerOptions?): Model?
 	if CustomerAI.Count() >= Config.MaxCustomers and not (options and options.IgnoreCap) then
 		return nil
 	end
-	local plots = {}
-	for _, plot in (workspace:WaitForChild("Plots") :: Folder):GetChildren() do
-		if plot:IsA("Model") and PlotManager.GetOwner(plot) and #BakingPipeline.GetSaleSlots(plot) > 0 then
-			table.insert(plots, plot)
-		end
-	end
-	if #plots == 0 then
-		return nil
-	end
-	local plot = plots[math.random(#plots)]
-	local owner = PlotManager.GetOwner(plot) :: Player
-	local menu = Recipes.Unlocked(function(id)
-		return DataManager.HasUnlock(owner, id)
-	end)
-	local wanted = menu[math.random(#menu)]
-
+	local owner = PlotManager.GetOwner(plot)
 	local slots = BakingPipeline.GetSaleSlots(plot)
-	local slot = slots[math.random(#slots)]
-	for _, s in slots do
-		if s:GetAttribute("CakeType") == wanted then
-			slot = s
-			break
-		end
-	end
-	if not BakingPipeline.ReserveSlot(slot) then
+	if not owner or #slots == 0 then
 		return nil
 	end
 
@@ -463,8 +480,44 @@ function CustomerAI.TrySpawnForAnyPlot(options: CustomerOptions?): Model?
 	for k, v in (options or {}) :: any do
 		(opts :: any)[k] = v
 	end
-	opts.Wanted = opts.Wanted or wanted
+	local menu = Recipes.Unlocked(function(id)
+		return DataManager.HasUnlock(owner, id)
+	end)
+	if opts.VIP == nil and not opts.OnArrive then -- anomaly NPCs are never VIPs
+		opts.VIP = math.random() < PlotStats.Get(owner).VIPChance
+	end
+	opts.Wanted = opts.Wanted or (if opts.VIP then menu[#menu] else menu[math.random(#menu)])
+
+	local slot = slots[math.random(#slots)]
+	for _, s in slots do
+		if s:GetAttribute("CakeType") == opts.Wanted then
+			slot = s
+			break
+		end
+	end
+	if not BakingPipeline.ReserveSlot(slot) then
+		return nil
+	end
 	return CustomerAI.Spawn(plot, slot, opts)
+end
+
+-- Picks a random owned plot with cakes for sale (optionally filtered).
+function CustomerAI.TrySpawnForAnyPlot(options: CustomerOptions?): Model?
+	local plots = {}
+	for _, plot in (workspace:WaitForChild("Plots") :: Folder):GetChildren() do
+		if
+			plot:IsA("Model")
+			and PlotManager.GetOwner(plot)
+			and #BakingPipeline.GetSaleSlots(plot) > 0
+			and (not options or not options.PlotFilter or options.PlotFilter(plot))
+		then
+			table.insert(plots, plot)
+		end
+	end
+	if #plots == 0 then
+		return nil
+	end
+	return CustomerAI.TrySpawnForPlot(plots[math.random(#plots)], options)
 end
 
 function CustomerAI.Init()
@@ -472,10 +525,19 @@ function CustomerAI.Init()
 	npcFolder.Name = "Customers"
 	npcFolder.Parent = workspace
 
+	-- Each plot has its own timer, so Street Sign / Radio Ad speed up only that plot.
+	local nextSpawn: { [Model]: number } = {}
 	task.spawn(function()
 		while true do
-			task.wait(Config.CustomerInterval)
-			task.spawn(CustomerAI.TrySpawnForAnyPlot) -- avatar loading yields; keep the timer steady
+			task.wait(Config.SpawnCheckInterval)
+			local now = os.clock()
+			for _, plot in (workspace:WaitForChild("Plots") :: Folder):GetChildren() do
+				local owner = plot:IsA("Model") and PlotManager.GetOwner(plot)
+				if owner and now >= (nextSpawn[plot] or 0) and #BakingPipeline.GetSaleSlots(plot) > 0 then
+					nextSpawn[plot] = now + Config.CustomerInterval * PlotStats.Get(owner).CustomerRate
+					task.spawn(CustomerAI.TrySpawnForPlot, plot) -- avatar loading yields
+				end
+			end
 		end
 	end)
 end

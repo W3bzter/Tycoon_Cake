@@ -33,15 +33,22 @@ local function playSound(at: BasePart, soundId: string)
 	task.delay(3, sound.Destroy, sound)
 end
 
+local function requirementsMet(player: Player, upgrade: PlotLayout.Upgrade): boolean
+	for _, id in upgrade.Requires or {} do
+		if not DataManager.HasUnlock(player, id) then
+			return false
+		end
+	end
+	return true
+end
+
 -- Shows exactly the buttons whose prerequisite is owned and that aren't bought yet.
 local function refreshButtons(plot: Model, owner: Player?)
 	local buttons = plot:FindFirstChild("Buttons") :: Folder
 	for _, upgrade in PlotLayout.Upgrades do
 		local button = buttons:FindFirstChild(upgrade.Id)
 		if button then
-			local show = owner ~= nil
-				and not DataManager.HasUnlock(owner, upgrade.Id)
-				and (upgrade.Requires == nil or DataManager.HasUnlock(owner, upgrade.Requires))
+			local show = owner ~= nil and not DataManager.HasUnlock(owner, upgrade.Id) and requirementsMet(owner, upgrade)
 			WorldBuilder.SetVisible(button, show)
 		end
 	end
@@ -73,10 +80,14 @@ function TycoonButtons.TryPurchase(player: Player, plot: Model, upgradeId: strin
 	if DataManager.HasUnlock(player, upgradeId) then
 		return false, "already owned"
 	end
-	if upgrade.Requires and not DataManager.HasUnlock(player, upgrade.Requires) then
+	if not requirementsMet(player, upgrade) then
 		return false, "locked"
 	end
-	if not DataManager.SpendCash(player, upgrade.Price) then
+	if upgrade.Currency == "Gems" then
+		if not DataManager.SpendGems(player, upgrade.Price) then
+			return false, "insufficient gems"
+		end
+	elseif not DataManager.SpendCash(player, upgrade.Price) then
 		return false, "insufficient cash"
 	end
 
@@ -110,10 +121,14 @@ local function hookButton(plot: Model, button: BasePart)
 		local ok, reason = TycoonButtons.TryPurchase(player, plot, upgradeId)
 		if ok then
 			playSound(button, Config.Sounds.Purchase)
-		elseif reason == "insufficient cash" then
+		elseif reason == "insufficient cash" or reason == "insufficient gems" then
 			local upgrade = PlotLayout.Find(upgradeId)
+			local price = upgrade and upgrade.Price or "?"
 			playSound(button, Config.Sounds.Denied)
-			Remotes.Get("Notify"):FireClient(player, `You need ${upgrade and upgrade.Price or "?"} for that!`)
+			Remotes.Get("Notify"):FireClient(
+				player,
+				if reason == "insufficient gems" then `You need 💎 {price} for that!` else `You need ${price} for that!`
+			)
 		end
 		busy = false
 	end)

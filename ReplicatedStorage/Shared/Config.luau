@@ -20,7 +20,7 @@ Config.InteractSlack = 6 -- extra studs allowed beyond a prompt's range (lag tol
 
 -- Customers ------------------------------------------------------------------
 Config.CustomerInterval = 5 -- seconds between spawn checks
-Config.MaxCustomers = 6
+Config.MaxCustomers = 12
 Config.CustomerWalkSpeed = 18
 Config.CustomerTripTimeout = 60 -- give up on a leg of the trip after this long
 Config.CustomerStandOff = 5 -- studs in front of the counter where customers stop
@@ -54,6 +54,31 @@ Config.Anomalies = {
 }
 
 Config.WantedTip = 0.2 -- customers tip 20% when they get the cake they asked for
+Config.VIPPayMult = 3 -- VIP customers pay 3x
+Config.SpawnCheckInterval = 1 -- per-plot spawn timers are checked this often
+
+-- Automation (production lines) -------------------------------------------------
+Config.Auto = {
+	FeedTime = 4, -- seconds for the ingredient conveyor to deliver one recipe's worth
+	MixTime = 3,
+	BakeMult = 1.5, -- automated ovens are slower than a player's oven until upgraded
+	DeliverTime = 3, -- conveyor travel time to the counter
+	HopperCap = 2, -- recipe sets the hopper can hold
+	TrayCap = 2, -- batters / cakes waiting between steps
+}
+
+-- Gems --------------------------------------------------------------------------
+Config.Gems = {
+	ShieldPrice = 5,
+	MaxShields = 3,
+	BoostPrice = 3,
+	BoostSeconds = 300,
+	BoostBakeMult = 0.5, -- 2x bake speed while boosted
+	ExtinguishReward = 1,
+	MimicReward = 3,
+	VIPGemChance = 0.25,
+	VIPGemMax = 3,
+}
 
 -- Customer animations: Roblox's default R15 animations. Empty = skip
 -- (the cheer falls back to a hop).

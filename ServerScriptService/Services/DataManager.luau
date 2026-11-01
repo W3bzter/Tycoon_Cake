@@ -15,6 +15,9 @@ export type PlayerData = {
 	Cash: number,
 	Gems: number,
 	UnlockedUpgrades: { [string]: boolean },
+	ShieldCharges: number, -- Anomaly Shields (Gem shop)
+	BoostEndsAt: number, -- os.time() when the Bake Boost runs out
+	Stats: { CakesSold: number },
 }
 
 type Session = {
@@ -28,6 +31,9 @@ local TEMPLATE: PlayerData = {
 	Cash = Config.StartingCash,
 	Gems = 0,
 	UnlockedUpgrades = {},
+	ShieldCharges = 0,
+	BoostEndsAt = 0,
+	Stats = { CakesSold = 0 },
 }
 
 local store: DataStore? = nil
@@ -128,6 +134,9 @@ local function load(player: Player)
 
 	sessions[player] = { data = data, canSave = canSave }
 	createLeaderstats(player, data)
+	-- Mirrored for the client HUD (shield count, boost timer).
+	player:SetAttribute("ShieldCharges", data.ShieldCharges)
+	player:SetAttribute("BoostEndsAt", data.BoostEndsAt)
 	loadedEvent:Fire(player, data)
 end
 
@@ -189,6 +198,50 @@ function DataManager.AddGems(player: Player, amount: number)
 	end
 	data.Gems += amount
 	updateLeaderstat(player, "Gems", data.Gems)
+end
+
+-- Returns true and deducts if the player has enough Gems.
+function DataManager.SpendGems(player: Player, amount: number): boolean
+	local data = DataManager.Get(player)
+	if not data or amount < 0 or data.Gems < amount then
+		return false
+	end
+	data.Gems -= amount
+	updateLeaderstat(player, "Gems", data.Gems)
+	return true
+end
+
+function DataManager.AddShield(player: Player, amount: number)
+	local data = DataManager.Get(player)
+	if data then
+		data.ShieldCharges = math.max(0, data.ShieldCharges + amount)
+		player:SetAttribute("ShieldCharges", data.ShieldCharges)
+	end
+end
+
+-- Uses one Anomaly Shield if the player has any.
+function DataManager.UseShield(player: Player): boolean
+	local data = DataManager.Get(player)
+	if not data or data.ShieldCharges <= 0 then
+		return false
+	end
+	DataManager.AddShield(player, -1)
+	return true
+end
+
+function DataManager.ExtendBoost(player: Player, seconds: number)
+	local data = DataManager.Get(player)
+	if data then
+		data.BoostEndsAt = math.max(data.BoostEndsAt, os.time()) + seconds
+		player:SetAttribute("BoostEndsAt", data.BoostEndsAt)
+	end
+end
+
+function DataManager.RecordSale(player: Player)
+	local data = DataManager.Get(player)
+	if data then
+		data.Stats.CakesSold += 1
+	end
 end
 
 function DataManager.Unlock(player: Player, upgradeId: string)

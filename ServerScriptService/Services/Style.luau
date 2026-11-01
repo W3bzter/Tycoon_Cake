@@ -35,6 +35,7 @@ Style.CategoryColor = {
 	Build = P.HotPink,
 	Kitchen = P.DeepMint,
 	Decor = P.Butter,
+	Auto = P.Lilac,
 	Gems = P.Sky,
 }
 

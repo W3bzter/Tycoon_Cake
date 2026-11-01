@@ -19,6 +19,7 @@ local Recipes = require(Shared:WaitForChild("Recipes"))
 local Assets = require(script.Parent.Assets)
 local DataManager = require(script.Parent.DataManager)
 local PlotManager = require(script.Parent.PlotManager)
+local PlotStats = require(script.Parent.PlotStats)
 local Remotes = require(script.Parent.Remotes)
 local ToolFactory = require(script.Parent.ToolFactory)
 local TycoonButtons = require(script.Parent.TycoonButtons)
@@ -26,12 +27,15 @@ local WorldBuilder = require(script.Parent.WorldBuilder)
 
 local BakingPipeline = {}
 
-local OVEN_IDS = { "Oven", "Oven2" }
+local OVEN_IDS = { "Oven", "Oven2", "Oven3" } -- manual ovens (automated ones live in AutoProduction)
+local COUNTER_IDS = { "DisplayCounter", "DisplayCounter2" }
 local MACHINE_PART = {
 	Mixer = "Body",
 	Oven = "Body",
 	Oven2 = "Body",
+	Oven3 = "Body",
 	DisplayCounter = "Counter",
+	DisplayCounter2 = "Counter",
 }
 
 local function notify(player: Player, message: string)
@@ -95,8 +99,8 @@ local function setOvenState(oven: Model, state: string)
 	end
 end
 
-local function runBake(oven: Model)
-	oven:SetAttribute("BakeRemaining", Config.BakeTime)
+local function runBake(oven: Model, plot: Model)
+	oven:SetAttribute("BakeRemaining", PlotStats.BakeDuration(PlotManager.GetOwner(plot), oven))
 	setOvenState(oven, "Baking")
 	local prompt = getPrompt(oven)
 	while (oven:GetAttribute("BakeRemaining") :: number) > 0 do
@@ -153,7 +157,8 @@ function BakingPipeline.SetOvenBlocked(oven: Model, blocked: boolean)
 		end
 	end
 
-	local prompt = getPrompt(oven)
+	-- Automated ovens manage their own prompts (AutoProduction).
+	local prompt = if oven:GetAttribute("IsAutoOven") then nil else getPrompt(oven)
 	if prompt then
 		if blocked then
 			prompt.ObjectText = "Oven (OVERHEATED)"
@@ -163,33 +168,40 @@ function BakingPipeline.SetOvenBlocked(oven: Model, blocked: boolean)
 	end
 end
 
+-- Every unlocked oven on the plot, manual or automated (anything tagged IsOven).
 function BakingPipeline.GetOvens(plot: Model): { Model }
 	local ovens = {}
-	for _, id in OVEN_IDS do
-		local oven = getItem(plot, id)
-		if oven and oven:GetAttribute("Visible") then
-			table.insert(ovens, oven)
+	local items = plot:FindFirstChild("Items")
+	for _, item in (if items then items:GetChildren() else {}) do
+		if item:IsA("Model") and item:GetAttribute("IsOven") and item:GetAttribute("Visible") then
+			table.insert(ovens, item)
 		end
 	end
 	return ovens
 end
 
+BakingPipeline.SetDoorGlow = setDoorGlow
+
 -- Display slots ----------------------------------------------------------------
 
-local function getSlots(plot: Model): { BasePart }
-	local counter = getItem(plot, "DisplayCounter")
-	local folder = counter and counter:FindFirstChild("Slots")
+-- Slots on every unlocked display counter (names are unique per plot: "<Counter>_<i>").
+local function getSlots(plot: Model, includeHidden: boolean?): { BasePart }
 	local slots = {}
-	if folder then
-		for i = 1, Config.DisplaySlots do
-			local slot = folder:FindFirstChild(`Slot{i}`) :: BasePart?
-			if slot then
-				table.insert(slots, slot)
+	for _, counterId in COUNTER_IDS do
+		local counter = getItem(plot, counterId)
+		local folder = counter and (includeHidden or counter:GetAttribute("Visible")) and counter:FindFirstChild("Slots")
+		if folder then
+			for i = 1, Config.DisplaySlots do
+				local slot = folder:FindFirstChild(`{counterId}_{i}`) :: BasePart?
+				if slot then
+					table.insert(slots, slot)
+				end
 			end
 		end
 	end
 	return slots
 end
+BakingPipeline.GetSlots = getSlots
 
 local function cakesFolder(plot: Model): Folder
 	local folder = plot:FindFirstChild("Cakes") :: Folder?
@@ -212,6 +224,17 @@ local function placeCake(plot: Model, slot: BasePart, cakeType: string)
 	slot:SetAttribute("HasCake", true)
 	slot:SetAttribute("ForSale", true)
 	slot:SetAttribute("Reserved", false)
+end
+
+-- Puts a cake on the first free display slot (used by automation). False if full.
+function BakingPipeline.PlaceCakeInFreeSlot(plot: Model, cakeType: string): boolean
+	for _, slot in getSlots(plot) do
+		if not slot:GetAttribute("HasCake") then
+			placeCake(plot, slot, cakeType)
+			return true
+		end
+	end
+	return false
 end
 
 -- Slots with a cake for sale that no customer has claimed yet.
@@ -313,11 +336,14 @@ handlers.Mixer = function(player)
 	for _, ingredient in Recipes.Cakes[cakeType].Ingredients do
 		ToolFactory.Take(player, "Ingredient", 1, ingredient)
 	end
-	ToolFactory.Give(player, "RawBatter", cakeType)
-	notify(player, `Mixed {cakeName(cakeType)} batter!`)
+	local batch = PlotStats.Get(player).MixBatch -- Big Mixer makes 2 per mix
+	for _ = 1, batch do
+		ToolFactory.Give(player, "RawBatter", cakeType)
+	end
+	notify(player, if batch > 1 then `Mixed {batch}x {cakeName(cakeType)} batter!` else `Mixed {cakeName(cakeType)} batter!`)
 end
 
-local function ovenHandler(player: Player, _plot: Model, oven: Model)
+local function ovenHandler(player: Player, plot: Model, oven: Model)
 	if oven:GetAttribute("Blocked") then
 		notify(player, "This oven is overheating! Put it out first.")
 		return
@@ -331,7 +357,7 @@ local function ovenHandler(player: Player, _plot: Model, oven: Model)
 		end
 		oven:SetAttribute("CakeType", batter:GetAttribute("Variant") or "Vanilla")
 		batter:Destroy()
-		task.spawn(runBake, oven)
+		task.spawn(runBake, oven, plot)
 	elseif state == "Ready" then
 		local cakeType = (oven:GetAttribute("CakeType") :: string?) or "Vanilla"
 		setOvenState(oven, "Idle")
@@ -340,13 +366,17 @@ local function ovenHandler(player: Player, _plot: Model, oven: Model)
 end
 handlers.Oven = ovenHandler
 handlers.Oven2 = ovenHandler
+handlers.Oven3 = ovenHandler
 
-handlers.DisplayCounter = function(player, plot)
+local function counterHandler(player: Player, plot: Model, counter: Model)
+	-- Prefer this counter's own slots, then any other counter's.
 	local free: BasePart? = nil
 	for _, slot in getSlots(plot) do
-		if not slot:GetAttribute("HasCake") then
+		if not slot:GetAttribute("HasCake") and (free == nil or slot:IsDescendantOf(counter)) then
 			free = slot
-			break
+			if slot:IsDescendantOf(counter) then
+				break
+			end
 		end
 	end
 	if not free then
@@ -362,6 +392,8 @@ handlers.DisplayCounter = function(player, plot)
 	cake:Destroy()
 	placeCake(plot, free :: BasePart, cakeType)
 end
+handlers.DisplayCounter = counterHandler
+handlers.DisplayCounter2 = counterHandler
 
 -- Single validated entry point (prompts call this; tests can too via DebugBridge).
 -- `arg` is the ingredient name for the pantry.
@@ -404,7 +436,9 @@ local PROMPT_TEXT = {
 	Mixer = { "Mix Batter", "Mixer" },
 	Oven = { "Bake Batter", "Oven" },
 	Oven2 = { "Bake Batter", "Oven" },
+	Oven3 = { "Bake Batter", "Oven" },
 	DisplayCounter = { "Display Cake", "Display Counter" },
+	DisplayCounter2 = { "Display Cake", "Display Counter" },
 }
 
 local function makePrompt(parent: BasePart, action: string, object: string, visible: boolean, distance: number?): ProximityPrompt
@@ -420,6 +454,26 @@ local function makePrompt(parent: BasePart, action: string, object: string, visi
 	return prompt
 end
 
+local function buildSlots(counter: Model, counterPart: BasePart, counterId: string)
+	local folder = Instance.new("Folder")
+	folder.Name = "Slots"
+	local spacing = counterPart.Size.X / (Config.DisplaySlots + 1)
+	for i = 1, Config.DisplaySlots do
+		local slot = Instance.new("Part")
+		slot.Name = `{counterId}_{i}`
+		slot.Size = Vector3.new(2, 0.2, 2)
+		slot.CFrame = counterPart.CFrame * CFrame.new(-counterPart.Size.X / 2 + spacing * i, counterPart.Size.Y / 2 + 0.1, 0)
+		slot.Transparency = 1
+		slot.Anchored = true
+		slot.CanCollide = false
+		slot:SetAttribute("HasCake", false)
+		slot:SetAttribute("ForSale", false)
+		slot:SetAttribute("Reserved", false)
+		slot.Parent = folder
+	end
+	folder.Parent = counter
+end
+
 local function setupPlot(plot: Model)
 	for machineId, partName in MACHINE_PART do
 		local item = getItem(plot, machineId)
@@ -430,7 +484,7 @@ local function setupPlot(plot: Model)
 			prompt.Triggered:Connect(function(player)
 				BakingPipeline.Interact(player, plot, machineId)
 			end)
-			if machineId == "Oven" or machineId == "Oven2" then
+			if table.find(OVEN_IDS, machineId) then
 				item:SetAttribute("IsOven", true)
 				item:SetAttribute("Blocked", false)
 				setOvenState(item, "Idle")
@@ -454,32 +508,18 @@ local function setupPlot(plot: Model)
 		end
 	end
 
-	-- Invisible markers on top of the counter where cakes are shown.
-	local counter = getItem(plot, "DisplayCounter")
-	local counterPart = counter and counter:FindFirstChild("Counter") :: BasePart?
-	if counter and counterPart then
-		local folder = Instance.new("Folder")
-		folder.Name = "Slots"
-		local spacing = counterPart.Size.X / (Config.DisplaySlots + 1)
-		for i = 1, Config.DisplaySlots do
-			local slot = Instance.new("Part")
-			slot.Name = `Slot{i}`
-			slot.Size = Vector3.new(2, 0.2, 2)
-			slot.CFrame = counterPart.CFrame * CFrame.new(-counterPart.Size.X / 2 + spacing * i, counterPart.Size.Y / 2 + 0.1, 0)
-			slot.Transparency = 1
-			slot.Anchored = true
-			slot.CanCollide = false
-			slot:SetAttribute("HasCake", false)
-			slot:SetAttribute("ForSale", false)
-			slot:SetAttribute("Reserved", false)
-			slot.Parent = folder
+	-- Invisible markers on top of each counter where cakes are shown.
+	for _, counterId in COUNTER_IDS do
+		local counter = getItem(plot, counterId)
+		local counterPart = counter and counter:FindFirstChild("Counter") :: BasePart?
+		if counter and counterPart then
+			buildSlots(counter, counterPart, counterId)
 		end
-		folder.Parent = counter
 	end
 end
 
 local function resetPlot(plot: Model)
-	for _, slot in getSlots(plot) do
+	for _, slot in getSlots(plot, true) do
 		BakingPipeline.TakeCake(plot, slot)
 	end
 	for _, id in OVEN_IDS do
