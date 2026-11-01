@@ -19,6 +19,7 @@ local Config = require(Shared:WaitForChild("Config"))
 local Services = script:FindFirstAncestor("Services") :: Folder
 local DecorBuilders = require(Services.World.DecorBuilders)
 local ItemBuilders = require(Services.World.ItemBuilders)
+local Skins = require(Services.World.Skins)
 
 local BuildModels = {}
 
@@ -37,6 +38,7 @@ local function runBuilders(id: string, model: Model)
 	else
 		warn(`[BuildModels] no builder for {id}`)
 	end
+	Skins.Apply(model, id) -- detailed Blender model over the primitives, if imported
 end
 
 -- A fresh model of catalog item `id`, pivoted on its grid cell (not parented).

@@ -1,0 +1,119 @@
+{
+ "Oven": {
+  "Size": [
+   8.0,
+   10.155,
+   5.75
+  ],
+  "Centre": [
+   0.0,
+   5.072,
+   0.375
+  ],
+  "Roles": [
+   "Accent",
+   "Body",
+   "Dark",
+   "Door",
+   "Metal",
+   "Trim"
+  ]
+ },
+ "Mixer": {
+  "Size": [
+   5.0,
+   10.04,
+   6.32
+  ],
+  "Centre": [
+   0.0,
+   5.02,
+   0.26
+  ],
+  "Roles": [
+   "Accent",
+   "Body",
+   "Dark",
+   "Metal",
+   "Trim"
+  ]
+ },
+ "IngredientCrate": {
+  "Size": [
+   14.0,
+   11.675,
+   4.9
+  ],
+  "Centre": [
+   0.0,
+   5.838,
+   0.75
+  ],
+  "Roles": [
+   "Accent",
+   "Glass",
+   "LightWood",
+   "Trim",
+   "Wood"
+  ]
+ },
+ "DisplayCounter": {
+  "Size": [
+   20.6,
+   4.1,
+   4.65
+  ],
+  "Centre": [
+   0.0,
+   2.05,
+   0.125
+  ],
+  "Roles": [
+   "Accent",
+   "Body",
+   "Stripe",
+   "Top",
+   "Trim"
+  ]
+ },
+ "CafeTable": {
+  "Size": [
+   7.8,
+   3.425,
+   4.6
+  ],
+  "Centre": [
+   0.0,
+   1.707,
+   -0.0
+  ],
+  "Roles": [
+   "Accent",
+   "Cushion",
+   "Metal",
+   "Top"
+  ]
+ },
+ "PottedPlant": {
+  "Size": [
+   3.411,
+   4.925,
+   3.383
+  ],
+  "Centre": [
+   -0.029,
+   2.463,
+   0.058
+  ],
+  "Roles": [
+   "Accent",
+   "Body",
+   "Leaf",
+   "LeafDark",
+   "Petal",
+   "PetalB",
+   "Soil",
+   "Trim"
+  ]
+ }
+}

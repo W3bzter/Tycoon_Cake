@@ -32,3 +32,38 @@ Bevel sizes, side counts and the faceted ball are at the top of
 `blender/make_shapes.py` (`make_rounded_box`, `make_cylinder`, `make_ball`).
 After regenerating, re-import the changed `.fbx` and replace the old one in
 `ServerStorage > Assets > Shapes`.
+
+## Detailed item models
+
+`Models/<Id>.fbx` are detailed models for placeable items, made by
+`blender/make_models.py`: **Oven, Mixer, IngredientCrate (pantry), DisplayCounter,
+CafeTable, PottedPlant**. Previews: `Models/<Id>.png` and `Models/lineup.png`.
+
+Each file holds one mesh per colour role (Body, Trim, Accent, Metal, ...); the game
+colours them from its palette, rescales them to the right size and lines them up
+with the item (`World/Skins`), so import settings don't matter. The item's old
+block model stays underneath, invisible, so gameplay is unchanged.
+
+### Import into Studio (once per model)
+
+1. In `ServerStorage > Assets`, create a folder named `Models`.
+2. File > Import 3D, pick e.g. `Art/Models/Oven.fbx`, click Import.
+3. Rename the imported Model to exactly the file name without `.fbx`
+   (`Oven`, `Mixer`, `IngredientCrate`, `DisplayCounter`, `CafeTable`, `PottedPlant`)
+   and drag it into `ServerStorage > Assets > Models`.
+4. Ctrl+S, then playtest. Items placed from now on use the new model (place or
+   re-place existing ones, or rejoin, to see them).
+
+If a model faces backwards in game, set `Config.Skins.ImportYaw = 180` in
+`ReplicatedStorage/Shared/ConfigParts/Build.luau` (90 / -90 if sideways).
+
+### Regenerate or tweak
+
+```
+python Art/blender/make_models.py            # exports + renders
+python Art/blender/make_models.py --no-render
+```
+
+Each item is one function in the script (`oven()`, `mixer()`, ...). After changing
+sizes, copy the new numbers from `Models/models.json` into `World/Skins.Defs`
+(`Size`, `Centre`), then re-import that `.fbx`.

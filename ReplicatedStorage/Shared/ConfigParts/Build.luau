@@ -37,6 +37,12 @@ local B = {
 }
 Config.Building = B
 
+-- Detailed item models (World/Skins). If imported models face backwards in game,
+-- set ImportYaw = 180 (or 90 / -90 if they're sideways).
+Config.Skins = {
+	ImportYaw = 0,
+}
+
 Config.Build = {
 	Grid = 2, -- studs per grid cell
 	Bounds = { MinX = -B.HalfX + 0.5, MaxX = B.HalfX - 0.5, MinZ = B.BackZ + 0.5, MaxZ = B.FrontZ }, -- largest area; per stage see Shared/BuildRules.StageAreas
