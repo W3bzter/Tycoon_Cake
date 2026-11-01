@@ -22,6 +22,7 @@ local ORDER = {
 	"BuildMigration",
 	"BakingPipeline",
 	"AutoRoll",
+	"MutationEvents",
 	"MixingGame",
 	"DineIn",
 	"CustomerAI",

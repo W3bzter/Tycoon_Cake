@@ -210,6 +210,7 @@ function Ovens.FinishBake(owner: Player?, oven: Model, info: Rarity.CakeInfo, ov
 		AnomalyActive = ReplicatedStorage:GetAttribute("ActiveAnomaly") ~= nil,
 		Overheated = overheated,
 		Rebirths = data and data.Rebirths or 0,
+		EventMult = (ReplicatedStorage:GetAttribute("MutationEventMult") :: number?) or 1, -- Baking/MutationEvents
 	})
 	if owner then
 		bakedEvent:Fire(owner, out)

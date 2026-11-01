@@ -45,6 +45,7 @@ export type BakeContext = {
 	AnomalyActive: boolean?, -- an anomaly is running: x3 mutations, Void possible, more Cursed
 	Overheated: boolean?, -- the oven overheated during this bake: likely Burnt
 	Rebirths: number?, -- +10% mutation chance per rebirth
+	EventMult: number?, -- a mutation event is running (Baking/MutationEvents): x this
 }
 
 -- Chance this cake mutates (shown in the UI too).
@@ -55,6 +56,7 @@ function CakeRolls.MutationChance(rarity: number, ctx: BakeContext?): number
 		chance *= 3
 	end
 	chance *= 1 + 0.1 * (c.Rebirths or 0)
+	chance *= c.EventMult or 1
 	return math.min(chance, 1)
 end
 

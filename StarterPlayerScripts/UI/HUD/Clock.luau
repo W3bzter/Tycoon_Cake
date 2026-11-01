@@ -72,7 +72,8 @@ function Clock.Mount(screen: ScreenGui)
 		local active = mult ~= nil and endsAt ~= nil and endsAt > workspace:GetServerTimeNow()
 		event.Visible = active
 		if active then
-			event.Text = `✨ Mutations x{mult} {timeLeft(endsAt)}`
+			local name = (ReplicatedStorage:GetAttribute("MutationEventName") :: string?) or "Mutations"
+			event.Text = `✨ {name} x{mult} {timeLeft(endsAt)}`
 		end
 	end)
 end

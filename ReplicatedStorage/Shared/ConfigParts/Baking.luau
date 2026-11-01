@@ -11,6 +11,19 @@ Config.Rolling = {
 	InstantCooldown = 0.75, -- with the Instant Roll game pass
 }
 
+-- Mutation events (Baking/MutationEvents): every GapMin..GapMax seconds one event
+-- (picked by Weight) multiplies the bake mutation chance by Mult for Duration seconds.
+Config.MutationEvents = {
+	GapMin = 240,
+	GapMax = 420,
+	Duration = 90,
+	Events = {
+		{ Name = "Sugar Rush", Icon = "✨", Mult = 2, Weight = 6 },
+		{ Name = "Mutation Storm", Icon = "🌪️", Mult = 3, Weight = 3 },
+		{ Name = "Cosmic Bake", Icon = "🌌", Mult = 5, Weight = 1 },
+	},
+}
+
 -- Mixing minigame ------------------------------------------------------------------
 -- Keep the dot inside the drifting sweet spot. Score = share of time inside.
 -- Radius/speed are relative to the play area (0..1). Automation always mixes "Good".
