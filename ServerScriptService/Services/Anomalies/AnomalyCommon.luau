@@ -137,6 +137,7 @@ function Common.playSound(at: Vector3, soundId: string, speed: number?, volume: 
 	sound.PlaybackSpeed = speed or 1
 	sound.Volume = volume or 1
 	sound.RollOffMaxDistance = 150
+	sound.SoundGroup = game:GetService("SoundService"):FindFirstChild("SFX") :: SoundGroup? -- volume setting (Core/Audio)
 	sound.Parent = holder
 	sound:Play()
 	task.delay(4, holder.Destroy, holder)

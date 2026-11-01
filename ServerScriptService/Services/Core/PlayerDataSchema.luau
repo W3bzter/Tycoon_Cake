@@ -19,7 +19,7 @@ export type PlayerData = {
 	MixRecipe: string,
 	GemUpgrades: { [string]: number },
 	Receipts: { string },
-	Settings: { AutoDelete: { [string]: number }, KeepSpecial: boolean, AutoRoll: boolean? }, -- AutoRoll: Auto-Roller on/off (nil = on)
+	Settings: { AutoDelete: { [string]: number }, KeepSpecial: boolean, AutoRoll: boolean?, MusicVolume: number?, SfxVolume: number?, AutoRollPopups: boolean? }, -- AutoRoll: Auto-Roller on/off (nil = on); volumes 0..1; AutoRollPopups (nil = on)
 	Storage: { [string]: number },
 	LinesEnabled: { boolean },
 	LineRecipes: { string },

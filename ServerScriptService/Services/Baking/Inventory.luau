@@ -81,6 +81,10 @@ local function syncSettings(player: Player)
 	end
 	player:SetAttribute("AutoDelete", table.concat(parts, ","))
 	player:SetAttribute("KeepSpecial", data.Settings.KeepSpecial)
+	-- Settings panel (UI/Panels/Settings): volumes 0..1, auto-roll pop-ups.
+	player:SetAttribute("MusicVolume", data.Settings.MusicVolume or 0.6)
+	player:SetAttribute("SfxVolume", data.Settings.SfxVolume or 1)
+	player:SetAttribute("AutoRollPopups", data.Settings.AutoRollPopups ~= false)
 end
 Inventory.SyncSettings = syncSettings
 
@@ -94,6 +98,15 @@ function Inventory.SettingsAction(player: Player, action: any, a: any, b: any)
 		data.Settings.AutoDelete[a] = math.clamp(math.floor(b), 0, #Rarity.Tiers)
 	elseif action == "keepspecial" and typeof(a) == "boolean" then
 		data.Settings.KeepSpecial = a
+	elseif action == "volume" and (a == "Music" or a == "SFX") and typeof(b) == "number" and b == b then
+		local v = math.clamp(math.floor(b * 10 + 0.5) / 10, 0, 1)
+		if a == "Music" then
+			data.Settings.MusicVolume = v
+		else
+			data.Settings.SfxVolume = v
+		end
+	elseif action == "autorollpopups" and typeof(a) == "boolean" then
+		data.Settings.AutoRollPopups = a
 	else
 		return
 	end

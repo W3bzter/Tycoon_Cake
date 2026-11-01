@@ -50,6 +50,9 @@ local Rebirth = loadUI("Panels", "Rebirth")
 local ScreenShake = loadUI("Effects", "ScreenShake")
 local Hotbar = loadUI("Hotbar", "Hotbar")
 local BuildMode = loadUI("Build", "BuildMode")
+local SettingsPanel = loadUI("Panels", "Settings")
+local audioModule = UI:WaitForChild("Audio", 15)
+local Audio = if audioModule then require(audioModule :: ModuleScript) :: any else nil
 
 local screen = Instance.new("ScreenGui")
 screen.Name = "BakeryHUD"
@@ -133,6 +136,9 @@ for i, preview in { { "Void", "🕳️ Test Void" }, { "Celestial", "✨ Test Ce
 	end)
 end
 
+if Audio then
+	safe("Audio", Audio.Mount, player)
+end
 safe("CurrencyDisplay", CurrencyDisplay.Mount, screen, player)
 safe("Toast", Toast.Mount, screen)
 safe("AnomalyAlert", AnomalyAlert.Mount, screen)
@@ -144,6 +150,37 @@ safe("Achievements", Achievements.Mount, screen)
 safe("Rebirth", Rebirth.Mount, screen, player)
 safe("Hotbar", Hotbar.Mount, screen)
 safe("BuildMode", BuildMode.Mount, screen)
+safe("Settings", SettingsPanel.Mount, screen, player)
+
+-- Right-side button column: Build, Bag, Achievements, Rebirth, Settings (money and
+-- the Gem shop stay bottom-left, the hotbar bottom-centre).
+local sideBar = Instance.new("Frame")
+sideBar.Name = "SideBar"
+sideBar.AnchorPoint = Vector2.new(1, 0.5)
+sideBar.Position = UDim2.new(1, -12, 0.5, 0)
+sideBar.Size = UDim2.fromOffset(136, 0)
+sideBar.AutomaticSize = Enum.AutomaticSize.Y
+sideBar.BackgroundTransparency = 1
+sideBar.Parent = screen
+local sideLayout = Instance.new("UIListLayout")
+sideLayout.Padding = UDim.new(0, 8)
+sideLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
+sideLayout.SortOrder = Enum.SortOrder.LayoutOrder
+sideLayout.Parent = sideBar
+for order, name in { "BuildToggle", "BagToggle", "AchievementsToggle", "RebirthToggle", "SettingsToggle" } do
+	local b = screen:FindFirstChild(name)
+	if b and b:IsA("GuiObject") then
+		b.AnchorPoint = Vector2.zero
+		b.Size = UDim2.fromOffset(130, 36)
+		b.LayoutOrder = order
+		b.Parent = sideBar
+	end
+end
+-- The Build shop panel sits on the right too: keep it left of the column.
+local buildPanel = screen:FindFirstChild("BuildPanel")
+if buildPanel and buildPanel:IsA("GuiObject") then
+	buildPanel.Position = UDim2.new(1, -160, 0.45, 0)
+end
 safe("RollReveal", RollReveal.Mount, screen)
 Remotes:WaitForChild("RollResult").OnClientEvent:Connect(RollReveal.Show)
 safe("MixGame", MixGame.Mount, screen)

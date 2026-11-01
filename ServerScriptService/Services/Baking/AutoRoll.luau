@@ -94,7 +94,7 @@ local function tick()
 	for _, player in Players:GetPlayers() do
 		local plot = PlotManager.GetPlot(player)
 		if plot and DataManager.IsLoaded(player) and AutoRoll.IsOn(player) and workingPantry(plot) then
-			if Inventory.Roll(player, true, true) then
+			if Inventory.Roll(player, true, DataManager.Get(player).Settings.AutoRollPopups ~= false) then -- pop-ups: Settings panel
 				bagFullNotified[player] = nil
 			elseif not Inventory.RollFits(player) and not bagFullNotified[player] then
 				bagFullNotified[player] = true

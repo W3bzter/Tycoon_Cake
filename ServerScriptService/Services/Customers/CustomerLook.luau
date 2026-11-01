@@ -210,6 +210,7 @@ local function playSound(parent: Instance, soundId: string)
 	end
 	local sound = Instance.new("Sound")
 	sound.SoundId = soundId
+	sound.SoundGroup = game:GetService("SoundService"):FindFirstChild("SFX") :: SoundGroup? -- volume setting (Core/Audio)
 	sound.Parent = parent
 	sound:Play()
 	task.delay(3, sound.Destroy, sound)

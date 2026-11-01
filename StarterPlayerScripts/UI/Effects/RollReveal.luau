@@ -49,6 +49,7 @@ local function playSound(id: string?, speed: number?, volume: number?)
 	s.SoundId = id
 	s.PlaybackSpeed = speed or 1
 	s.Volume = volume or 0.7
+	s.SoundGroup = SoundService:FindFirstChild("SFX") :: SoundGroup? -- volume setting
 	SoundService:PlayLocalSound(s)
 	task.delay(4, s.Destroy, s)
 end

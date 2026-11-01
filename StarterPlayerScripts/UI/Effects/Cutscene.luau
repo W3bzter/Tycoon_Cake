@@ -121,6 +121,7 @@ local function playSting()
 			s.SoundId = id
 			s.PlaybackSpeed = speed
 			s.Volume = 1
+			s.SoundGroup = SoundService:FindFirstChild("SFX") :: SoundGroup? -- volume setting
 			SoundService:PlayLocalSound(s)
 			task.delay(3, s.Destroy, s)
 		end)

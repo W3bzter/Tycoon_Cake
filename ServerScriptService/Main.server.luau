@@ -8,6 +8,7 @@ local Services = script.Parent:WaitForChild("Services")
 
 local ORDER = {
 	"Remotes",
+	"Audio",
 	"Prompts",
 	"LightingSetup",
 	"WorldBuilder",

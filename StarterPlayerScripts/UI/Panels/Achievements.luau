@@ -120,6 +120,7 @@ local function showNextPopup()
 				local s = Instance.new("Sound")
 				s.SoundId = Config.Sounds.Achievement
 				s.PlaybackSpeed = speed
+				s.SoundGroup = SoundService:FindFirstChild("SFX") :: SoundGroup? -- volume setting
 				SoundService:PlayLocalSound(s)
 				task.delay(2, s.Destroy, s)
 			end)
