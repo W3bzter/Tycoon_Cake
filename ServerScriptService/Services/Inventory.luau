@@ -325,6 +325,31 @@ function Inventory.TakeForRecipe(player: Player, forcedRecipe: string?, order: s
 	return cakeType, chosen
 end
 
+-- Rat Swarm: removes up to `n` random unpinned items. Returns what was taken.
+function Inventory.StealRandom(player: Player, n: number): { Rarity.Item }
+	local bag = bagOf(player)
+	local taken = {}
+	if not bag then
+		return taken
+	end
+	for _ = 1, n do
+		local candidates = {}
+		for i, item in bag do
+			if not item.Pinned then
+				table.insert(candidates, i)
+			end
+		end
+		if #candidates == 0 then
+			break
+		end
+		table.insert(taken, table.remove(bag, candidates[rng:NextInteger(1, #candidates)]))
+	end
+	if #taken > 0 then
+		Inventory.Sync(player)
+	end
+	return taken
+end
+
 local function findItem(bag: { Rarity.Item }, id: number): (Rarity.Item?, number?)
 	for i, item in bag do
 		if item.Id == id then

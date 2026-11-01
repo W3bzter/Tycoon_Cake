@@ -227,7 +227,7 @@ function BakingPipeline.GetOvens(plot: Model): { Model }
 	local ovens = {}
 	local items = plot:FindFirstChild("Items")
 	for _, item in (if items then items:GetChildren() else {}) do
-		if item:IsA("Model") and item:GetAttribute("IsOven") and item:GetAttribute("Visible") then
+		if item:IsA("Model") and item:GetAttribute("IsOven") and item:GetAttribute("Visible") and not item:GetAttribute("Broken") then
 			table.insert(ovens, item)
 		end
 	end
@@ -236,6 +236,15 @@ end
 
 BakingPipeline.SetDoorGlow = setDoorGlow
 
+-- Empties a manual oven (an explosion or a smash loses whatever was baking).
+function BakingPipeline.ResetOven(oven: Model)
+	if oven:GetAttribute("IsAutoOven") then
+		return
+	end
+	CakeData.Clear(oven)
+	setOvenState(oven, "Idle")
+end
+
 -- Display slots ----------------------------------------------------------------
 
 -- Slots on every unlocked display counter (names are unique per plot: "<Counter>_<i>").
@@ -243,7 +252,8 @@ local function getSlots(plot: Model, includeHidden: boolean?): { BasePart }
 	local slots = {}
 	for _, counterId in COUNTER_IDS do
 		local counter = getItem(plot, counterId)
-		local folder = counter and (includeHidden or counter:GetAttribute("Visible")) and counter:FindFirstChild("Slots")
+		local usable = counter and counter:GetAttribute("Visible") and not counter:GetAttribute("Broken")
+		local folder = counter and (includeHidden or usable) and counter:FindFirstChild("Slots")
 		if folder then
 			for i = 1, Config.DisplaySlots do
 				local slot = folder:FindFirstChild(`{counterId}_{i}`) :: BasePart?
@@ -397,6 +407,21 @@ function BakingPipeline.TakeCake(plot: Model, slot: BasePart): (boolean, Rarity.
 	slot:SetAttribute("ForSale", false)
 	slot:SetAttribute("Reserved", false)
 	return true, info
+end
+
+-- Changes a displayed cake in place (Phantom curses, Rats nibble). Skips slots a
+-- customer has already claimed. Returns the new info, or nil.
+function BakingPipeline.ModifyCake(plot: Model, slot: BasePart, change: (Rarity.CakeInfo) -> Rarity.CakeInfo): Rarity.CakeInfo?
+	if not slot:GetAttribute("HasCake") or slot:GetAttribute("Reserved") then
+		return nil
+	end
+	local ok, info = BakingPipeline.TakeCake(plot, slot)
+	if not ok or not info then
+		return nil
+	end
+	local updated = change(info)
+	placeCake(plot, slot, updated)
+	return updated
 end
 
 -- Pantry ---------------------------------------------------------------------------
@@ -585,6 +610,10 @@ function BakingPipeline.Interact(player: Player, plot: Model, machineId: string,
 		return false
 	end
 	if not DataManager.HasUnlock(player, machineId) or not item:GetAttribute("Visible") then
+		return false
+	end
+	if item:GetAttribute("Broken") then
+		notify(player, `🔧 This machine is broken! Hold Q to repair it (${item:GetAttribute("RepairCost") or "?"}).`)
 		return false
 	end
 

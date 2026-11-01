@@ -6,7 +6,6 @@
 -- A cake slot is reserved before the customer spawns, so two customers never
 -- go for the same cake.
 
-local PathfindingService = game:GetService("PathfindingService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -18,6 +17,7 @@ local AvatarService = require(script.Parent.AvatarService)
 local BakingPipeline = require(script.Parent.BakingPipeline)
 local DataManager = require(script.Parent.DataManager)
 local PlotManager = require(script.Parent.PlotManager)
+local NPCKit = require(script.Parent.NPCKit)
 local PlotStats = require(script.Parent.PlotStats)
 
 local CustomerAI = {}
@@ -298,6 +298,7 @@ local function defaultPurchase(npc: Model, plot: Model, slot: BasePart, options:
 	if owner then
 		DataManager.AddCash(owner, pay)
 		DataManager.RecordSale(owner)
+		DataManager.AddStat(owner, "TotalEarned", pay)
 		if gems > 0 then
 			DataManager.AddGems(owner, gems)
 		end
@@ -330,68 +331,8 @@ local function counterStandPoint(slot: BasePart): Vector3
 	return Vector3.new(slot.Position.X, 0, slot.Position.Z + Config.CustomerStandOff)
 end
 
-local function moveTo(humanoid: Humanoid, position: Vector3): boolean
-	-- Polls instead of MoveToFinished:Wait(), which never returns if the NPC is
-	-- destroyed mid-walk (e.g. a stopped Mimic) and would leak the coroutine.
-	local done, reached = false, false
-	local conn = humanoid.MoveToFinished:Once(function(result)
-		done, reached = true, result
-	end)
-	humanoid:MoveTo(position)
-	local started = os.clock()
-	while not done and humanoid:IsDescendantOf(workspace) and os.clock() - started < 8 do
-		task.wait(0.1)
-	end
-	conn:Disconnect()
-	return reached
-end
-
--- Walks along a computed path; recomputes when blocked and teleports as a last resort.
 local function walkTo(npc: Model, target: Vector3): boolean
-	local humanoid = npc:FindFirstChildOfClass("Humanoid") :: Humanoid
-	local root = npc.PrimaryPart :: BasePart
-	local deadline = os.clock() + Config.CustomerTripTimeout
-	local path = PathfindingService:CreatePath({
-		AgentRadius = 2,
-		AgentHeight = 5,
-		AgentCanJump = true,
-	})
-
-	for _attempt = 1, 3 do
-		if npc.Parent == nil or humanoid.Health <= 0 then
-			return false
-		end
-		local ok = pcall(function()
-			path:ComputeAsync(root.Position, target)
-		end)
-		if ok and path.Status == Enum.PathStatus.Success then
-			local blocked = false
-			for _, waypoint in path:GetWaypoints() do
-				if npc.Parent == nil or os.clock() > deadline then
-					return false
-				end
-				if waypoint.Action == Enum.PathWaypointAction.Jump then
-					humanoid.Jump = true
-				end
-				if not moveTo(humanoid, waypoint.Position) then
-					blocked = true
-					break
-				end
-			end
-			if not blocked then
-				return true
-			end
-		elseif moveTo(humanoid, target) then
-			return true -- no path, but a straight walk worked
-		end
-	end
-
-	-- Stuck: snap to the goal so the shop keeps moving.
-	if npc.Parent then
-		npc:PivotTo(CFrame.new(target + Vector3.new(0, 3, 0)))
-		return true
-	end
-	return false
+	return NPCKit.WalkTo(npc, target, Config.CustomerTripTimeout)
 end
 
 function CustomerAI.Spawn(plot: Model, slot: BasePart, options: CustomerOptions?): Model?
@@ -550,7 +491,8 @@ function CustomerAI.Init()
 			local now = os.clock()
 			for _, plot in (workspace:WaitForChild("Plots") :: Folder):GetChildren() do
 				local owner = plot:IsA("Model") and PlotManager.GetOwner(plot)
-				if owner and now >= (nextSpawn[plot] or 0) and #BakingPipeline.GetSaleSlots(plot) > 0 then
+				-- A haunted plot (Phantom anomaly) scares customers away.
+				if owner and not plot:GetAttribute("Haunted") and now >= (nextSpawn[plot] or 0) and #BakingPipeline.GetSaleSlots(plot) > 0 then
 					nextSpawn[plot] = now + Config.CustomerInterval * PlotStats.Get(owner).CustomerRate
 					task.spawn(CustomerAI.TrySpawnForPlot, plot) -- avatar loading yields
 				end

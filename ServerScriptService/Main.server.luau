@@ -19,6 +19,7 @@ local ORDER = {
 	"MixingGame",
 	"CustomerAI",
 	"AutoProduction",
+	"Repairs",
 	"AnomalyManager",
 	"GemShop",
 	"RobuxShop",

@@ -141,8 +141,9 @@ Rarity.CakeTraits = {
 	Cursed = { Icon = "💀", Chance = 0.01, Mult = 3, Description = "x3 value, but anomalies want it (more likely during anomalies)" },
 	Burnt = { Icon = "🔥", Chance = 0.04, Mult = 0.6, Description = "x0.6 value (Sloppy mixes and overheated ovens burn)" },
 	Nibbled = { Icon = "🐀", Chance = 0, Mult = 0.5, Description = "x0.5 value (a rat got to it)" },
+	Spooked = { Icon = "👻", Chance = 0, Mult = 0.7, Description = "x0.7 value (a Phantom haunted it)" },
 }
-Rarity.CakeTraitOrder = { "Fluffy", "Sprinkled", "Glazed", "GoldenCrust", "Cursed", "Burnt", "Nibbled" }
+Rarity.CakeTraitOrder = { "Fluffy", "Sprinkled", "Glazed", "GoldenCrust", "Cursed", "Burnt", "Nibbled", "Spooked" }
 
 -- Mutations: at most one per cake. Weight picks which one, once a cake mutates.
 Rarity.Mutations = {

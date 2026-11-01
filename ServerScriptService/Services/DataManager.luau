@@ -91,7 +91,9 @@ local sessions: { [Player]: Session } = {}
 local loadedEvent = Instance.new("BindableEvent")
 DataManager.PlayerLoaded = loadedEvent.Event -- (player, data)
 local resetEvent = Instance.new("BindableEvent")
-DataManager.PlayerReset = resetEvent.Event -- (player) after a Studio data reset
+DataManager.PlayerReset = resetEvent.Event -- (player) after a Studio data reset or a rebirth
+local statEvent = Instance.new("BindableEvent")
+DataManager.StatChanged = statEvent.Event -- (player, statName, newValue)
 
 -- Helpers --------------------------------------------------------------------
 
@@ -307,6 +309,16 @@ function DataManager.AddStat(player: Player, name: string, amount: number)
 	local data = DataManager.Get(player)
 	if data then
 		data.Stats[name] = (data.Stats[name] or 0) + amount
+		statEvent:Fire(player, name, data.Stats[name])
+	end
+end
+
+-- Raises a stat to `value` if that's higher (e.g. BestRoll).
+function DataManager.MaxStat(player: Player, name: string, value: number)
+	local data = DataManager.Get(player)
+	if data and value > (data.Stats[name] or 0) then
+		data.Stats[name] = value
+		statEvent:Fire(player, name, value)
 	end
 end
 

@@ -27,6 +27,8 @@ local function displayName(kind: string, variant: string?): string
 		return if cake then `{cake.Icon} {cake.DisplayName}` else "🍰 Cake"
 	elseif kind == "FireExtinguisher" then
 		return "🧯 Fire Extinguisher"
+	elseif kind == "FryingPan" then
+		return "🍳 Frying Pan"
 	end
 	return kind
 end
@@ -79,6 +81,25 @@ function ToolFactory.Make(kind: string, variant: string?): Tool
 		weld.Part1 = nozzle
 		weld.Parent = nozzle
 		nozzle.Parent = tool
+	elseif kind == "FryingPan" then
+		-- Handle in the hand, the pan disc out in front.
+		handle.Size = Vector3.new(0.3, 0.3, 1.6)
+		handle.Color = Color3.fromRGB(90, 60, 40)
+		tool.GripPos = Vector3.new(0, 0, 0.4)
+		local pan = Instance.new("Part")
+		pan.Name = "Pan"
+		pan.Shape = Enum.PartType.Cylinder
+		pan.Size = Vector3.new(0.25, 2, 2)
+		pan.Color = Color3.fromRGB(45, 45, 50)
+		pan.Material = Enum.Material.Metal
+		pan.CanCollide = false
+		pan.Massless = true
+		pan.CFrame = handle.CFrame * CFrame.new(0, 0, -1.6) * CFrame.Angles(0, 0, math.rad(90))
+		local weld = Instance.new("WeldConstraint")
+		weld.Part0 = handle
+		weld.Part1 = pan
+		weld.Parent = pan
+		pan.Parent = tool
 	end
 
 	return tool

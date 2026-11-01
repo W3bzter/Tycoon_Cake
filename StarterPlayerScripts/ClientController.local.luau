@@ -18,6 +18,7 @@ local InteractHighlighter = require(UI:WaitForChild("InteractHighlighter"))
 local RecipePreview = require(UI:WaitForChild("RecipePreview"))
 local Toast = require(UI:WaitForChild("Toast"))
 local WorldFX = require(UI:WaitForChild("WorldFX"))
+local Cutscene = require(UI:WaitForChild("Cutscene"))
 local ScreenShake = require(UI:WaitForChild("ScreenShake"))
 
 local screen = Instance.new("ScreenGui")
@@ -96,8 +97,18 @@ WorldFX.Mount()
 Remotes:WaitForChild("ScreenShake").OnClientEvent:Connect(ScreenShake.Shake)
 
 Remotes:WaitForChild("Notify").OnClientEvent:Connect(Toast.Show)
+-- Anomaly intro cutscene first, then the alert banner.
+Cutscene.Mount(player)
+Remotes:WaitForChild("Cutscene").OnClientEvent:Connect(Cutscene.Play)
 Remotes:WaitForChild("AnomalyStarted").OnClientEvent:Connect(function(name: string, duration: number)
-	AnomalyAlert.Show(name, workspace:GetServerTimeNow() + duration)
+	local endsAt = workspace:GetServerTimeNow() + duration
+	task.wait(0.3) -- the cutscene (if this anomaly reaches us) starts right after
+	while Cutscene.IsPlaying() do
+		task.wait(0.1)
+	end
+	if ReplicatedStorage:GetAttribute("ActiveAnomaly") == name then
+		AnomalyAlert.Show(name, endsAt)
+	end
 end)
 Remotes:WaitForChild("AnomalyEnded").OnClientEvent:Connect(AnomalyAlert.Hide)
 

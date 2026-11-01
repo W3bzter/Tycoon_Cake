@@ -276,7 +276,8 @@ local function tickLine(plot: Model, owner: Player, state: PlotState, line: Line
 	end
 
 	-- Full Automation pass: keep the hopper topped up from the bag.
-	if GamePasses.Owns(owner, "FullAutomation") and #line.hopper < A.HopperCap then
+	local hopperOk = working((controlFor(plot, line)))
+	if hopperOk and GamePasses.Owns(owner, "FullAutomation") and #line.hopper < A.HopperCap then
 		line.autoLoadT += TICK
 		if line.autoLoadT >= A.AutoLoadInterval then
 			line.autoLoadT = 0
@@ -298,7 +299,7 @@ local function tickLine(plot: Model, owner: Player, state: PlotState, line: Line
 
 	-- Mix
 	local mixer = if isUnit then getItem(plot, line.unitId :: string) else getItem(plot, "AutoMixer")
-	if has("AutoMixer") and working(mixer) and #line.hopper > 0 and #line.batter < A.TrayCap then
+	if hopperOk and has("AutoMixer") and working(mixer) and #line.hopper > 0 and #line.batter < A.TrayCap then
 		line.mixT += TICK
 		if line.mixT >= A.MixTime then
 			line.mixT = 0
@@ -492,6 +493,10 @@ end
 function AutoProduction.Load(player: Player, plot: Model, lineIndex: number, fill: boolean?): number
 	local line = lineAt(plot, lineIndex)
 	if not line or not PlotManager.IsOwner(player, plot) or not isLineActive(player, line) then
+		return 0
+	end
+	if not working((controlFor(plot, line))) then
+		notify(player, `🔧 {line.name} is broken! Repair it first (hold Q).`)
 		return 0
 	end
 	if #line.hopper >= A.HopperCap then
