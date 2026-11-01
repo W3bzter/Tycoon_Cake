@@ -278,7 +278,9 @@ end
 -- A placed item may not be moved/stored/upgraded while it's busy.
 local function busyReason(model: Model, action: string): string?
 	local kind = kindOf(model)
-	if kind == "Oven" and (model:GetAttribute("OvenState") ~= "Idle" or model:GetAttribute("Blocked")) then
+	-- No OvenState yet = setupMachine (a deferred ItemPlaced handler) hasn't run: a brand-new, empty oven.
+	local state = model:GetAttribute("OvenState")
+	if kind == "Oven" and ((state ~= nil and state ~= "Idle") or model:GetAttribute("Blocked")) then
 		return "The oven is busy: collect the cake first."
 	end
 	local plot = plotOf(model)

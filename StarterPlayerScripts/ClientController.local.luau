@@ -23,6 +23,7 @@ local Achievements = require(UI:WaitForChild("Panels"):WaitForChild("Achievement
 local Rebirth = require(UI:WaitForChild("Panels"):WaitForChild("Rebirth"))
 local ScreenShake = require(UI:WaitForChild("Effects"):WaitForChild("ScreenShake"))
 local Hotbar = require(UI:WaitForChild("Hotbar"):WaitForChild("Hotbar"))
+local BuildMode = require(UI:WaitForChild("Build"):WaitForChild("BuildMode"))
 
 local screen = Instance.new("ScreenGui")
 screen.Name = "BakeryHUD"
@@ -94,6 +95,7 @@ Bag.Mount(screen, player)
 Achievements.Mount(screen)
 Rebirth.Mount(screen, player)
 Hotbar.Mount(screen)
+BuildMode.Mount(screen)
 RollReveal.Mount(screen)
 Remotes:WaitForChild("RollResult").OnClientEvent:Connect(RollReveal.Show)
 MixGame.Mount(screen)

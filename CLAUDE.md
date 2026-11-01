@@ -33,11 +33,11 @@ File types: `*.server.luau` = Script, `*.local.luau` = LocalScript, plain `*.lua
 `Config` + `ConfigParts/*`, `PlotLayout` (upgrade metadata + button spots; floor plan in its header), `Recipes`, `Rarity` (tiers, ingredient traits, MakeCake; re-exports `CakeRolls`), `CakeRolls` (cake traits, mutations, RollBake), `CakeData` (CakeInfo ⇄ attributes), `RebirthDefs`, `Achievements` (definitions).
 
 ## Client (`StarterPlayerScripts/`)
-`ClientController.local.luau` mounts everything and wires remotes. `UI/HUD/` (currency, toasts, button prices, highlighter, anomaly banner, recipe preview), `UI/Panels/` (Bag + auto-delete, Shop, Achievements, Rebirth, MixGame), `UI/Effects/` (RollReveal, Cutscene, WorldFX tag animations, ScreenShake), `UI/Hotbar/` (custom hotbar replacing Roblox's backpack bar: `Hotbar` slots/keys 1-9/overflow grid, `ItemIcon` 3D ViewportFrame icons + rarity look, `Tooltip`).
+`ClientController.local.luau` mounts everything and wires remotes. `UI/HUD/` (currency, toasts, button prices, highlighter, anomaly banner, recipe preview), `UI/Panels/` (Bag + auto-delete, Shop, Achievements, Rebirth, MixGame), `UI/Effects/` (RollReveal, Cutscene, WorldFX tag animations, ScreenShake), `UI/Hotbar/` (custom hotbar replacing Roblox's backpack bar: `Hotbar` slots/keys 1-9/overflow grid, `ItemIcon` 3D ViewportFrame icons + rarity look, `Tooltip`), `UI/Build/` (Build mode, B key: `BuildMode` state + input, `BuildGhost` ghost preview/grid/no-build overlay using `Shared/BuildRules` + the plot's `BuildReserved` attribute, `BuildMenu` catalog panel + action bar). Build mode hides ProximityPrompts (`ProximityPromptService.Enabled`) because R/Q/X double as build keys.
 
 ## Remotes (`Config.RemoteNames`)
-Server→client: `Notify`, `AnomalyStarted/Ended`, `Cutscene`, `ScreenShake`, `RollResult`, `BagUpdate`, `MixStart`, `AchievementSync/Unlocked`.
-Client→server: `BagAction`, `Settings`, `MixSubmit`, `BuyGemItem`, `ShopAction`, `GamePassPrompt`, `Rebirth`, `DevResetData` (Studio).
+Server→client: `Notify`, `BuildSync`, `AnomalyStarted/Ended`, `Cutscene`, `ScreenShake`, `RollResult`, `BagUpdate`, `MixStart`, `AchievementSync/Unlocked`.
+Client→server: `BuildAction`, `BagAction`, `Settings`, `MixSubmit`, `BuyGemItem`, `ShopAction`, `GamePassPrompt`, `Rebirth`, `DevResetData` (Studio).
 
 ## Player data (`Core/PlayerDataSchema`)
 Cash, Gems, UnlockedUpgrades, ShieldCharges, BoostEndsAt, Stats (lifetime counters; achievements watch them), Bag, NextItemId, MixRecipe, GemUpgrades, Receipts, Settings (auto-delete), Storage, LinesEnabled, LineRecipes, Hoppers, Rebirths, Achievements, Broken. New field = add it to the schema; `reconcile()` fills old saves.

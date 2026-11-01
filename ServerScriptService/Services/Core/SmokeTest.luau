@@ -66,6 +66,7 @@ local function buyEverything(player: Player, plot: Model): string
 	local DataManager = svc("DataManager")
 	local buttons, items = 0, 0
 	for _ = 1, 15 do
+		task.wait() -- let deferred ItemPlaced handlers (machine setup) run, like real play
 		for _, u in PlotLayout.Upgrades do
 			if TycoonButtons.TryPurchase(player, plot, u.Id) then
 				buttons += 1
