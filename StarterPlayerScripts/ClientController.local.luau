@@ -8,7 +8,9 @@ local Remotes = ReplicatedStorage:WaitForChild("Remotes")
 local UI = script.Parent:WaitForChild("UI")
 
 local AnomalyAlert = require(UI:WaitForChild("AnomalyAlert"))
+local ButtonPrices = require(UI:WaitForChild("ButtonPrices"))
 local CurrencyDisplay = require(UI:WaitForChild("CurrencyDisplay"))
+local InteractHighlighter = require(UI:WaitForChild("InteractHighlighter"))
 local Toast = require(UI:WaitForChild("Toast"))
 
 local screen = Instance.new("ScreenGui")
@@ -21,6 +23,8 @@ screen.Parent = player:WaitForChild("PlayerGui")
 CurrencyDisplay.Mount(screen, player)
 Toast.Mount(screen)
 AnomalyAlert.Mount(screen)
+InteractHighlighter.Mount(player)
+ButtonPrices.Mount(player)
 
 Remotes:WaitForChild("Notify").OnClientEvent:Connect(Toast.Show)
 Remotes:WaitForChild("AnomalyStarted").OnClientEvent:Connect(function(name: string, duration: number)

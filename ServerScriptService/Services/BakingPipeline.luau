@@ -52,8 +52,17 @@ end
 
 -- Ovens ----------------------------------------------------------------------
 
+local function setDoorGlow(oven: Model, on: boolean)
+	local door = oven:FindFirstChild("Door") :: BasePart?
+	if door then
+		door.Material = if on then Enum.Material.Neon else Enum.Material.Glass
+		door.Color = if on then Color3.fromRGB(255, 150, 60) else Color3.fromRGB(60, 40, 40)
+	end
+end
+
 local function setOvenState(oven: Model, state: string)
 	oven:SetAttribute("OvenState", state)
+	setDoorGlow(oven, state == "Baking" and not oven:GetAttribute("Blocked"))
 	local prompt = getPrompt(oven)
 	if not prompt then
 		return
@@ -96,12 +105,23 @@ function BakingPipeline.SetOvenBlocked(oven: Model, blocked: boolean)
 	oven:SetAttribute("Blocked", blocked)
 	local body = oven:FindFirstChild("Body") :: BasePart?
 	if body then
-		if body:GetAttribute("NormalColor") == nil then
-			body:SetAttribute("NormalColor", body.Color)
+		-- The body is a rounded box: the core part plus child pieces. Recolour them all.
+		local shell: { BasePart } = { body }
+		for _, d in body:GetDescendants() do
+			if d:IsA("BasePart") then
+				table.insert(shell, d)
+			end
 		end
+		for _, p in shell do
+			if p:GetAttribute("NormalColor") == nil then
+				p:SetAttribute("NormalColor", p.Color)
+			end
+			p.Color = if blocked then Color3.fromRGB(230, 40, 30) else p:GetAttribute("NormalColor") :: Color3
+		end
+		setDoorGlow(oven, not blocked and oven:GetAttribute("OvenState") == "Baking")
+
 		local smoke = body:FindFirstChild("OverheatSmoke")
 		if blocked then
-			body.Color = Color3.fromRGB(230, 40, 30)
 			if not smoke then
 				local s = Instance.new("Smoke")
 				s.Name = "OverheatSmoke"
@@ -112,7 +132,6 @@ function BakingPipeline.SetOvenBlocked(oven: Model, blocked: boolean)
 				s.Parent = body
 			end
 		else
-			body.Color = body:GetAttribute("NormalColor") :: Color3
 			if smoke then
 				smoke:Destroy()
 			end

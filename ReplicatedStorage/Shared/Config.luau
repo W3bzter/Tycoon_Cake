@@ -73,9 +73,7 @@ Config.PlotCount = 4
 Config.PlotSize = Vector3.new(80, 1, 80)
 Config.PlotSpacing = 100 -- distance between plot centres along X
 Config.PlotRowZ = -50 -- plot centres sit behind the street
-Config.StreetZ = 15
-Config.StreetLength = 500
-Config.StreetWidth = 30
+Config.StreetLength = 500 -- road runs along X at world Z 5..25 (see WorldBuilder)
 
 -- Remotes (created by the server in ReplicatedStorage.Remotes) -----------------
 Config.RemoteNames = {
