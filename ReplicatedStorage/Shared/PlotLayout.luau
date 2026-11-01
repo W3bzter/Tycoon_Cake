@@ -49,20 +49,12 @@ PlotLayout.Upgrades = {
 	{ Id = "OvenRack3", DisplayName = "Oven Rack III", Icon = "🧁", Category = "Kitchen", Tier = 3, Price = 7500, Requires = { "OvenRack2", "FasterOvens1" }, Effects = { OvenRacks = 1 } },
 	{ Id = "VIPLounge", DisplayName = "VIP Lounge", Icon = "👑", Category = "Decor", Tier = 3, Price = 15000, Requires = { "SecondFloor" }, Effects = { VIPChance = 0.12 } },
 
-	-- Tier 4: Factory Annex (a new room behind the bakery), then automation inside it (line 1, bought in order) ------------------------------
-	{ Id = "FactoryAnnex", DisplayName = "Factory Annex", Icon = "🏭", Category = "Build", Tier = 4, Price = 10000, Requires = { "BakeryExpansion2", "RecipeStrawberry", "FasterOvens2" } },
-	{ Id = "IngredientConveyor", DisplayName = "Ingredient Conveyor", Icon = "📦", Category = "Auto", Tier = 4, Price = 12000, Requires = { "FactoryAnnex" } },
-	{ Id = "AutoMixer", DisplayName = "Auto-Mixer", Icon = "🤖", Category = "Auto", Tier = 4, Price = 18000, Requires = { "IngredientConveyor" } },
-	{ Id = "AutoOven", DisplayName = "Auto-Oven", Icon = "🤖", Category = "Auto", Tier = 4, Price = 27000, Requires = { "AutoMixer" } },
-	{ Id = "CounterConveyor", DisplayName = "Counter Conveyor", Icon = "➡️", Category = "Auto", Tier = 4, Price = 40000, Requires = { "AutoOven" } },
-	{ Id = "AutoRestock", DisplayName = "Auto-Restock Rack", Icon = "🗄️", Category = "Auto", Tier = 4, Price = 60000, Requires = { "CounterConveyor" }, Effects = { StorageSlots = 6 } },
+	-- Tier 4 -------------------------------------------------------------------------------
 	{ Id = "OvenRack4", DisplayName = "Oven Rack IV", Icon = "🧁", Category = "Kitchen", Tier = 4, Price = 40000, Requires = { "OvenRack3", "FasterOvens2" }, Effects = { OvenRacks = 1 } },
 
-	-- Tier 5: Production lines --------------------------------------------------------------
-	{ Id = "ProductionLine2", DisplayName = "Production Line 2", Icon = "🏭", Category = "Auto", Tier = 5, Price = 90000, Requires = { "AutoRestock" } },
-	{ Id = "FasterOvens3", DisplayName = "Oven Speed III", Icon = "⏱️", Category = "Kitchen", Tier = 5, Price = 135000, Requires = { "FasterOvens2", "ProductionLine2" }, Effects = { BakeTime = 0.75 } },
-	{ Id = "ProductionLine3", DisplayName = "Production Line 3", Icon = "🏭", Category = "Auto", Tier = 5, Price = 200000, Requires = { "ProductionLine2" } },
-	{ Id = "GoldenShopfront", DisplayName = "Golden Shopfront", Icon = "✨", Category = "Decor", Tier = 5, Price = 300000, Requires = { "ProductionLine3" }, Effects = { SalePrice = 1.1, VIPChance = 0.05 } },
+	-- Tier 5 -------------------------------------------------------------------------------
+	{ Id = "FasterOvens3", DisplayName = "Oven Speed III", Icon = "⏱️", Category = "Kitchen", Tier = 5, Price = 135000, Requires = { "FasterOvens2", "AutoBaker" }, Effects = { BakeTime = 0.75 } },
+	{ Id = "GoldenShopfront", DisplayName = "Golden Shopfront", Icon = "✨", Category = "Decor", Tier = 5, Price = 300000, Requires = { "BakeryExpansion2", "TurboBaker" }, Effects = { SalePrice = 1.1, VIPChance = 0.05 } },
 
 	-- Gem upgrades -------------------------------------------------------------------------
 	{ Id = "RecipeRainbow", DisplayName = "Rainbow Recipe", Icon = "🌈", Category = "Gems", Tier = 3, Price = 25, Currency = "Gems", Requires = { "RecipeStrawberry" } },

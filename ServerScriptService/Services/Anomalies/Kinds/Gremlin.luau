@@ -1,8 +1,8 @@
 --!strict
--- Gremlin Sabotage: a gremlin teleports between the automation machines of every
--- unshielded plot with a production line. Each time it lands it sits still for a
--- moment (catchable), then sabotages: switches a line off, scrambles a line's
--- recipe, or jams a conveyor. Catch it Catches times (click, touch or pan).
+-- Gremlin Sabotage: a gremlin teleports between the Auto-Bakers of every
+-- unshielded plot that has one. Each time it lands it sits still for a moment
+-- (catchable), then sabotages the machine it sits on: switches it off, changes
+-- its recipe, or jams it. Catch it Catches times (click, touch or pan).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -11,7 +11,7 @@ local Config = require(Shared:WaitForChild("Config"))
 local Recipes = require(Shared:WaitForChild("Recipes"))
 
 local Services = script:FindFirstAncestor("Services") :: Folder
-local AutoProduction = require(Services.Factory.AutoProduction)
+local AutoBakers = require(Services.Factory.AutoBakers)
 local Common = require(Services.Anomalies.AnomalyCommon)
 local Creatures = require(Services.Anomalies.Creatures)
 local DataManager = require(Services.Core.DataManager)
@@ -20,31 +20,19 @@ local PlotManager = require(Services.Core.PlotManager)
 local Repairs = require(Services.World.Repairs)
 local VFX = require(Services.Effects.VFX)
 
-local AUTO_IDS = { "IngredientConveyor", "AutoMixer", "AutoOven", "CounterConveyor", "ProductionLine2", "ProductionLine3" }
-local LINE_ITEM = { "IngredientConveyor", "ProductionLine2", "ProductionLine3" }
-
 local gremlins: { [Model]: Model } = {} -- gremlin -> plot
 
 local function folder(): Folder
 	return workspace:WaitForChild("Anomalies") :: Folder
 end
 
+-- The plot's working Auto-Bakers.
 local function machines(plot: Model): { Model }
 	local list = {}
-	for _, id in AUTO_IDS do
-		local item = Common.item(plot, id)
-		if item then
-			table.insert(list, item)
-		end
-	end
-	return list
-end
-
-local function activeLines(plot: Model): { number }
-	local list = {}
-	for i, id in LINE_ITEM do
-		if Common.item(plot, id) then
-			table.insert(list, i)
+	local placed = plot:FindFirstChild("Placed")
+	for _, model in (if placed then placed:GetChildren() else {}) do
+		if model:IsA("Model") and model:GetAttribute("Kind") == "AutoBaker" and not model:GetAttribute("Broken") then
+			table.insert(list, model)
 		end
 	end
 	return list
@@ -65,37 +53,27 @@ end
 local function sabotage(plot: Model, at: Model)
 	local owner = PlotManager.GetOwner(plot)
 	local data = owner and DataManager.Get(owner)
-	if not owner or not data then
+	local record = data and data.Build.Placed[at:GetAttribute("Uid") :: string]
+	if not owner or not record then
 		return
 	end
-	local lines = activeLines(plot)
 	local roll = math.random(3)
-	if roll == 1 and #lines > 0 then
-		local i = lines[math.random(#lines)]
-		if data.LinesEnabled[i] ~= false then
-			AutoProduction.SetEnabled(owner, plot, i, false)
-			Common.notify(owner, `👺 The Gremlin switched Line {i} OFF! Hold T on it to turn it back on.`)
-			return
-		end
+	if roll == 1 and not record.Off then
+		AutoBakers.SetOn(owner, at, false)
+		Common.notify(owner, "👺 The Gremlin switched an Auto-Baker OFF! Press T on it to turn it back on.")
+		return
 	end
-	if roll <= 2 and #lines > 0 then
-		local i = lines[math.random(#lines)]
-		local line = AutoProduction.GetLine(plot, i)
-		local menu = Recipes.Unlocked(function(id)
-			return DataManager.HasUnlock(owner, id)
-		end)
-		if line and #menu > 1 then
-			local pick = menu[math.random(#menu)]
-			line.recipe = pick
-			data.LineRecipes[i] = pick
-			Common.notify(owner, `👺 The Gremlin changed Line {i}'s recipe to {Recipes.Cakes[pick].DisplayName}!`)
-			return
-		end
+	local menu = Recipes.Unlocked(function(id)
+		return DataManager.HasUnlock(owner, id)
+	end)
+	if roll == 2 and #menu > 1 then
+		local pick = menu[math.random(#menu)]
+		record.Recipe = pick
+		Common.notify(owner, `👺 The Gremlin changed an Auto-Baker's recipe to {Recipes.Cakes[pick].DisplayName}!`)
+		return
 	end
-	-- Jam: the machine it sits on (or a conveyor) stops delivering for a while.
-	local target = Common.item(plot, "CounterConveyor") or at
-	target:SetAttribute("JammedUntil", os.clock() + Config.Anomalies.Gremlin.JamSeconds)
-	Common.notify(owner, `👺 The Gremlin jammed your {Common.displayName(target.Name)} for {Config.Anomalies.Gremlin.JamSeconds}s!`)
+	at:SetAttribute("JammedUntil", os.clock() + Config.Anomalies.Gremlin.JamSeconds)
+	Common.notify(owner, `👺 The Gremlin jammed an Auto-Baker for {Config.Anomalies.Gremlin.JamSeconds}s!`)
 end
 
 local function runGremlin(plot: Model, deadline: number)
@@ -177,7 +155,7 @@ end
 return {
 	CanRun = function()
 		for _, plot in Common.ownedPlots() do
-			if #activeLines(plot) > 0 then
+			if #machines(plot) > 0 then
 				return true
 			end
 		end
@@ -185,7 +163,7 @@ return {
 	end,
 	Run = function(_cfg: any, deadline: number)
 		local hasLine = function(plot: Model)
-			return #activeLines(plot) > 0
+			return #machines(plot) > 0
 		end
 		local protected = Common.consumeShields(hasLine)
 		Common.givePansToAll()

@@ -21,13 +21,10 @@ export type PlayerData = {
 	Receipts: { string },
 	Settings: { AutoDelete: { [string]: number }, KeepSpecial: boolean, AutoRoll: boolean?, MusicVolume: number?, SfxVolume: number?, AutoRollPopups: boolean? }, -- AutoRoll: Auto-Roller on/off (nil = on); volumes 0..1; AutoRollPopups (nil = on)
 	Storage: { [string]: number },
-	LinesEnabled: { boolean },
-	LineRecipes: { string },
-	Hoppers: { { any } },
 	Rebirths: number,
 	Achievements: { [string]: number },
 	Broken: { [string]: number },
-	Build: { Owned: { [string]: number }, Placed: { [string]: any }, NextUid: number, Migrated: boolean, MigratedShop: boolean, LegacyOvens: number },
+	Build: { Owned: { [string]: number }, Placed: { [string]: any }, NextUid: number, Migrated: boolean, MigratedShop: boolean, MigratedAutoBakers: boolean, LegacyOvens: number },
 }
 
 local TEMPLATE: PlayerData = {
@@ -63,16 +60,11 @@ local TEMPLATE: PlayerData = {
 	-- Auto-delete thresholds per kind (0 = off; n = delete rarity < n).
 	Settings = { AutoDelete = { Ingredient = 0, Batter = 0, Cake = 0 }, KeepSpecial = true },
 	Storage = { Bag = 0, Rack = 0 }, -- storage upgrade levels (Config.Storage)
-	LinesEnabled = { true, true, true }, -- production line on/off switches
-	LineRecipes = { "Vanilla", "Vanilla", "Vanilla" },
-	-- Ingredient sets loaded into each line's hopper: { {Recipe, Items} } per line.
-	-- Saved so loaded ingredients are never lost when you leave.
-	Hoppers = { {}, {}, {} },
 	Rebirths = 0,
 	Achievements = {}, -- id -> os.time() unlocked
 	Broken = {}, -- machine id -> repair cost (Cash); re-applied on join
 	-- Build mode: unplaced items (id -> count), placed items (uid -> {Id, GX, GZ, Rot}).
-	Build = { Owned = {}, Placed = {}, NextUid = 1, Migrated = false, MigratedShop = false, LegacyOvens = 0 },
+	Build = { Owned = {}, Placed = {}, NextUid = 1, Migrated = false, MigratedShop = false, MigratedAutoBakers = false, LegacyOvens = 0 },
 }
 
 return {

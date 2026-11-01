@@ -92,6 +92,17 @@ function BuildService.CountOwned(player: Player, id: string): number
 	return n
 end
 
+-- How many of an item the player may own: the catalog Max, plus one Cake Rack per
+-- level of the "More Cake Racks" storage upgrade (Config.Storage.Rack).
+function BuildService.MaxFor(player: Player, entry: BuildCatalog.Entry): number
+	local max = entry.Max or math.huge
+	if entry.Id == "CakeRack" then
+		local data = DataManager.Get(player)
+		max += (data and data.Storage.Rack or 0) * Config.Storage.Rack.PerLevel
+	end
+	return max
+end
+
 local function sync(player: Player)
 	local b = buildData(player)
 	local data = DataManager.Get(player)
@@ -219,8 +230,9 @@ function BuildService.Buy(player: Player, id: string, uid: string?): (boolean, s
 		if reason then
 			return false, reason
 		end
-	elseif entry.Max and count >= entry.Max then
-		return false, `You can only have {entry.Max}.`
+	elseif entry.Max and count >= BuildService.MaxFor(player, entry) then
+		local max = BuildService.MaxFor(player, entry)
+		return false, if entry.Id == "CakeRack" then `You can only have {max}. More racks: Shop › Storage.` else `You can only have {max}.`
 	end
 	local price = BuildCatalog.PriceFor(entry, count)
 	local paid = if entry.Currency == "Gems" then DataManager.SpendGems(player, price) else DataManager.SpendCash(player, price)

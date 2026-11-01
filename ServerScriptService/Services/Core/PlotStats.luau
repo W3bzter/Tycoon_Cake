@@ -79,10 +79,6 @@ function PlotStats.Get(player: Player?): Stats
 	if data and data.Rebirths > 0 then
 		stats.SalePrice *= 1 + data.Rebirths * RebirthDefs.SalePriceBonus
 	end
-	-- Storage upgrade: extra rack slots (the rack itself comes with Auto-Restock).
-	if data and DataManager.HasUnlock(player, "AutoRestock") then
-		stats.StorageSlots += (data.Storage.Rack or 0) * Config.Storage.Rack.PerLevel
-	end
 	return stats :: any
 end
 

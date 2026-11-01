@@ -54,7 +54,7 @@ Config.AutoDelete = {
 Config.Storage = {
 	Order = { "Bag", "Rack" },
 	Bag = { Icon = "🎒", DisplayName = "Bigger Bag", PerLevel = 10, MaxLevel = 6, BaseCost = 2000, Growth = 2.2, Format = "+%d bag slots" },
-	Rack = { Icon = "🗄️", DisplayName = "Bigger Cake Rack", PerLevel = 3, MaxLevel = 5, BaseCost = 25000, Growth = 2, Format = "+%d rack slots (needs Auto-Restock)" },
+	Rack = { Icon = "🗄️", DisplayName = "More Cake Racks", PerLevel = 1, MaxLevel = 5, BaseCost = 25000, Growth = 2, Format = "+%d Cake Racks you can place" },
 }
 
 return Config

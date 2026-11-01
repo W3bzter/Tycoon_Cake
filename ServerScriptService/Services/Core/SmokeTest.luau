@@ -133,6 +133,17 @@ function SmokeTest.Run(player: Player, withAnomalies: boolean?): string
 	step("buy and place everything", function()
 		return buyEverything(player, plot)
 	end)
+	step("pause auto-bakers (they'd eat the bag the hand tests use)", function()
+		local data = DataManager.Get(player)
+		local n = 0
+		for _, record in data.Build.Placed do
+			if string.find(record.Id, "Baker$") then
+				record.Off = true
+				n += 1
+			end
+		end
+		return `{n} paused`
+	end)
 	step("placement rules", function()
 		local counter = placedOfKind(plot, "Counter") :: Model
 		assert(counter, "no counter placed")
@@ -237,22 +248,32 @@ function SmokeTest.Run(player: Player, withAnomalies: boolean?): string
 		assert(BuildService.Store(player, decor:GetAttribute("Uid")), "store failed")
 		return nil
 	end)
-	step("automation line", function()
-		local AutoProduction = svc("AutoProduction")
+	step("auto-baker bakes a cake", function()
+		local AutoBakers = svc("AutoBakers")
+		local baker = placedOfKind(plot, "AutoBaker")
+		assert(baker, "no Auto-Baker placed")
+		local data = DataManager.Get(player)
+		local record = data.Build.Placed[baker:GetAttribute("Uid")]
+		record.Recipe, record.Off = "Vanilla", nil
+		baker:SetAttribute("JammedUntil", nil)
+		local before = data.Stats.CakesBaked or 0
 		for _ = 1, 2 do
 			Inventory.Roll(player)
 			task.wait(Config.Rolling.Cooldown + 0.1)
 		end
-		AutoProduction.Load(player, plot, 1, true)
-		task.wait(12)
-		return AutoProduction.Describe(plot):sub(1, 90)
+		local deadline = os.clock() + Config.AutoBaker.CycleSeconds.AutoBaker + 4
+		while os.clock() < deadline and (data.Stats.CakesBaked or 0) <= before do
+			task.wait(0.5)
+		end
+		assert((data.Stats.CakesBaked or 0) > before, "no cake baked: " .. AutoBakers.Describe(plot))
+		return AutoBakers.Describe(plot):sub(1, 90)
 	end)
 	step("prompt rules (working vs broken)", function()
 		local Prompts = svc("Prompts")
 		local Repairs = svc("Repairs")
 		task.wait(0.5)
 		local lines = {}
-		local targets = { placedOfKind(plot, "MixStation"), placedOfKind(plot, "Oven"), plot.Items:FindFirstChild("IngredientConveyor"), plot.Items:FindFirstChild("ProductionLine2") }
+		local targets = { placedOfKind(plot, "MixStation"), placedOfKind(plot, "Oven"), placedOfKind(plot, "AutoBaker") }
 		for _, item in targets do
 			local model = item :: Model
 			Prompts.Refresh(model)
@@ -292,6 +313,22 @@ function SmokeTest.Run(player: Player, withAnomalies: boolean?): string
 			end)
 		end
 	end
+	step("migrate an old automation save", function()
+		local data = DataManager.Get(player) :: any
+		for _, id in { "FactoryAnnex", "IngredientConveyor", "ProductionLine2", "AutoRestock" } do
+			data.UnlockedUpgrades[id] = true
+		end
+		data.Hoppers = { { { Id = "smoke-hopper", Type = "Flour", Rarity = 1 } } }
+		data.Build.MigratedAutoBakers = false
+		local cash, bag, bakers = data.Cash, #data.Bag, data.Build.Owned.AutoBaker or 0
+		BuildService.Migrate(player, plot)
+		assert(data.Cash - cash == 172000, `refund {data.Cash - cash}`)
+		assert((data.Build.Owned.AutoBaker or 0) - bakers == 2, "free Auto-Bakers not given")
+		assert((data.Build.Owned.CakeRack or 0) >= 1, "free Cake Rack not given")
+		assert(#data.Bag == bag + 1 and data.Hoppers == nil, "hopper items not returned")
+		assert(not data.UnlockedUpgrades.FactoryAnnex, "old unlock kept")
+		return "refund $172000, 2 bakers, rack, 1 ingredient back"
+	end)
 	step("reset again", function()
 		assert(DataManager.ResetToNew(player))
 		return nil

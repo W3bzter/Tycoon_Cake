@@ -4,7 +4,7 @@
 -- it builds the model (World/ItemBuilders or World/DecorBuilders) at the chosen
 -- grid spot. Server: Build/BuildService. Client: UI/Build.
 --
---   Kind       "Pantry" | "MixStation" | "Oven" | "Counter" | "Decor" (machines get prompts)
+--   Kind       "Pantry" | "MixStation" | "Oven" | "Counter" | "AutoBaker" | "CakeRack" | "Decor" (machines get prompts)
 --   UpgradeOf  bought in place on a placed item of that id (same spot, new model)
 --   Max        how many you can own (counting placed ones)
 --   Prices     price of the 1st, 2nd, ... copy (else Price for every copy)
@@ -45,6 +45,12 @@ BuildCatalog.List = {
 	{ Id = "Oven", Name = "Oven", Icon = "🔥", Kind = "Oven", Category = "Kitchen", Price = 300, Requires = { "Mixer" }, UpgradeOf = "BasicOven", Description = "Upgrades your basic oven: bakes twice as fast." },
 	-- Display counters
 	{ Id = "DisplayCounter", Name = "Display Counter", Icon = "🍰", Kind = "Counter", Category = "Kitchen", Price = 40, Prices = { 40, 800, 6000, 25000 }, Requires = { "BasicOven" }, Max = 4, Unlocks = { [1] = "DisplayCounter", [2] = "DisplayCounter2" }, Front = 5, Description = "Customers buy the cakes you put here." },
+	-- Automation: Auto-Bakers bake from your bag by themselves (Factory/AutoBakers);
+	-- Cake Racks hold their extra cakes and restock your counters.
+	{ Id = "AutoBaker", Name = "Auto-Baker", Icon = "🤖", Kind = "AutoBaker", Category = "Kitchen", Price = 5000, Prices = { 5000, 15000, 40000, 90000, 180000, 350000 }, Requires = { "RecipeStrawberry", "BakeryExpansion1" }, Max = 6, Description = "Bakes cakes by itself from your Ingredient Bag. R = recipe, T = on/off." },
+	{ Id = "TurboBaker", Name = "Turbo Baker", Icon = "⚡", Kind = "AutoBaker", Category = "Kitchen", Price = 25000, Requires = { "AutoBaker", "FasterOvens2" }, UpgradeOf = "AutoBaker", Description = "Upgrades an Auto-Baker: bakes faster." },
+	{ Id = "GoldenBaker", Name = "Golden Baker", Icon = "🌟", Kind = "AutoBaker", Category = "Kitchen", Price = 120000, Requires = { "TurboBaker", "BakeryExpansion2" }, UpgradeOf = "TurboBaker", Description = "Upgrades a Turbo Baker: the fastest." },
+	{ Id = "CakeRack", Name = "Cake Rack", Icon = "🗄️", Kind = "CakeRack", Category = "Kitchen", Price = 3000, Requires = { "AutoBaker" }, Max = 1, Description = "Holds 9 extra cakes from your Auto-Bakers and refills empty counters. More racks: Shop › Storage." },
 	-- Decor
 	{ Id = "PottedPlant", Name = "Potted Plant", Icon = "🌷", Kind = "Decor", Category = "Decor", Price = 25, Requires = { "Walls" }, Max = 12, Unlocks = { [1] = "Plants" }, Description = "A cheerful plant." },
 	{ Id = "Rug", Name = "Cosy Rug", Icon = "🟪", Kind = "Decor", Category = "Decor", Price = 60, Requires = { "Walls" }, Max = 6, Description = "A soft round rug." },

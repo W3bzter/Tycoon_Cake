@@ -69,11 +69,10 @@ function Rebirth.Request(player: Player): (boolean, string?)
 	new.Cash = if DataManager.DevActive then Config.DevModeAmount else Config.StartingCash
 	new.UnlockedUpgrades = {}
 	new.Broken = {}
-	new.LinesEnabled = fresh.LinesEnabled
 	new.Build = fresh.Build -- placed equipment and decor go with the bakery
 	new.Build.Migrated = true
 	new.Build.MigratedShop = true
-	new.LineRecipes = fresh.LineRecipes
+	new.Build.MigratedAutoBakers = true
 	new.Rebirths = done + 1
 	new.MixRecipe = "Best" -- recipes must be re-unlocked
 

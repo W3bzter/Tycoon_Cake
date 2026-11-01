@@ -1,5 +1,5 @@
 --!strict
--- The bakery oven (one per bakery; automated ovens live in Factory/AutoProduction).
+-- The bakery oven (one per bakery; Auto-Bakers live in Factory/AutoBakers).
 -- An oven has racks: each rack bakes one cake on its own timer. Rack count comes
 -- from PlotStats.OvenRacks (Oven Rack upgrades), speed from PlotStats.BakeDuration
 -- (Oven Speed upgrades, Golden Oven). Both show on the oven: a light per rack on
@@ -316,7 +316,7 @@ function Ovens.SetOvenBlocked(oven: Model, blocked: boolean)
 		end
 	end
 	if oven:GetAttribute("IsAutoOven") then
-		-- Automated ovens manage their own prompts (AutoProduction).
+		-- Automated ovens manage their own prompts.
 		setDoorGlow(oven, not blocked and oven:GetAttribute("OvenState") == "Baking")
 	else
 		refresh(oven)

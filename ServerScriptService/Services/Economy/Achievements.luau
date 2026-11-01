@@ -9,7 +9,7 @@
 --   PerfectMixes                 (BakingPipeline.Mixed)
 --   CakesBaked, Mutations, Mutation<Name> (BakingPipeline.Baked)
 --   Repairs                      (Repairs.Repaired)
---   LinesOwned                   (TycoonButtons.UpgradeUnlocked)
+--   AutoBakersOwned              (Factory/AutoBakers)
 
 local BadgeService = game:GetService("BadgeService")
 local Players = game:GetService("Players")
@@ -23,7 +23,6 @@ local DataManager = require(Services.Core.DataManager)
 local Inventory = require(Services.Baking.Inventory)
 local Remotes = require(Services.Core.Remotes)
 local Repairs = require(Services.World.Repairs)
-local TycoonButtons = require(Services.World.TycoonButtons)
 
 local Achievements = {}
 
@@ -82,8 +81,6 @@ local function onStat(player: Player, stat: string, value: number)
 	end
 end
 
-local LINE_IDS = { "IngredientConveyor", "ProductionLine2", "ProductionLine3" }
-
 function Achievements.Init()
 	DataManager.StatChanged:Connect(onStat)
 
@@ -109,15 +106,6 @@ function Achievements.Init()
 	end)
 	Repairs.Repaired:Connect(function(player)
 		DataManager.AddStat(player, "Repairs", 1)
-	end)
-	TycoonButtons.UpgradeUnlocked:Connect(function(player)
-		local owned = 0
-		for _, id in LINE_IDS do
-			if DataManager.HasUnlock(player, id) then
-				owned += 1
-			end
-		end
-		DataManager.MaxStat(player, "LinesOwned", owned)
 	end)
 
 	local function ready(player: Player)

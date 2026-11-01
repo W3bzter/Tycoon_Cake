@@ -189,7 +189,7 @@ function Common.reward(player: Player, cash: number, gems: number, stat: string?
 	Common.notify(player, table.concat(parts, " "))
 end
 
--- Player-facing name of a machine ("ProductionLine2" -> "Production Line 2").
+-- Player-facing name of a machine ("AutoBaker" -> "Auto Baker").
 function Common.displayName(itemId: string): string
 	local upgrade = PlotLayout.Find(itemId)
 	return if upgrade then upgrade.DisplayName else itemId

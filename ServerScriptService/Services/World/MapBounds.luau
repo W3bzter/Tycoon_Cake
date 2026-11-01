@@ -27,7 +27,7 @@ local TUNNEL_W, TUNNEL_H = 24, 18
 function MapBounds.Edges(): (number, number, number)
 	local half = Config.StreetLength / 2
 	local plotHalf = Config.PlotSize.Z / 2
-	local annex = Config.Building.Annex.Z0 - Config.Building.Annex.Z1 -- annex depth
+	local annex = Config.Building.BackLot.Z0 - Config.Building.BackLot.Z1 -- back lot depth (loading dock)
 	local zMin = Config.PlotRowZ - plotHalf - annex - 12
 	local zMax = if (Config.PlotRows or 1) > 1 then Config.PlotRowZB + plotHalf + annex + 12 else 60
 	return half, zMin, zMax

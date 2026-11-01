@@ -3,7 +3,7 @@
 -- (Brute, ...) smash machines. A broken machine can't be used until its owner
 -- holds the Repair prompt and pays a share of its upgrade price (Config.Repair).
 --
--- The model gets the attribute Broken = true (BakingPipeline, AutoProduction and
+-- The model gets the attribute Broken = true (BakingPipeline, AutoBakers and
 -- AnomalyManager all check it) plus visuals: darkened, smoking, sparking and a
 -- "🔧 BROKEN" label. Breaks are saved (PlayerData.Broken: id -> cost) and
 -- re-applied when the owner claims a plot, so leaving doesn't skip a repair.
@@ -29,12 +29,10 @@ local VFX = require(Services.Effects.VFX)
 local Repairs = {}
 
 -- Machines that can break (the pantry never does: rolling must always work):
--- these fixed automation machines, plus every placed machine (Build mode Kind
--- MixStation, Oven or Counter). Decor never breaks.
-Repairs.Breakable = {
-	"IngredientConveyor", "AutoMixer", "AutoOven", "CounterConveyor", "AutoRestock", "ProductionLine2", "ProductionLine3",
-}
-local BREAKABLE_KINDS = { MixStation = true, Oven = true, Counter = true }
+-- every placed machine (Build mode Kind MixStation, Oven, Counter or AutoBaker).
+-- Decor never breaks. (Repairs.Breakable lists fixed items that can break: none now.)
+Repairs.Breakable = {} :: { string }
+local BREAKABLE_KINDS = { MixStation = true, Oven = true, Counter = true, AutoBaker = true }
 local MAIN_PARTS = { "Body", "Counter", "Hopper", "Panel", "Rack" }
 
 local repairedEvent = Instance.new("BindableEvent")

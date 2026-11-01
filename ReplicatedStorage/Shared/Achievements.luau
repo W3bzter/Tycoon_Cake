@@ -54,7 +54,7 @@ Achievements.List = {
 	a("Ghostbuster", "👻", "Ghostbuster", "Banish a Phantom", "PhantomsBanished", 1, 10),
 	a("AnomalyExpert", "🛡️", "Anomaly Expert", "Stop 25 anomaly creatures", "AnomaliesStopped", 25, 30),
 	-- Progress
-	a("FullyAutomated", "🏭", "Fully Automated", "Own all 3 production lines", "LinesOwned", 3, 25),
+	a("FullyAutomated", "🏭", "Fully Automated", "Own 3 Auto-Bakers", "AutoBakersOwned", 3, 25),
 	a("Reborn", "♻️", "Reborn", "Rebirth once", "Rebirths", 1, 25),
 	a("Reborn5", "🔱", "Born Again (x5)", "Rebirth 5 times", "Rebirths", 5, 100),
 }

@@ -15,7 +15,7 @@ local B = {
 	Stages = {
 		{ HalfX = 30, BackZ = -12 }, -- start: 60 x 48 inside
 		{ HalfX = 45, BackZ = -36 }, -- Bigger Bakery I: 90 x 72
-		{ HalfX = 60, BackZ = -60 }, -- Bigger Bakery II: 120 x 96 (the Factory Annex door is in this back wall)
+		{ HalfX = 60, BackZ = -60 }, -- Bigger Bakery II: 120 x 96
 	},
 	Expansions = { "BakeryExpansion1", "BakeryExpansion2" }, -- PlotLayout ids, stage 2 and 3
 	FacadeZ = 35.5, -- shop front; the patio runs from here to the plot front (z 60)
@@ -23,16 +23,11 @@ local B = {
 	DoorHalf = 8, -- the doorway is x -DoorHalf..DoorHalf
 	WallHeight = 18,
 	DeckY = 18.5, -- second-floor deck height
-	-- Factory Annex (an expansion bought from the Upgrades tab): a room behind the
-	-- back wall that holds all the automation (World/ItemBuilders). Doorway in the
-	-- bakery's back wall at x DoorX0..DoorX1, sealed until the annex is owned.
-	Annex = {
-		Z0 = -60, -- shared wall with the bakery (the plot's back edge)
-		Z1 = -100, -- annex back wall
-		DoorX0 = -42,
-		DoorX1 = -30,
-		LineZ = -78, -- production line 1 row (hopper -> mixer -> oven)
-		UnitZ = -92, -- Production Line 2/3 units
+	-- Back lot: the strip behind the plot's back edge (the delivery-truck loading
+	-- dock goes here). World/MapBounds keeps it inside the map.
+	BackLot = {
+		Z0 = -60, -- the plot's back edge
+		Z1 = -100,
 	},
 }
 Config.Building = B
@@ -53,7 +48,6 @@ Config.Build = {
 	-- every fixed machine/wall, which are found automatically).
 	Reserved = {
 		{ Name = "Entrance", X0 = -B.DoorHalf, X1 = B.DoorHalf, Z0 = B.FacadeZ - 10, Z1 = B.FrontZ },
-		{ Name = "AnnexDoor", X0 = B.Annex.DoorX0, X1 = B.Annex.DoorX1, Z0 = B.BackZ, Z1 = B.BackZ + 6 }, -- walkway to the Factory Annex
 	},
 }
 

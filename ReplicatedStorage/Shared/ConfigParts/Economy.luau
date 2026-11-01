@@ -6,16 +6,16 @@ local Config = {}
 
 -- Game Passes. Create them on the Creator Dashboard (Monetization > Passes)
 -- and paste each ID here. ID 0 = not set up yet.
--- FullAutomation: hoppers load themselves from your bag (cheapest unpinned
--- ingredients first) and the pantry auto-rolls (normal cooldown and odds) when
--- the bag can't fill a hopper. It only automates free actions.
+-- FullAutomation: an Auto-Baker whose recipe your bag can't make rolls its own
+-- ingredients (normal cooldown and odds) instead of waiting.
+-- It only automates free actions.
 -- RandomItems = true: the pass gives more free rolls (random items), so it is only
 -- sold and only works where PolicyService allows paid random items (same gate as
 -- the Luck upgrade: player attribute LuckAllowed, fails closed). Never changes odds.
 -- DoubleCash / DoubleGems double what you EARN in play (sales, tips, rewards,
 -- achievements), not Robux purchases.
 Config.GamePasses = {
-	FullAutomation = { Id = 0, Label = "🤖 Full Automation", Description = "Hoppers load themselves from your bag" },
+	FullAutomation = { Id = 0, Label = "🤖 Full Automation", Description = "Auto-Bakers roll their own ingredients when your bag runs out" },
 	DoubleRoll = { Id = 0, Label = "🎲 2x Roll", Description = "Every roll gives 2 of each ingredient", RandomItems = true },
 	InstantRoll = { Id = 0, Label = "⚡ Instant Roll", Description = "Roll again almost instantly", RandomItems = true },
 	DoubleCash = { Id = 0, Label = "💵 2x Cash", Description = "Earn double Cash" },

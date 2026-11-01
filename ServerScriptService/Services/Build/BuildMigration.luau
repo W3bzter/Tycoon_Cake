@@ -17,6 +17,7 @@ local Services = script:FindFirstAncestor("Services") :: Folder
 local BuildModels = require(Services.Build.BuildModels)
 local BuildService = require(Services.Build.BuildService)
 local DataManager = require(Services.Core.DataManager)
+local Remotes = require(Services.Core.Remotes)
 
 local BuildMigration = {}
 
@@ -32,10 +33,70 @@ local function convertLegacyOvens(player: Player, b: any)
 	b.LegacyOvens = 0
 end
 
+-- Auto-Bakers pass (PlayerData.Build.MigratedAutoBakers): the Factory Annex and
+-- production lines are gone. Hopper ingredients go back to the bag (even over
+-- capacity), every automation upgrade is refunded in Cash, and each owned
+-- production line becomes a free Auto-Baker (Auto-Restock: a free Cake Rack).
+local OLD_AUTOMATION = {
+	FactoryAnnex = 10000, IngredientConveyor = 12000, AutoMixer = 18000, AutoOven = 27000,
+	CounterConveyor = 40000, AutoRestock = 60000, ProductionLine2 = 90000, ProductionLine3 = 200000,
+}
+local OLD_LINES = { "IngredientConveyor", "ProductionLine2", "ProductionLine3" }
+
+local function migrateAutoBakers(player: Player, data: any, b: any)
+	if b.MigratedAutoBakers then
+		return
+	end
+	b.MigratedAutoBakers = true
+	local returned = 0
+	for _, hopper in data.Hoppers or {} do
+		for _, item in (if typeof(hopper) == "table" then hopper else {}) do
+			if typeof(item) == "table" and item.Id then
+				table.insert(data.Bag, item)
+				returned += 1
+			end
+		end
+	end
+	data.Hoppers, data.LineRecipes, data.LinesEnabled = nil, nil, nil
+	local refund, bakers = 0, 0
+	for _, id in OLD_LINES do
+		if data.UnlockedUpgrades[id] then
+			bakers += 1
+		end
+	end
+	local rack = data.UnlockedUpgrades.AutoRestock == true
+	for id, price in OLD_AUTOMATION do
+		if data.UnlockedUpgrades[id] then
+			refund += price
+			data.UnlockedUpgrades[id] = nil
+		end
+	end
+	if bakers > 0 then
+		b.Owned.AutoBaker = (b.Owned.AutoBaker or 0) + bakers
+	end
+	if rack then
+		b.Owned.CakeRack = math.max(b.Owned.CakeRack or 0, 1)
+	end
+	if refund > 0 then
+		DataManager.AddCash(player, refund)
+	end
+	if refund > 0 or returned > 0 then
+		task.delay(5, function()
+			if player.Parent then
+				Remotes.Get("Notify"):FireClient(player, `🤖 Automation is now Auto-Bakers! Refunded ${refund}, {bakers} free Auto-Baker(s) in your Build inventory, {returned} ingredient(s) back in your bag.`)
+			end
+		end)
+	end
+end
+
 local function migrate(player: Player, plot: Model)
 	local data = DataManager.Get(player)
 	local b = data and data.Build
-	if not data or not b or (b.Migrated and b.MigratedShop and (b.LegacyOvens or 0) == 0) then
+	if not data or not b then
+		return
+	end
+	migrateAutoBakers(player, data, b)
+	if b.Migrated and b.MigratedShop and (b.LegacyOvens or 0) == 0 then
 		return
 	end
 	local has = function(id: string)

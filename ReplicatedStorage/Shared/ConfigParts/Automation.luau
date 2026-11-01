@@ -1,18 +1,16 @@
 --!strict
--- Automation: production line timings.
+-- Automation: Auto-Bakers (Factory/AutoBakers) and Cake Racks.
 -- Merged into Shared/Config (read it as Config.<Name>).
 
 local Config = {}
 
--- Automation (production lines) -------------------------------------------------
-Config.Auto = {
-	FeedTime = 4, -- seconds for the ingredient conveyor to deliver one recipe's worth
-	MixTime = 3,
-	BakeMult = 1.5, -- automated ovens are slower than a player's oven until upgraded
-	DeliverTime = 3, -- conveyor travel time to the counter
-	HopperCap = 4, -- recipe sets the hopper can hold (players load them from the bag)
-	TrayCap = 2, -- batters / cakes waiting between steps
-	AutoLoadInterval = 1, -- Full Automation pass: seconds between auto-loads per line
+Config.AutoBaker = {
+	Tick = 0.5, -- seconds between machine updates
+	-- Seconds per cake, by machine (the Auto-Baker upgrades in place: Turbo, Golden).
+	CycleSeconds = { AutoBaker = 12, TurboBaker = 8, GoldenBaker = 5 },
+	Quality = "Good", -- machines always mix "Good"
+	RackSlots = 9, -- cakes a Cake Rack holds (3 shelves x 3)
+	RestockEvery = 1, -- seconds between moving a rack cake onto a free counter slot
 }
 
 return Config

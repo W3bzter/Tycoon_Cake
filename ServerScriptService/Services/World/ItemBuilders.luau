@@ -38,46 +38,16 @@ local function perStage(item: Model, build: (stage: Model, halfX: number, backZ:
 	end
 end
 
--- The bakery shell for one size stage. Only the largest has the Factory Annex doorway.
-local function buildShell(floor: CFrame, item: Model, halfX: number, backZ: number, annexDoor: boolean)
+-- The bakery shell for one size stage.
+local function buildShell(floor: CFrame, item: Model, halfX: number, backZ: number)
 	local wallColor = P.Vanilla
 	local width = halfX * 2
 	local depth = FACADE_Z - backZ -- side walls run from the back wall to the facade
 	local midZ = (FACADE_Z + backZ) / 2
 	local backC = backZ + 0.5
 	local sideX = halfX - 0.5
-	-- Back wall (with the Factory Annex doorway on the largest stage) and side walls.
-	local A = B.Annex
-	local doorH = 10
-	local function backPiece(name: string, x0: number, x1: number, y0: number, y1: number, thick: number?): Part
-		return Style.Part({ Name = name, Size = Vector3.new(x1 - x0, y1 - y0, thick or 1), CFrame = at(floor, (x0 + x1) / 2, (y0 + y1) / 2, backC), Color = wallColor, Parent = item })
-	end
-	if not annexDoor then
-		backPiece("BackWall", -halfX, halfX, 0, WALL_H)
-	else
-		backPiece("BackWall", -halfX, A.DoorX0, 0, WALL_H)
-		backPiece("BackWall", A.DoorX1, halfX, 0, WALL_H)
-		backPiece("BackWallLintel", A.DoorX0, A.DoorX1, doorH, WALL_H)
-		-- Seals the doorway until the annex is bought (TycoonButtons hides HideWhenOwned parts).
-		local block = backPiece("AnnexDoorBlock", A.DoorX0, A.DoorX1, 0, doorH, 0.8)
-		block.Color = P.Cream
-		block:SetAttribute("HideWhenOwned", "FactoryAnnex")
-		local blockGui = Instance.new("SurfaceGui")
-		blockGui.Face = Enum.NormalId.Back -- +Z, into the bakery
-		blockGui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-		blockGui.PixelsPerStud = 30
-		blockGui.LightInfluence = 0
-		blockGui.Parent = block
-		local blockText = Instance.new("TextLabel")
-		blockText.Size = UDim2.fromScale(1, 0.4)
-		blockText.Position = UDim2.fromScale(0, 0.3)
-		blockText.BackgroundTransparency = 1
-		blockText.TextScaled = true
-		blockText.Font = Enum.Font.FredokaOne
-		blockText.TextColor3 = P.HotPink
-		blockText.Text = "🔒 Factory Annex\n(Build shop → Upgrades)"
-		blockText.Parent = blockGui
-	end
+	-- Back wall and side walls.
+	Style.Part({ Name = "BackWall", Size = Vector3.new(width, WALL_H, 1), CFrame = at(floor, 0, WALL_H / 2, backC), Color = wallColor, Parent = item })
 	for _, x in { -sideX, sideX } do
 		Style.Part({ Name = "SideWall", Size = Vector3.new(1, WALL_H, depth), CFrame = at(floor, x, WALL_H / 2, midZ), Color = wallColor, Parent = item })
 	end
@@ -116,10 +86,7 @@ local function buildShell(floor: CFrame, item: Model, halfX: number, backZ: numb
 		Style.Part({ Name = "CorniceSide", Size = Vector3.new(2.2, 1.2, depth), CFrame = at(floor, x, WALL_H + 0.3, midZ), Color = P.HotPink, Parent = item })
 		Style.Part({ Name = "Baseboard", Size = Vector3.new(1.6, 1, depth), CFrame = at(floor, x, 0.5, midZ), Color = P.HotPink, Parent = item })
 	end
-	local spans = if annexDoor then { { -halfX, A.DoorX0 }, { A.DoorX1, halfX } } else { { -halfX, halfX } }
-	for _, span in spans do
-		Style.Part({ Name = "Baseboard", Size = Vector3.new(span[2] - span[1], 1, 1.6), CFrame = at(floor, (span[1] + span[2]) / 2, 0.5, backC), Color = P.HotPink, Parent = item })
-	end
+	Style.Part({ Name = "Baseboard", Size = Vector3.new(width, 1, 1.6), CFrame = at(floor, 0, 0.5, backC), Color = P.HotPink, Parent = item })
 
 	-- Hanging ceiling lamps in a grid (World/DayNight lights them at night).
 	local lamps = Instance.new("Model")
@@ -150,8 +117,8 @@ local function buildShell(floor: CFrame, item: Model, halfX: number, backZ: numb
 end
 
 ItemBuilders.Walls = function(floor, item)
-	perStage(item, function(stage, halfX, backZ, last)
-		buildShell(floor, stage, halfX, backZ, last)
+	perStage(item, function(stage, halfX, backZ)
+		buildShell(floor, stage, halfX, backZ)
 	end)
 	local topY = 10
 
@@ -350,27 +317,6 @@ local function panel(name: string, size: Vector3, cf: CFrame, color: Color3, tex
 	return board
 end
 
--- Flat conveyor belt between two plot-local points on the floor (axis-aligned).
-local function belt(name: string, from: Vector3, to: Vector3, floor: CFrame, parent: Instance): Part
-	local mid = (from + to) / 2
-	local delta = to - from
-	local size = Vector3.new(math.max(math.abs(delta.X), 2), 0.6, math.max(math.abs(delta.Z), 2))
-	local b = Style.Part({ Name = name, Size = size, CFrame = at(floor, mid.X, 0.3, mid.Z), Color = P.Charcoal, Parent = parent })
-	-- Side rails
-	local alongX = math.abs(delta.X) >= math.abs(delta.Z)
-	for _, s in { -1, 1 } do
-		local offset = if alongX then Vector3.new(0, 0.45, s * (size.Z / 2)) else Vector3.new(s * (size.X / 2), 0.45, 0)
-		Style.Part({
-			Name = "Rail",
-			Size = if alongX then Vector3.new(size.X, 0.3, 0.3) else Vector3.new(0.3, 0.3, size.Z),
-			CFrame = at(floor, mid.X + offset.X, offset.Y + 0.3, mid.Z + offset.Z),
-			Color = P.Butter,
-			Parent = parent,
-		})
-	end
-	return b
-end
-
 local function recipePoster(x: number, cakeName: string, icon: string, color: Color3)
 	return function(floor: CFrame, item: Model)
 		perStage(item, function(stage, _halfX, backZ)
@@ -544,126 +490,5 @@ ItemBuilders.DriveThru = function(floor, item)
 	Style.Cylinder("SignPost", 7, 0.5, at(floor, x + 5.2, 3.5, z1 - 3), P.White, item)
 	panel("DriveThruSign", Vector3.new(6, 2.4, 0.4), at(floor, x + 5.2, 7.6, z1 - 3), P.HotPink, "🚗 DRIVE-THRU", P.White, item)
 end
-
--- Factory Annex: a room behind the bakery's back wall (Config.Building.Annex) that
--- holds all the automation below. Its own floor, walls and a doorway from the bakery.
-local ANNEX = B.Annex
-local LINE_Z = ANNEX.LineZ
-ItemBuilders.FactoryAnnex = function(floor, item)
-	local z0, z1 = ANNEX.Z0, ANNEX.Z1
-	local depth = z0 - z1
-	local midZ = (z0 + z1) / 2
-	local width = B.HalfX * 2
-	Style.Part({ Name = "AnnexFloor", Size = Vector3.new(width, 1, depth), CFrame = at(floor, 0, -0.5, midZ), Color = P.Steel, Material = Enum.Material.Concrete, Parent = item })
-	-- Yellow safety stripes along the line rows.
-	for _, z in { LINE_Z + 4.5, LINE_Z - 4.5, ANNEX.UnitZ + 4.5 } do
-		Style.Part({ Name = "Stripe", Size = Vector3.new(width - 8, 0.05, 0.5), CFrame = at(floor, 0, 0.03, z), Color = P.Butter, CanCollide = false, Parent = item })
-	end
-	local wallColor = Color3.fromRGB(205, 200, 215)
-	Style.Part({ Name = "AnnexBackWall", Size = Vector3.new(width, WALL_H, 1), CFrame = at(floor, 0, WALL_H / 2, z1 + 0.5), Color = wallColor, Parent = item })
-	for _, x in { -SIDE_X, SIDE_X } do
-		Style.Part({ Name = "AnnexSideWall", Size = Vector3.new(1, WALL_H, depth), CFrame = at(floor, x, WALL_H / 2, midZ), Color = wallColor, Parent = item })
-		Style.Part({ Name = "AnnexCornice", Size = Vector3.new(2.2, 1.2, depth), CFrame = at(floor, x, WALL_H + 0.3, midZ), Color = P.Lilac, Parent = item })
-	end
-	Style.Trim("AnnexCorniceBack", Vector3.new(width + 1.5, 1.2, 2.2), at(floor, 0, WALL_H + 0.3, z1 + 0.5), P.Lilac, item)
-	-- Sign over the doorway (annex side).
-	local doorX = (ANNEX.DoorX0 + ANNEX.DoorX1) / 2
-	panel("AnnexSign", Vector3.new(10, 2.4, 0.4), at(floor, doorX, 12, z0 - 0.8), P.Lilac, "🏭 FACTORY", P.White, item)
-end
-
--- Automation: production line 1 (row at LINE_Z in the annex) ----------------------------
-
-ItemBuilders.IngredientConveyor = function(floor, item)
-	local hopper = Style.RoundedBox("Hopper", Vector3.new(4, 3, 4), at(floor, -24, 1.5, LINE_Z), P.Lilac, item, 0.8)
-	Style.Trim("HopperRim", Vector3.new(4.6, 0.5, 4.6), at(floor, -24, 3.2, LINE_Z), P.White, item)
-	local tube = Style.Part({
-		Name = "Tube",
-		Shape = Enum.PartType.Cylinder,
-		Size = Vector3.new(13, 1.2, 1.2),
-		CFrame = at(floor, -26, 5, LINE_Z - 8.5) * CFrame.Angles(0, math.rad(90), 0),
-		Color = P.Sky,
-		Transparency = 0.3,
-		Parent = item,
-	})
-	tube.Material = Enum.Material.Glass
-	belt("Belt", Vector3.new(-22, 0, LINE_Z), Vector3.new(-14.5, 0, LINE_Z), floor, item)
-	Style.MachineSign(item, hopper, "📦", "Line 1 Hopper", 1.4)
-end
-
-ItemBuilders.AutoMixer = function(floor, item)
-	local body = Style.RoundedBox("Body", Vector3.new(5, 4, 5), at(floor, -12, 2, LINE_Z), P.Lilac, item, 1)
-	Style.Cylinder("Bowl", 2.2, 4, at(floor, -12, 5.1, LINE_Z), P.Steel, item).Material = Enum.Material.Metal
-	Style.Ball("Light", 0.8, at(floor, -12, 3, LINE_Z + 2.6), P.DeepMint, item).Material = Enum.Material.Neon
-	belt("Belt", Vector3.new(-9.5, 0, LINE_Z), Vector3.new(1, 0, LINE_Z), floor, item)
-	Style.MachineSign(item, body, "🤖", "Auto-Mixer", 1.4)
-end
-
-ItemBuilders.AutoOven = function(floor, item)
-	local body = Style.RoundedBox("Body", Vector3.new(6, 6, 5), at(floor, 4, 3, LINE_Z), P.Lilac, item, 1)
-	Style.Part({
-		Name = "Door",
-		Size = Vector3.new(4, 2.6, 0.3),
-		CFrame = at(floor, 4, 3, LINE_Z + 2.6),
-		Color = Color3.fromRGB(60, 40, 40),
-		Material = Enum.Material.Glass,
-		Transparency = 0.2,
-		Parent = item,
-	})
-	Style.Cylinder("Chimney", 2.4, 1, at(floor, 5.5, 7, LINE_Z - 1), P.Steel, item)
-	Style.MachineSign(item, body, "🤖", "Auto-Oven", 1.4)
-end
-
--- Cakes ride from the Auto-Oven to a hatch in the shared wall; from there they go
--- onto your display counters (Factory/AutoProduction animates the same path).
-ItemBuilders.CounterConveyor = function(floor, item)
-	local turnZ = ANNEX.Z0 - 4
-	belt("Belt", Vector3.new(4, 0, LINE_Z + 3), Vector3.new(4, 0, turnZ), floor, item)
-	belt("BeltTurn", Vector3.new(5, 0, turnZ), Vector3.new(9, 0, turnZ), floor, item)
-	local chute = Style.RoundedBox("Chute", Vector3.new(2.4, 3, 2.4), at(floor, 9, 1.5, turnZ + 0.5), P.Lilac, item, 0.6)
-	Style.MachineSign(item, chute, "➡️", "To Counters", 1.4)
-end
-
-ItemBuilders.AutoRestock = function(floor, item)
-	local x, z = 26, ANNEX.Z0 - 2.5 -- against the shared wall, shelves facing the annex
-	local rack = Style.RoundedBox("Rack", Vector3.new(8, 6, 3), at(floor, x, 3, z), P.Lilac, item, 0.6)
-	for i, y in { 2, 4 } do
-		Style.Trim(`Shelf{i}`, Vector3.new(8.4, 0.3, 3.4), at(floor, x, y, z - 0.3), P.White, item)
-	end
-	-- Marker parts where stored cakes are shown (3 per shelf).
-	local slots = Instance.new("Folder")
-	slots.Name = "StorageSlots"
-	local n = 0
-	for _, y in { 2.15, 4.15 } do
-		for _, dx in { -2.5, 0, 2.5 } do
-			n += 1
-			Style.Part({ Name = `Store{n}`, Size = Vector3.new(1.6, 0.1, 1.6), CFrame = at(floor, x + dx, y, z - 0.9), Transparency = 1, CanCollide = false, Parent = slots })
-		end
-	end
-	slots.Parent = item
-	Style.MachineSign(item, rack, "🗄️", "Restock Rack", 1.4)
-end
-
-local function productionUnit(x: number, label: string)
-	return function(floor: CFrame, item: Model)
-		local z = ANNEX.UnitZ
-		local body = Style.RoundedBox("Body", Vector3.new(10, 6, 5), at(floor, x, 3, z), P.Lilac, item, 1)
-		Style.Part({
-			Name = "Door",
-			Size = Vector3.new(4, 2.6, 0.3),
-			CFrame = at(floor, x + 2, 3, z + 2.6),
-			Color = Color3.fromRGB(60, 40, 40),
-			Material = Enum.Material.Glass,
-			Transparency = 0.2,
-			Parent = item,
-		})
-		Style.RoundedBox("Hopper", Vector3.new(3, 2, 3), at(floor, x - 3, 7, z), P.White, item, 0.6)
-		local panelPart = panel("Panel", Vector3.new(2.6, 2, 0.3), at(floor, x - 3.5, 3.4, z + 2.6), P.Charcoal, "🏭", P.White, item)
-		panelPart:SetAttribute("Role", "RecipePanel")
-		Style.Cylinder("Chimney", 2.4, 1, at(floor, x + 3.5, 7, z - 1), P.Steel, item)
-		Style.MachineSign(item, body, "🏭", label, 1.4)
-	end
-end
-ItemBuilders.ProductionLine2 = productionUnit(-6, "Production Line 2")
-ItemBuilders.ProductionLine3 = productionUnit(24, "Production Line 3")
 
 return ItemBuilders
