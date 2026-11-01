@@ -54,8 +54,8 @@ block model stays underneath, invisible, so gameplay is unchanged.
 4. Ctrl+S, then playtest. Items placed from now on use the new model (place or
    re-place existing ones, or rejoin, to see them).
 
-If a model faces backwards in game, set `Config.Skins.ImportYaw = 180` in
-`ReplicatedStorage/Shared/ConfigParts/Build.luau` (90 / -90 if sideways).
+Studio's importer turns these models around; `Config.Skins.ImportYaw = 180` in
+`ReplicatedStorage/Shared/ConfigParts/Build.luau` turns them back (confirmed in Studio).
 
 ### Regenerate or tweak
 

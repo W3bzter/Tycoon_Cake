@@ -37,10 +37,11 @@ local B = {
 }
 Config.Building = B
 
--- Detailed item models (World/Skins). If imported models face backwards in game,
--- set ImportYaw = 180 (or 90 / -90 if they're sideways).
+-- Detailed item models (World/Skins). Studio's FBX importer turns the Blender
+-- models around, so they're turned back 180 degrees (checked in Studio). If a
+-- future import faces another way, change this (0 / 90 / -90 / 180).
 Config.Skins = {
-	ImportYaw = 0,
+	ImportYaw = 180,
 }
 
 Config.Build = {
