@@ -28,6 +28,7 @@ local ORDER = {
 	"AutoProduction",
 	"Repairs",
 	"Achievements",
+	"DayNight",
 	"AnomalyManager",
 	"GemShop",
 	"Rebirth",

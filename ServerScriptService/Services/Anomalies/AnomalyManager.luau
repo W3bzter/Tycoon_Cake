@@ -1,6 +1,8 @@
 --!strict
--- Every Config.AnomalyInterval seconds, picks one anomaly (weighted, only ones that
--- can currently run) and broadcasts start/end over RemoteEvents. One at a time.
+-- Anomalies come at night only (World/DayNight): the first Config.DayNight.FirstAnomaly
+-- seconds after dark, then every AnomalyEvery seconds until morning. Each time it
+-- picks one anomaly (weighted, only ones that can currently run) and broadcasts
+-- start/end over RemoteEvents. One at a time; one still running at dawn finishes.
 --
 -- Each anomaly is a module in Services/Anomalies returning
 --   { CanRun: () -> boolean, Run: (cfg, deadline) -> () (yields), Cleanup: () -> () }
@@ -15,6 +17,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
 
 local Services = script:FindFirstAncestor("Services") :: Folder
+local DayNight = require(Services.World.DayNight)
 local Remotes = require(Services.Core.Remotes)
 
 type AnomalyDef = {
@@ -109,11 +112,19 @@ function AnomalyManager.Init()
 	end
 
 	task.spawn(function()
+		local nextAt: number? = nil
 		while true do
-			task.wait(Config.AnomalyInterval)
-			local name = pickAnomaly()
-			if name then
-				AnomalyManager.Trigger(name)
+			task.wait(1)
+			if not DayNight.IsNight() then
+				nextAt = nil -- daytime: no anomalies
+			elseif not nextAt then
+				nextAt = os.clock() + Config.DayNight.FirstAnomaly
+			elseif os.clock() >= nextAt and not running then
+				nextAt = os.clock() + Config.DayNight.AnomalyEvery
+				local name = pickAnomaly()
+				if name then
+					task.spawn(AnomalyManager.Trigger, name)
+				end
 			end
 		end
 	end)

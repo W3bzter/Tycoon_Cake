@@ -4,6 +4,7 @@
 -- Part names BakingPipeline depends on: IngredientCrate.Crate, Mixer.Body,
 -- Oven(2).Body + Door, DisplayCounter.Counter.
 
+local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
@@ -119,6 +120,33 @@ local function buildShell(floor: CFrame, item: Model, halfX: number, backZ: numb
 	for _, span in spans do
 		Style.Part({ Name = "Baseboard", Size = Vector3.new(span[2] - span[1], 1, 1.6), CFrame = at(floor, (span[1] + span[2]) / 2, 0.5, backC), Color = P.HotPink, Parent = item })
 	end
+
+	-- Hanging ceiling lamps in a grid (World/DayNight lights them at night).
+	local lamps = Instance.new("Model")
+	lamps.Name = "CeilingLamps"
+	local spacing = 24
+	local countX = math.max(1, math.floor((width - 12) / spacing) + 1)
+	local countZ = math.max(1, math.floor((depth - 16) / spacing) + 1)
+	for ix = 0, countX - 1 do
+		for iz = 0, countZ - 1 do
+			local x = -((countX - 1) * spacing) / 2 + ix * spacing
+			local z = midZ - ((countZ - 1) * spacing) / 2 + iz * spacing
+			Style.Part({ Name = "Cord", Size = Vector3.new(0.15, 2.4, 0.15), CFrame = at(floor, x, WALL_H - 1.2, z), Color = P.Charcoal, CanCollide = false, Parent = lamps })
+			Style.Cylinder("Shade", 0.7, 1.8, at(floor, x, WALL_H - 2.6, z), P.HotPink, lamps).CanCollide = false
+			local bulb = Style.Ball("Bulb", 0.9, at(floor, x, WALL_H - 3.1, z), P.Butter, lamps)
+			bulb.CanCollide = false
+			local light = Instance.new("PointLight")
+			light.Range = 24
+			light.Brightness = 1.1
+			light.Color = Color3.fromRGB(255, 225, 170)
+			light.Shadows = false
+			light.Enabled = false
+			light.Parent = bulb
+			CollectionService:AddTag(bulb, "NightLight")
+			CollectionService:AddTag(light, "NightLight")
+		end
+	end
+	lamps.Parent = item
 end
 
 ItemBuilders.Walls = function(floor, item)

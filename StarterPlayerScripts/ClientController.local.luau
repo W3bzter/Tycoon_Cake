@@ -51,6 +51,7 @@ local ScreenShake = loadUI("Effects", "ScreenShake")
 local Hotbar = loadUI("Hotbar", "Hotbar")
 local BuildMode = loadUI("Build", "BuildMode")
 local SettingsPanel = loadUI("Panels", "Settings")
+local Clock = loadUI("HUD", "Clock")
 local audioModule = UI:WaitForChild("Audio", 15)
 local Audio = if audioModule then require(audioModule :: ModuleScript) :: any else nil
 
@@ -151,6 +152,7 @@ safe("Rebirth", Rebirth.Mount, screen, player)
 safe("Hotbar", Hotbar.Mount, screen)
 safe("BuildMode", BuildMode.Mount, screen)
 safe("Settings", SettingsPanel.Mount, screen, player)
+safe("Clock", Clock.Mount, screen)
 
 -- Right-side button column: Build, Bag, Achievements, Rebirth, Settings (money and
 -- the Gem shop stay bottom-left, the hotbar bottom-centre).

@@ -7,7 +7,19 @@ local Config = {}
 -- Anomalies --------------------------------------------------------------------
 -- Duration is the countdown shown to players. For Overheat/Mimic it is a safety
 -- timeout: those end early once players deal with them.
-Config.AnomalyInterval = 180
+Config.AnomalyInterval = 180 -- (unused since day/night: see Config.DayNight)
+
+-- Day and night (World/DayNight). Anomalies only start at night: the first one
+-- FirstAnomaly seconds after dark, then one every AnomalyEvery seconds until morning.
+Config.DayNight = {
+	DaySeconds = 360, -- real seconds from sunrise (DawnClock) to sunset (DuskClock)
+	NightSeconds = 180,
+	DawnClock = 6.5, -- Lighting.ClockTime at sunrise
+	DuskClock = 18.5,
+	FirstAnomaly = 15,
+	AnomalyEvery = 60,
+	TransitionTime = 6, -- seconds the lighting takes to turn to night/day
+}
 Config.Anomalies = {
 	GravityDistortion = {
 		DisplayName = "GRAVITY DISTORTION",

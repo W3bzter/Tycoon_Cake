@@ -206,12 +206,15 @@ function Style.Lamp(cf: CFrame, parent: Instance): Model
 	Style.Cylinder("Base", 0.6, 1.6, cf * CFrame.new(0, 0.3, 0), P.Charcoal, model)
 	Style.Cylinder("Post", 9, 0.5, cf * CFrame.new(0, 4.8, 0), P.Charcoal, model)
 	local bulb = Style.Ball("Bulb", 1.8, cf * CFrame.new(0, 9.6, 0), P.Butter, model)
-	bulb.Material = Enum.Material.Neon
 	local light = Instance.new("PointLight")
 	light.Range = 18
 	light.Brightness = 1.2
 	light.Color = Color3.fromRGB(255, 220, 160)
+	light.Enabled = false
 	light.Parent = bulb
+	-- World/DayNight switches these on at night.
+	CollectionService:AddTag(bulb, "NightLight")
+	CollectionService:AddTag(light, "NightLight")
 	model.Parent = parent
 	return model
 end
