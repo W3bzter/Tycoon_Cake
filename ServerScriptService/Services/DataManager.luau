@@ -22,6 +22,8 @@ export type PlayerData = {
 	Bag: { any },
 	NextItemId: number,
 	MixRecipe: string,
+	GemUpgrades: { [string]: number },
+	Receipts: { string },
 }
 
 type Session = {
@@ -41,6 +43,8 @@ local TEMPLATE: PlayerData = {
 	Bag = {}, -- rolled ingredients (Shared/Rarity Item)
 	NextItemId = 1,
 	MixRecipe = "Best", -- "Best" or a cake type
+	GemUpgrades = { Income = 0, BakeSpeed = 0, Luck = 0 },
+	Receipts = {}, -- recent Robux receipt IDs, oldest first (dedupe; see RobuxShop)
 }
 
 local store: DataStore? = nil

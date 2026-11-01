@@ -56,6 +56,13 @@ function PlotStats.Get(player: Player?): Stats
 	if PlotStats.BoostActive(player) then
 		stats.BakeTime *= Config.Gems.BoostBakeMult
 	end
+	-- Levelled Gem upgrades (Luck is handled by Inventory's luck provider).
+	local data = DataManager.Get(player)
+	local levels = data and data.GemUpgrades
+	if levels then
+		stats.SalePrice *= 1 + (levels.Income or 0) * Config.GemUpgrades.Income.PerLevel
+		stats.BakeTime *= 1 - (levels.BakeSpeed or 0) * Config.GemUpgrades.BakeSpeed.PerLevel
+	end
 	return stats :: any
 end
 

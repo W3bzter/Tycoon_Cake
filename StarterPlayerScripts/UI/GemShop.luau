@@ -2,6 +2,7 @@
 -- Gem shop HUD: shield count + boost timer, and a small panel to buy an
 -- Anomaly Shield or a Bake Boost. Purchases are validated by the server (GemShop).
 
+local MarketplaceService = game:GetService("MarketplaceService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
@@ -61,40 +62,130 @@ function GemShop.Mount(screen: ScreenGui, player: Player)
 	toggle.AnchorPoint = Vector2.new(0, 1)
 	toggle.Position = UDim2.new(0, 214, 1, -16)
 
-	local panel = Instance.new("Frame")
+	local panel = Instance.new("ScrollingFrame")
 	panel.Name = "GemShopPanel"
 	panel.AnchorPoint = Vector2.new(0, 1)
 	panel.Position = UDim2.new(0, 214, 1, -58)
-	panel.Size = UDim2.fromOffset(240, 120)
+	panel.Size = UDim2.new(0, 300, 0.7, 0)
 	panel.BackgroundColor3 = DARK
 	panel.BackgroundTransparency = 0.1
+	panel.ScrollBarThickness = 6
+	panel.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	panel.CanvasSize = UDim2.new()
 	panel.Visible = false
 	panel.Parent = screen
 	rounded(panel, 12)
+	local sizeLimit = Instance.new("UISizeConstraint")
+	sizeLimit.MaxSize = Vector2.new(300, 470)
+	sizeLimit.Parent = panel
 	local stroke = Instance.new("UIStroke")
 	stroke.Color = SKY
 	stroke.Thickness = 2
 	stroke.Parent = panel
 	local layout = Instance.new("UIListLayout")
-	layout.Padding = UDim.new(0, 8)
+	layout.Padding = UDim.new(0, 6)
 	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-	layout.VerticalAlignment = Enum.VerticalAlignment.Center
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
 	layout.Parent = panel
+	local pad = Instance.new("UIPadding")
+	pad.PaddingTop = UDim.new(0, 8)
+	pad.PaddingBottom = UDim.new(0, 8)
+	pad.Parent = panel
 
+	local order = 0
+	local function nextOrder(): number
+		order += 1
+		return order
+	end
+	local function header(text: string)
+		local h = Instance.new("TextLabel")
+		h.LayoutOrder = nextOrder()
+		h.Size = UDim2.new(0.92, 0, 0, 22)
+		h.BackgroundTransparency = 1
+		h.Font = Enum.Font.FredokaOne
+		h.TextScaled = true
+		h.TextColor3 = Color3.fromRGB(255, 240, 200)
+		h.TextXAlignment = Enum.TextXAlignment.Left
+		h.Text = text
+		h.Parent = panel
+	end
+
+	-- Consumables
+	header("⚡ Boosts")
 	local g = Config.Gems
-	local shieldButton = textButton(panel, `🛡️ Anomaly Shield  💎{g.ShieldPrice}`, PINK, UDim2.new(0.92, 0, 0, 44))
+	local shieldButton = textButton(panel, `🛡️ Anomaly Shield  💎{g.ShieldPrice}`, PINK, UDim2.new(0.92, 0, 0, 38))
 	shieldButton.Name = "BuyShield"
-	local boostButton = textButton(panel, `⚡ 2x Bake Boost ({g.BoostSeconds // 60}m)  💎{g.BoostPrice}`, PINK, UDim2.new(0.92, 0, 0, 44))
+	shieldButton.LayoutOrder = nextOrder()
+	local boostButton = textButton(panel, `⚡ 2x Bake Boost ({g.BoostSeconds // 60}m)  💎{g.BoostPrice}`, PINK, UDim2.new(0.92, 0, 0, 38))
 	boostButton.Name = "BuyBoost"
-
-	toggle.Activated:Connect(function()
-		panel.Visible = not panel.Visible
-	end)
+	boostButton.LayoutOrder = nextOrder()
 	shieldButton.Activated:Connect(function()
 		buy:FireServer("Shield")
 	end)
 	boostButton.Activated:Connect(function()
 		buy:FireServer("Boost")
+	end)
+
+	-- Levelled Gem upgrades
+	header("💎 Gem Upgrades")
+	local upgradeButtons: { [string]: TextButton } = {}
+	for _, name in Config.GemUpgrades.Order do
+		local b = textButton(panel, name, Color3.fromRGB(70, 140, 220), UDim2.new(0.92, 0, 0, 38))
+		b.Name = "Upgrade" .. name
+		b.LayoutOrder = nextOrder()
+		b.Activated:Connect(function()
+			buy:FireServer("Upgrade:" .. name)
+		end)
+		upgradeButtons[name] = b
+	end
+	local function refreshUpgrades()
+		local levels: { [string]: number } = {}
+		for name, lvl in string.gmatch((player:GetAttribute("GemUpgrades") :: string?) or "", "(%w+):(%d+)") do
+			levels[name] = tonumber(lvl) or 0
+		end
+		for name, b in upgradeButtons do
+			local def = Config.GemUpgrades[name]
+			local level = levels[name] or 0
+			local effect = string.format(def.Format, math.floor(level * def.PerLevel * 100 + 0.5))
+			if level >= def.MaxLevel then
+				b.Text = `{def.Icon} {def.DisplayName} MAX ({effect})`
+			else
+				local cost = math.floor(def.BaseCost * def.CostGrowth ^ level + 0.5)
+				b.Text = `{def.Icon} {def.DisplayName} Lv{level}→{level + 1}  💎{cost}`
+			end
+		end
+		-- Luck changes random roll odds: hidden where paid random items are restricted.
+		upgradeButtons.Luck.Visible = player:GetAttribute("LuckAllowed") == true
+	end
+	player:GetAttributeChangedSignal("GemUpgrades"):Connect(refreshUpgrades)
+	player:GetAttributeChangedSignal("LuckAllowed"):Connect(refreshUpgrades)
+	refreshUpgrades()
+
+	-- Robux developer products (fixed amounts, never random)
+	header("🛒 Robux Shop")
+	for _, product in Config.Products do
+		local ready = product.Id ~= 0
+		local b = textButton(panel, if ready then product.Label else `{product.Label} (coming soon)`, if ready then Color3.fromRGB(0, 170, 110) else Color3.fromRGB(90, 90, 100), UDim2.new(0.92, 0, 0, 34))
+		b.Name = "Product" .. product.Key
+		b.LayoutOrder = nextOrder()
+		b.AutoButtonColor = ready
+		if ready then
+			b.Activated:Connect(function()
+				MarketplaceService:PromptProductPurchase(player, product.Id)
+			end)
+			task.spawn(function()
+				local ok, info = pcall(function()
+					return MarketplaceService:GetProductInfo(product.Id, Enum.InfoType.Product)
+				end)
+				if ok and info and info.PriceInRobux then
+					b.Text = `{product.Label}  R${info.PriceInRobux}`
+				end
+			end)
+		end
+	end
+
+	toggle.Activated:Connect(function()
+		panel.Visible = not panel.Visible
 	end)
 
 	RunService.Heartbeat:Connect(function()

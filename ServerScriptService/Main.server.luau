@@ -20,6 +20,7 @@ local ORDER = {
 	"AutoProduction",
 	"AnomalyManager",
 	"GemShop",
+	"RobuxShop",
 	"DevTools",
 }
 

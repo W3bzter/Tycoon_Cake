@@ -290,6 +290,11 @@ local function defaultPurchase(npc: Model, plot: Model, slot: BasePart, options:
 	if options.VIP and math.random() < Config.Gems.VIPGemChance then
 		gems = math.random(1, Config.Gems.VIPGemMax)
 	end
+	-- Selling an Epic or better cake can also earn Gems (slowly).
+	local rare = Config.RareCakeGems[info.Rarity]
+	if rare and math.random() < rare[1] then
+		gems += rare[2]
+	end
 	if owner then
 		DataManager.AddCash(owner, pay)
 		DataManager.RecordSale(owner)
