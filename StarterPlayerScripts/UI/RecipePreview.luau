@@ -30,9 +30,17 @@ local function refresh(player: Player)
 	local plotName = player:GetAttribute("PlotName")
 	local plots = workspace:FindFirstChild("Plots")
 	local plot = plotName and plots and plots:FindFirstChild(plotName :: string)
-	local mixer = plot and plot:FindFirstChild("Items") and plot.Items:FindFirstChild("Mixer")
-	local prompt = mixer and mixer:FindFirstChild("Prompt", true) :: ProximityPrompt?
-	if not prompt then
+	local items = plot and plot:FindFirstChild("Items")
+	-- Both mixing stations: the hand bowl (PrepTable) and the Mixer.
+	local prompts: { ProximityPrompt } = {}
+	for _, id in { "PrepTable", "Mixer" } do
+		local station = items and items:FindFirstChild(id)
+		local prompt = station and station:FindFirstChild("Prompt", true) :: ProximityPrompt?
+		if prompt then
+			table.insert(prompts, prompt)
+		end
+	end
+	if #prompts == 0 then
 		return
 	end
 	local unlocked: { [string]: boolean } = {}
@@ -48,11 +56,13 @@ local function refresh(player: Player)
 		return false
 	end
 	local best = Recipes.BestRecipe(heldIngredients(player), hasUnlock)
+	local text = "Mix (need a recipe's ingredients)"
 	if best then
 		local cake = Recipes.Cakes[best]
-		prompt.ActionText = `Mix → {cake.Icon} {(cake.DisplayName:gsub(" Cake", ""))} Batter`
-	else
-		prompt.ActionText = "Mix (need a recipe's ingredients)"
+		text = `Mix → {cake.Icon} {(cake.DisplayName:gsub(" Cake", ""))} Batter`
+	end
+	for _, prompt in prompts do
+		prompt.ActionText = text
 	end
 end
 

@@ -6,7 +6,8 @@
 -- Floor plan: kitchen z -40..-30 | manual buttons z -24 | automation line z -18 |
 -- line buttons z -12 | recipe buttons z -4 | dining z 0..20 | upstairs deck y 14.5.
 -- Chained upgrades (Faster Ovens I/II/III ...) reuse one button spot, since only
--- the next one in the chain is ever shown.
+-- the next one in the chain is ever shown. Progression: hand tools (Tier 0) ->
+-- manual machines (Tier 1, each ReplacedBy-swaps its hand tool) -> automation (Tier 4-5).
 
 export type Upgrade = {
 	Id: string,
@@ -17,6 +18,7 @@ export type Upgrade = {
 	Price: number,
 	Currency: string?, -- "Cash" (default) or "Gems"
 	Requires: { string }?, -- all must be owned before the button appears
+	ReplacedBy: string?, -- once that upgrade is owned, this item and its button are hidden
 	Effects: { [string]: number }?, -- see PlotStats
 	Button: Vector3, -- pad position (y = floor height it sits on)
 }
@@ -26,23 +28,27 @@ local PlotLayout = {}
 local DECK_Y = 14.5
 
 PlotLayout.Upgrades = {
-	-- Tier 1: Starter -----------------------------------------------------------
-	{ Id = "Walls", DisplayName = "Bakery Building", Icon = "🏠", Category = "Build", Tier = 1, Price = 10, Button = Vector3.new(-12, 0, 31) },
-	{ Id = "IngredientCrate", DisplayName = "Pantry", Icon = "🥚", Category = "Kitchen", Tier = 1, Price = 20, Requires = { "Walls" }, Button = Vector3.new(-28, 0, -24) },
-	{ Id = "Mixer", DisplayName = "Mixer", Icon = "🥣", Category = "Kitchen", Tier = 1, Price = 40, Requires = { "IngredientCrate" }, Button = Vector3.new(-12, 0, -24) },
-	{ Id = "Oven", DisplayName = "Oven", Icon = "🔥", Category = "Kitchen", Tier = 1, Price = 60, Requires = { "Mixer" }, Button = Vector3.new(6, 0, -24) },
-	{ Id = "DisplayCounter", DisplayName = "Display Counter", Icon = "🍰", Category = "Kitchen", Tier = 1, Price = 80, Requires = { "Oven" }, Button = Vector3.new(20, 0, 26.5) },
+	-- Tier 0: Hand tools (a new plot starts here: bare floor + the Pantry button) ---
+	{ Id = "IngredientCrate", DisplayName = "Pantry", Icon = "🥚", Category = "Kitchen", Tier = 0, Price = 10, Button = Vector3.new(-28, 0, -24) },
+	{ Id = "PrepTable", DisplayName = "Mixing Bowl & Whisk", Icon = "🥄", Category = "Kitchen", Tier = 0, Price = 15, Requires = { "IngredientCrate" }, ReplacedBy = "Mixer", Button = Vector3.new(-12, 0, -24) },
+	{ Id = "BasicOven", DisplayName = "Baking Tray & Basic Oven", Icon = "🍞", Category = "Kitchen", Tier = 0, Price = 25, Requires = { "PrepTable" }, ReplacedBy = "Oven", Button = Vector3.new(6, 0, -24) },
+	{ Id = "DisplayCounter", DisplayName = "Display Counter", Icon = "🍰", Category = "Kitchen", Tier = 0, Price = 40, Requires = { "BasicOven" }, Button = Vector3.new(20, 0, 26.5) },
+	{ Id = "Walls", DisplayName = "Bakery Building", Icon = "🏠", Category = "Build", Tier = 0, Price = 75, Requires = { "DisplayCounter" }, Button = Vector3.new(-12, 0, 31) },
+
+	-- Tier 1: Manual machines (each replaces its hand tool in the same spot) -----------
 	{ Id = "Plants", DisplayName = "Potted Plants", Icon = "🌷", Category = "Decor", Tier = 1, Price = 100, Requires = { "Walls" }, Button = Vector3.new(-35, 0, 19) },
-	{ Id = "Awning", DisplayName = "Striped Awning", Icon = "⛱️", Category = "Decor", Tier = 1, Price = 200, Requires = { "DisplayCounter" }, Button = Vector3.new(-24, 0, 31) },
-	{ Id = "Oven2", DisplayName = "Second Oven", Icon = "🔥", Category = "Kitchen", Tier = 1, Price = 300, Requires = { "DisplayCounter" }, Button = Vector3.new(20, 0, -24) },
+	{ Id = "Mixer", DisplayName = "Mixer", Icon = "🥣", Category = "Kitchen", Tier = 1, Price = 150, Requires = { "Walls" }, Button = Vector3.new(-12, 0, -24) },
+	{ Id = "Awning", DisplayName = "Striped Awning", Icon = "⛱️", Category = "Decor", Tier = 1, Price = 200, Requires = { "Walls" }, Button = Vector3.new(-24, 0, 31) },
+	{ Id = "Oven", DisplayName = "Oven", Icon = "🔥", Category = "Kitchen", Tier = 1, Price = 300, Requires = { "Mixer" }, Button = Vector3.new(6, 0, -24) },
+	{ Id = "Oven2", DisplayName = "Second Oven", Icon = "🔥", Category = "Kitchen", Tier = 1, Price = 450, Requires = { "Oven" }, Button = Vector3.new(20, 0, -24) },
 
 	-- Tier 2: Shopfront --------------------------------------------------------------
-	{ Id = "RecipeChocolate", DisplayName = "Chocolate Recipe", Icon = "🍫", Category = "Kitchen", Tier = 2, Price = 400, Requires = { "DisplayCounter" }, Button = Vector3.new(-30, 0, -4) },
-	{ Id = "DisplayCounter2", DisplayName = "Second Counter", Icon = "🍰", Category = "Build", Tier = 2, Price = 600, Requires = { "Awning" }, Button = Vector3.new(-20, 0, 27) },
-	{ Id = "Seating", DisplayName = "Café Seating", Icon = "☕", Category = "Decor", Tier = 2, Price = 750, Requires = { "DisplayCounter" }, Button = Vector3.new(-6, 0, 10) },
-	{ Id = "StreetSign", DisplayName = "Street Sign", Icon = "🪧", Category = "Decor", Tier = 2, Price = 900, Requires = { "Awning" }, Effects = { CustomerRate = 0.85 }, Button = Vector3.new(-33, 0, 28) },
-	{ Id = "FasterOvens1", DisplayName = "Faster Ovens I", Icon = "⏱️", Category = "Kitchen", Tier = 2, Price = 1200, Requires = { "Oven2" }, Effects = { BakeTime = 0.8 }, Button = Vector3.new(-3, 0, -24) },
-	{ Id = "BigMixer", DisplayName = "Big Mixer", Icon = "🥣", Category = "Kitchen", Tier = 2, Price = 1800, Requires = { "Oven2" }, Effects = { MixBatch = 1 }, Button = Vector3.new(-20, 0, -24) },
+	{ Id = "RecipeChocolate", DisplayName = "Chocolate Recipe", Icon = "🍫", Category = "Kitchen", Tier = 2, Price = 600, Requires = { "Oven" }, Button = Vector3.new(-30, 0, -4) },
+	{ Id = "DisplayCounter2", DisplayName = "Second Counter", Icon = "🍰", Category = "Build", Tier = 2, Price = 800, Requires = { "Awning" }, Button = Vector3.new(-20, 0, 27) },
+	{ Id = "Seating", DisplayName = "Café Seating", Icon = "☕", Category = "Decor", Tier = 2, Price = 900, Requires = { "Walls" }, Button = Vector3.new(-6, 0, 10) },
+	{ Id = "StreetSign", DisplayName = "Street Sign", Icon = "🪧", Category = "Decor", Tier = 2, Price = 1100, Requires = { "Awning" }, Effects = { CustomerRate = 0.85 }, Button = Vector3.new(-33, 0, 28) },
+	{ Id = "FasterOvens1", DisplayName = "Faster Ovens I", Icon = "⏱️", Category = "Kitchen", Tier = 2, Price = 1500, Requires = { "Oven2" }, Effects = { BakeTime = 0.8 }, Button = Vector3.new(-3, 0, -24) },
+	{ Id = "BigMixer", DisplayName = "Big Mixer", Icon = "🥣", Category = "Kitchen", Tier = 2, Price = 2000, Requires = { "Mixer", "Oven2" }, Effects = { MixBatch = 1 }, Button = Vector3.new(-20, 0, -24) },
 
 	-- Tier 3: Expansion ----------------------------------------------------------------
 	{ Id = "RecipeStrawberry", DisplayName = "Strawberry Recipe", Icon = "🍓", Category = "Kitchen", Tier = 3, Price = 3000, Requires = { "RecipeChocolate", "DisplayCounter2" }, Button = Vector3.new(-20, 0, -4) },

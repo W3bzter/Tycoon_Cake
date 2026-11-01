@@ -191,6 +191,44 @@ end
 
 ItemBuilders.Oven3 = buildOven(34)
 
+-- Hand tools (Tier 0). They stand where the Mixer / Oven will go and are hidden
+-- once those are bought (PlotLayout ReplacedBy).
+ItemBuilders.PrepTable = function(floor, item)
+	local top = Style.RoundedBox("Body", Vector3.new(6, 0.6, 4), at(floor, -12, 3.2, -35), P.Peach, item, 0.6)
+	for _, dx in { -2.4, 2.4 } do
+		for _, dz in { -1.4, 1.4 } do
+			Style.Part({ Name = "Leg", Size = Vector3.new(0.5, 2.9, 0.5), CFrame = at(floor, -12 + dx, 1.45, -35 + dz), Color = P.Cocoa, Parent = item })
+		end
+	end
+	Style.Cylinder("Bowl", 1.2, 2.8, at(floor, -12.5, 4.1, -35), P.Mint, item)
+	Style.Cylinder("Batter", 0.1, 2.3, at(floor, -12.5, 4.65, -35), P.Cream, item)
+	local whisk = Style.Part({
+		Name = "Whisk",
+		Size = Vector3.new(0.2, 2.6, 0.2),
+		CFrame = at(floor, -11.6, 5, -35) * CFrame.Angles(0, 0, math.rad(-25)),
+		Color = P.Steel,
+		Parent = item,
+	})
+	whisk.Material = Enum.Material.Metal
+	Style.MachineSign(item, top, "🥄", "Mixing Bowl")
+end
+
+ItemBuilders.BasicOven = function(floor, item)
+	Style.RoundedBox("Stand", Vector3.new(6, 3, 4), at(floor, 6, 1.5, -35), P.Cream, item, 0.6)
+	local body = Style.RoundedBox("Body", Vector3.new(4, 2.6, 3), at(floor, 6, 4.3, -35.2), P.Peach, item, 0.6)
+	Style.Part({
+		Name = "Door",
+		Size = Vector3.new(2.8, 1.6, 0.2),
+		CFrame = at(floor, 6, 4.2, -33.6),
+		Color = Color3.fromRGB(60, 40, 40),
+		Material = Enum.Material.Glass,
+		Transparency = 0.2,
+		Parent = item,
+	})
+	Style.Part({ Name = "Tray", Size = Vector3.new(3.4, 0.15, 2), CFrame = at(floor, 6, 3.08, -32.6), Color = P.Steel, Parent = item })
+	Style.MachineSign(item, body, "🍞", "Basic Oven")
+end
+
 -- Helpers for the Phase D items ------------------------------------------------------
 
 local DECK_Y = 14.5

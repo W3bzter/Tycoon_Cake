@@ -11,7 +11,8 @@ local function formatNumber(n: number): string
 	-- Big numbers are abbreviated so they always fit the panel (1.25M, 1.00T).
 	for _, entry in SUFFIXES do
 		if n >= entry[1] then
-			return string.format("%.2f%s", n / entry[1], entry[2])
+			-- Round down so 999.999B shows as 999.99B, never "1000.00B".
+			return string.format("%.2f%s", math.floor(n / entry[1] * 100) / 100, entry[2])
 		end
 	end
 	local s = tostring(math.floor(n))

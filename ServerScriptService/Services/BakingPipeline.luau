@@ -27,9 +27,14 @@ local WorldBuilder = require(script.Parent.WorldBuilder)
 
 local BakingPipeline = {}
 
-local OVEN_IDS = { "Oven", "Oven2", "Oven3" } -- manual ovens (automated ones live in AutoProduction)
+local OVEN_IDS = { "BasicOven", "Oven", "Oven2", "Oven3" } -- manual ovens (automated ones live in AutoProduction)
 local COUNTER_IDS = { "DisplayCounter", "DisplayCounter2" }
+-- Hand tools are slower than machines (Phase 4 turns mixing into a minigame).
+local BASIC_OVEN_SPEED = 2 -- bake-time multiplier
+local HAND_MIX_HOLD = 1.5 -- seconds to hold the prompt when whisking by hand
 local MACHINE_PART = {
+	PrepTable = "Body",
+	BasicOven = "Body",
 	Mixer = "Body",
 	Oven = "Body",
 	Oven2 = "Body",
@@ -320,7 +325,7 @@ handlers.IngredientCrate = function(player, _plot, _item, ingredient)
 	ToolFactory.Give(player, "Ingredient", ingredient)
 end
 
-handlers.Mixer = function(player)
+local function mixHandler(player: Player, _plot: Model, station: Model)
 	local held: { [string]: number } = {}
 	for _, tool in ToolFactory.Find(player, "Ingredient") do
 		local name = tool:GetAttribute("Variant") :: string?
@@ -336,12 +341,15 @@ handlers.Mixer = function(player)
 	for _, ingredient in Recipes.Cakes[cakeType].Ingredients do
 		ToolFactory.Take(player, "Ingredient", 1, ingredient)
 	end
-	local batch = PlotStats.Get(player).MixBatch -- Big Mixer makes 2 per mix
+	-- Big Mixer makes 2 per mix; the hand bowl always makes 1.
+	local batch = if station.Name == "Mixer" then PlotStats.Get(player).MixBatch else 1
 	for _ = 1, batch do
 		ToolFactory.Give(player, "RawBatter", cakeType)
 	end
 	notify(player, if batch > 1 then `Mixed {batch}x {cakeName(cakeType)} batter!` else `Mixed {cakeName(cakeType)} batter!`)
 end
+handlers.PrepTable = mixHandler
+handlers.Mixer = mixHandler
 
 local function ovenHandler(player: Player, plot: Model, oven: Model)
 	if oven:GetAttribute("Blocked") then
@@ -364,9 +372,9 @@ local function ovenHandler(player: Player, plot: Model, oven: Model)
 		ToolFactory.Give(player, "FinishedCake", cakeType)
 	end
 end
-handlers.Oven = ovenHandler
-handlers.Oven2 = ovenHandler
-handlers.Oven3 = ovenHandler
+for _, id in OVEN_IDS do
+	handlers[id] = ovenHandler
+end
 
 local function counterHandler(player: Player, plot: Model, counter: Model)
 	-- Prefer this counter's own slots, then any other counter's.
@@ -433,6 +441,8 @@ end
 -- Setup ------------------------------------------------------------------------
 
 local PROMPT_TEXT = {
+	PrepTable = { "Whisk Batter", "Mixing Bowl" },
+	BasicOven = { "Bake Batter", "Basic Oven" },
 	Mixer = { "Mix Batter", "Mixer" },
 	Oven = { "Bake Batter", "Oven" },
 	Oven2 = { "Bake Batter", "Oven" },
@@ -484,9 +494,15 @@ local function setupPlot(plot: Model)
 			prompt.Triggered:Connect(function(player)
 				BakingPipeline.Interact(player, plot, machineId)
 			end)
+			if machineId == "PrepTable" then
+				prompt.HoldDuration = HAND_MIX_HOLD
+			end
 			if table.find(OVEN_IDS, machineId) then
 				item:SetAttribute("IsOven", true)
 				item:SetAttribute("Blocked", false)
+				if machineId == "BasicOven" then
+					item:SetAttribute("SpeedMult", BASIC_OVEN_SPEED) -- read by PlotStats.BakeDuration
+				end
 				setOvenState(item, "Idle")
 			end
 		end

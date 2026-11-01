@@ -15,7 +15,7 @@ Config.DevModeAmount = 1e12
 Config.DataStoreName = "BakeryData_v1"
 Config.DataMaxRetries = 3
 Config.AutosaveInterval = 180 -- seconds
-Config.StartingCash = 250 -- enough to buy the core pipeline (Walls..DisplayCounter = 210)
+Config.StartingCash = 100 -- covers the hand-tool start (Pantry..Display Counter = 90)
 
 -- Tycoon ---------------------------------------------------------------------
 Config.ButtonCooldown = 1 -- seconds between purchase attempts per player

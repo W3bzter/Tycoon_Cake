@@ -42,13 +42,22 @@ local function requirementsMet(player: Player, upgrade: PlotLayout.Upgrade): boo
 	return true
 end
 
--- Shows exactly the buttons whose prerequisite is owned and that aren't bought yet.
+-- A hand tool is "replaced" once its machine is owned (e.g. PrepTable -> Mixer).
+local function isReplaced(player: Player, upgrade: PlotLayout.Upgrade): boolean
+	return upgrade.ReplacedBy ~= nil and DataManager.HasUnlock(player, upgrade.ReplacedBy)
+end
+
+-- Shows exactly the buttons whose prerequisites are owned, that aren't bought yet,
+-- and whose item hasn't already been replaced by a better machine.
 local function refreshButtons(plot: Model, owner: Player?)
 	local buttons = plot:FindFirstChild("Buttons") :: Folder
 	for _, upgrade in PlotLayout.Upgrades do
 		local button = buttons:FindFirstChild(upgrade.Id)
 		if button then
-			local show = owner ~= nil and not DataManager.HasUnlock(owner, upgrade.Id) and requirementsMet(owner, upgrade)
+			local show = owner ~= nil
+				and not DataManager.HasUnlock(owner, upgrade.Id)
+				and not isReplaced(owner, upgrade)
+				and requirementsMet(owner, upgrade)
 			WorldBuilder.SetVisible(button, show)
 		end
 	end
@@ -58,6 +67,13 @@ local function showItem(plot: Model, upgradeId: string, visible: boolean)
 	local item = (plot:FindFirstChild("Items") :: Folder):FindFirstChild(upgradeId)
 	if item then
 		WorldBuilder.SetVisible(item, visible)
+	end
+end
+
+-- Every owned, non-replaced item visible; everything else hidden.
+local function syncItems(plot: Model, owner: Player)
+	for _, upgrade in PlotLayout.Upgrades do
+		showItem(plot, upgrade.Id, DataManager.HasUnlock(owner, upgrade.Id) and not isReplaced(owner, upgrade))
 	end
 end
 
@@ -83,6 +99,9 @@ function TycoonButtons.TryPurchase(player: Player, plot: Model, upgradeId: strin
 	if not requirementsMet(player, upgrade) then
 		return false, "locked"
 	end
+	if isReplaced(player, upgrade) then
+		return false, "replaced" -- e.g. the hand bowl once a Mixer is owned
+	end
 	if upgrade.Currency == "Gems" then
 		if not DataManager.SpendGems(player, upgrade.Price) then
 			return false, "insufficient gems"
@@ -93,6 +112,11 @@ function TycoonButtons.TryPurchase(player: Player, plot: Model, upgradeId: strin
 
 	DataManager.Unlock(player, upgradeId)
 	showItem(plot, upgradeId, true)
+	for _, other in PlotLayout.Upgrades do
+		if other.ReplacedBy == upgradeId then
+			showItem(plot, other.Id, false) -- the machine takes the hand tool's spot
+		end
+	end
 	refreshButtons(plot, player)
 	unlockedEvent:Fire(player, plot, upgradeId)
 	return true
@@ -148,11 +172,7 @@ function TycoonButtons.Init()
 
 	local function onClaimed(player: Player, plot: Model)
 		resetPlot(plot)
-		for _, upgrade in PlotLayout.Upgrades do
-			if DataManager.HasUnlock(player, upgrade.Id) then
-				showItem(plot, upgrade.Id, true)
-			end
-		end
+		syncItems(plot, player)
 		refreshButtons(plot, player)
 	end
 
