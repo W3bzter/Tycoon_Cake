@@ -146,7 +146,7 @@ local function statusGui(part: BasePart, lift: number): TextLabel
 	if not gui then
 		local created = Instance.new("BillboardGui")
 		created.Name = "LineStatus"
-		created.Size = UDim2.fromScale(8, 1.2)
+		created.Size = UDim2.fromScale(7, 1.2)
 		created.StudsOffsetWorldSpace = Vector3.new(0, part.Size.Y / 2 + lift, 0)
 		created.MaxDistance = 35
 		created.LightInfluence = 0
@@ -202,14 +202,6 @@ local function refreshStorage(plot: Model, state: PlotState)
 	local shown = plot:FindFirstChild("StoredCakes")
 	if shown then
 		shown:Destroy()
-	end
-	local rackPart = rack and rack:FindFirstChild("Rack") :: BasePart?
-	if rackPart then
-		local owner = PlotManager.GetOwner(plot)
-		local cap = PlotStats.Get(owner).StorageSlots
-		local label = statusGui(rackPart, 1.2)
-		label.Text = `🗄️ {#state.storage}/{cap}`
-		(label.Parent :: BillboardGui).Enabled = (rack :: Model):GetAttribute("Visible") == true
 	end
 	if not markers or #state.storage == 0 then
 		return

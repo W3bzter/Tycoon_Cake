@@ -67,6 +67,48 @@ end
 
 -- Visuals ---------------------------------------------------------------------------------
 
+-- The machine's own sign turns red while broken (no extra label, so labels never
+-- pile up on screen). Machines without a sign get a BrokenSign in the same spot.
+local function setSignBroken(item: Model, main: BasePart, cost: number?)
+	local sign = item:FindFirstChild("MachineSign", true) :: BillboardGui?
+	local frame = sign and sign:FindFirstChildOfClass("Frame")
+	local text = frame and frame:FindFirstChild("Line1") :: TextLabel?
+	if sign and frame and text then
+		if cost then
+			if sign:GetAttribute("NormalText") == nil then
+				sign:SetAttribute("NormalText", text.Text)
+				sign:SetAttribute("NormalBackground", frame.BackgroundColor3)
+				sign:SetAttribute("NormalTextColor", text.TextColor3)
+			end
+			text.Text = `🔧 BROKEN  ${cost}`
+			frame.BackgroundColor3 = Color3.fromRGB(150, 25, 35)
+			text.TextColor3 = Color3.new(1, 1, 1)
+		elseif sign:GetAttribute("NormalText") ~= nil then
+			text.Text = sign:GetAttribute("NormalText") :: string
+			frame.BackgroundColor3 = sign:GetAttribute("NormalBackground") :: Color3
+			text.TextColor3 = sign:GetAttribute("NormalTextColor") :: Color3
+			sign:SetAttribute("NormalText", nil)
+		end
+		return
+	end
+	local old = main:FindFirstChild("BrokenSign")
+	if old then
+		old:Destroy()
+	end
+	if cost then
+		Style.Billboard(main, { `🔧 BROKEN  ${cost}` }, {
+			Name = "BrokenSign",
+			Width = 6,
+			Height = 1.4,
+			Offset = Vector3.new(0, main.Size.Y / 2 + 4, 0),
+			Background = Color3.fromRGB(150, 25, 35),
+			Stroke = Color3.fromRGB(255, 200, 80),
+			TextColor = Color3.new(1, 1, 1),
+			MaxDistance = 35,
+		})
+	end
+end
+
 local function setBrokenLook(item: Model, cost: number?)
 	local main = Repairs.MainPart(item)
 	for _, d in item:GetDescendants() do
@@ -85,12 +127,13 @@ local function setBrokenLook(item: Model, cost: number?)
 	if not main then
 		return
 	end
-	for _, name in { "BrokenSmoke", "BrokenSparks", "BrokenSign" } do
+	for _, name in { "BrokenSmoke", "BrokenSparks" } do
 		local old = main:FindFirstChild(name)
 		if old then
 			old:Destroy()
 		end
 	end
+	setSignBroken(item, main, cost)
 	local prompt = main:FindFirstChild("RepairPrompt") :: ProximityPrompt?
 	if not cost then
 		if prompt then
@@ -117,16 +160,6 @@ local function setBrokenLook(item: Model, cost: number?)
 	sparks.Acceleration = Vector3.new(0, -20, 0)
 	sparks.Size = NumberSequence.new(0.2, 0)
 	sparks.Parent = main
-	Style.Billboard(main, { "🔧 BROKEN", `Repair: ${cost}` }, {
-		Name = "BrokenSign",
-		Width = 6,
-		Height = 2,
-		Offset = Vector3.new(0, main.Size.Y / 2 + 5.5, 0),
-		Background = Color3.fromRGB(120, 20, 30),
-		Stroke = Color3.fromRGB(255, 200, 80),
-		TextColor = Color3.new(1, 1, 1),
-		MaxDistance = 45,
-	})
 	if prompt then
 		local upgrade = PlotLayout.Find(item.Name)
 		prompt.ObjectText = `Broken {if upgrade then upgrade.DisplayName else item.Name}`

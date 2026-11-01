@@ -329,7 +329,7 @@ end
 -- Replaces the session's data with `newData` (a full PlayerData), refreshes
 -- leaderstats/attributes, strips held tools, saves, and fires PlayerReset so the
 -- plot is rebuilt from scratch. Used by the Studio reset and by Rebirth.
-function DataManager.ApplyReset(player: Player, newData: PlayerData): boolean
+function DataManager.ApplyReset(player: Player, newData: PlayerData, keepTools: boolean?): boolean
 	local session = sessions[player]
 	if not session then
 		return false
@@ -342,7 +342,7 @@ function DataManager.ApplyReset(player: Player, newData: PlayerData): boolean
 	player:SetAttribute("ShieldCharges", newData.ShieldCharges)
 	player:SetAttribute("BoostEndsAt", newData.BoostEndsAt)
 	player:SetAttribute("Rebirths", newData.Rebirths)
-	for _, container in { player:FindFirstChildOfClass("Backpack"), player.Character } do
+	for _, container in (if keepTools then {} else { player:FindFirstChildOfClass("Backpack"), player.Character }) do
 		for _, tool in (if container then container:GetChildren() else {}) do
 			if tool:IsA("Tool") then
 				tool:Destroy()

@@ -14,6 +14,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local PlotLayout = require(Shared:WaitForChild("PlotLayout"))
+local RebirthDefs = require(Shared:WaitForChild("RebirthDefs"))
 
 local DataManager = require(script.Parent.DataManager)
 
@@ -62,6 +63,10 @@ function PlotStats.Get(player: Player?): Stats
 	if levels then
 		stats.SalePrice *= 1 + (levels.Income or 0) * Config.GemUpgrades.Income.PerLevel
 		stats.BakeTime *= 1 - (levels.BakeSpeed or 0) * Config.GemUpgrades.BakeSpeed.PerLevel
+	end
+	-- Rebirths: permanent cake price bonus.
+	if data and data.Rebirths > 0 then
+		stats.SalePrice *= 1 + data.Rebirths * RebirthDefs.SalePriceBonus
 	end
 	-- Storage upgrade: extra rack slots (the rack itself comes with Auto-Restock).
 	if data and DataManager.HasUnlock(player, "AutoRestock") then

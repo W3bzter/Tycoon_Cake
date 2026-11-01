@@ -20,8 +20,10 @@ local ORDER = {
 	"CustomerAI",
 	"AutoProduction",
 	"Repairs",
+	"Achievements",
 	"AnomalyManager",
 	"GemShop",
+	"Rebirth",
 	"RobuxShop",
 	"DevTools",
 }
