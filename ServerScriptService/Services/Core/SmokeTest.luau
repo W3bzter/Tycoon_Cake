@@ -291,7 +291,19 @@ function SmokeTest.Run(player: Player, withAnomalies: boolean?): string
 		local data = DataManager.Get(player)
 		local cash = data.Cash
 		local t0 = os.clock()
+		-- Customers buy rack cakes off the counters while the truck drives in, so
+		-- keep the rack stocked until the truck is done (like a busy bakery).
+		local driving = true
+		task.spawn(function()
+			while driving do
+				if CakeRacks.Count(plot) < 3 then
+					CakeRacks.Store(plot, Rarity.MakeCake("Vanilla", 10, {}, "Good"))
+				end
+				task.wait(0.25)
+			end
+		end)
 		local took = DeliveryTrucks.SendNow(plot)
+		driving = false
 		assert(took > 0, "truck took no cakes")
 		assert(data.Cash > cash, "truck didn't pay")
 		return `{took} cakes, +${data.Cash - cash} in {math.floor(os.clock() - t0)}s`

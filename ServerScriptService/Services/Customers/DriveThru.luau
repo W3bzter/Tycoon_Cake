@@ -8,6 +8,7 @@
 -- at a time. Car model and movement: Customers/Vehicles.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
@@ -51,6 +52,23 @@ local function buy(plot: Model, car: Model): number?
 	return pay
 end
 
+-- Slides the kiosk window open (or shut) along its width, if the kiosk has one.
+local function slideWindow(plot: Model, open: boolean)
+	local items = plot:FindFirstChild("Items")
+	local lane = items and items:FindFirstChild(UPGRADE)
+	local window = lane and lane:FindFirstChild("KioskWindow", true)
+	if not window or not window:IsA("BasePart") then
+		return
+	end
+	local closed = window:GetAttribute("ClosedCFrame") :: CFrame?
+	if not closed then
+		closed = window.CFrame
+		window:SetAttribute("ClosedCFrame", closed)
+	end
+	local target = (closed :: CFrame) * CFrame.new(0, 0, if open then -window.Size.Z * 0.9 else 0)
+	TweenService:Create(window, TweenInfo.new(0.4, Enum.EasingStyle.Quad), { CFrame = target }):Play()
+end
+
 local function runCar(plot: Model)
 	busy[plot] = true
 	local D = Config.DriveThru
@@ -59,7 +77,7 @@ local function runCar(plot: Model)
 		return local3(D.LaneX, 0, z)
 	end
 	local mouth = lane(Config.Building.FrontZ + 4)
-	local xEnd = Config.StreetLength / 2 - 6
+	local xEnd = Vehicles.EndX
 	local fromX = if math.random() < 0.5 then -xEnd else xEnd
 	local roadY, walkY = Vehicles.RoadY, Vehicles.SidewalkY
 	local roadIn = Vector3.new(mouth.X, roadY, roadZ)
@@ -75,14 +93,23 @@ local function runCar(plot: Model)
 		roadIn,
 		Vector3.new(mouth.X, walkY, mouth.Z),
 		lane(Config.Building.FrontZ - 2),
-		lane(D.WindowZ),
+		lane(D.MenuZ),
 	}, D.Speed)
-	if car.Parent and Vehicles.Sleep(0.4, alive) then
+	-- Order at the menu board, then pull up to the window.
+	if car.Parent then
+		Vehicles.Pop(car, "🗣️ One cake, please!", Color3.fromRGB(255, 210, 120))
+		Vehicles.Sleep(D.MenuStop, alive)
+	end
+	Vehicles.Drive(car, { lane(D.MenuZ), lane(D.WindowZ) }, D.Speed * 0.6)
+	if car.Parent and Vehicles.Sleep(0.2, alive) then
+		slideWindow(plot, true)
+		Vehicles.Sleep(0.5, alive)
 		local paid = buy(plot, car)
 		Vehicles.Pop(car, if paid then `🚗 +${paid}` else "😢 Sold out!", if paid then Color3.fromRGB(120, 255, 120) else Color3.fromRGB(255, 120, 120))
 		Vehicles.Sleep(D.StopTime, function()
 			return true
 		end)
+		slideWindow(plot, false)
 	end
 	Vehicles.Drive(car, { lane(D.WindowZ), lane(D.EndZ) }, D.Speed)
 	Vehicles.TurnAround(car, 1)
@@ -95,6 +122,18 @@ local function runCar(plot: Model)
 	}, D.Speed)
 	car:Destroy()
 	busy[plot] = nil
+end
+
+-- Sends a car now if none is on its way (tests).
+function DriveThru.SendNow(plot: Model)
+	if busy[plot] then
+		return
+	end
+	local ok, err = pcall(runCar, plot)
+	if not ok then
+		busy[plot] = nil
+		warn(`[DriveThru] {err}`)
+	end
 end
 
 function DriveThru.Init()

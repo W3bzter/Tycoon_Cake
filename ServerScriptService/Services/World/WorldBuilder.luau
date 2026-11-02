@@ -10,6 +10,7 @@ local PlotLayout = require(Shared:WaitForChild("PlotLayout"))
 
 local Services = script:FindFirstAncestor("Services") :: Folder
 local ItemBuilders = require(Services.World.ItemBuilders)
+local Scenery = require(Services.World.Scenery)
 local Style = require(Services.World.Style)
 
 local P = Style.Palette
@@ -287,17 +288,17 @@ local function buildStreet()
 	local spacing = Config.PlotSpacing
 	for i = 0, Config.PlotCount do
 		local x = (i - Config.PlotCount / 2) * spacing -- between plots (and at both ends)
-		Style.Lamp(CFrame.new(x, 0.6, -7), props)
-		Style.Tree(CFrame.new(x + 12, 0.6, 31), props)
-		Style.Bench(CFrame.new(x - 12, 0.6, 31) * CFrame.Angles(0, math.pi, 0), props)
+		Scenery.Lamp(CFrame.new(x, 0.6, -7), props) -- arm over the road (+Z)
+		Scenery.Tree(CFrame.new(x + 12, 0.6, 31), props)
+		Scenery.Bench(CFrame.new(x - 12, 0.6, 31) * CFrame.Angles(0, math.pi, 0), props)
 	end
 	for i = 1, Config.PlotCount do
 		local x = (i - (Config.PlotCount + 1) / 2) * spacing -- across from each plot
-		Style.Lamp(CFrame.new(x - 40, 0.6, 33), props)
-		Style.Lamp(CFrame.new(x + 40, 0.6, 33), props)
+		Scenery.Lamp(CFrame.new(x - 40, 0.6, 33) * CFrame.Angles(0, math.pi, 0), props)
+		Scenery.Lamp(CFrame.new(x + 40, 0.6, 33) * CFrame.Angles(0, math.pi, 0), props)
 	end
 	for _, x in { -(half - 15), half - 15 } do
-		Style.Tree(CFrame.new(x, 0.6, -5), props, 1.3)
+		Scenery.Tree(CFrame.new(x, 0.6, -5), props, 1.3, "PineTree")
 	end
 	props.Parent = street
 

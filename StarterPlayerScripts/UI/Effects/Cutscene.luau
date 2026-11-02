@@ -95,8 +95,9 @@ function Cutscene.Mount(player: Player)
 	subtitle.Parent = screenGui
 
 	skipButton = Instance.new("TextButton")
-	skipButton.AnchorPoint = Vector2.new(1, 0)
-	skipButton.Position = UDim2.new(1, -16, 0, 16)
+	-- Bottom-right, in the letterbox bar: the top-right corner holds the clock.
+	skipButton.AnchorPoint = Vector2.new(1, 1)
+	skipButton.Position = UDim2.new(1, -16, 1, -16)
 	skipButton.Size = UDim2.fromOffset(110, 34)
 	skipButton.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
 	skipButton.TextColor3 = Color3.new(1, 1, 1)

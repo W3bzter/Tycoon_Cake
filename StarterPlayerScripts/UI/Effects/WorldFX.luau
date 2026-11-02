@@ -5,6 +5,8 @@
 --   FxRainbow  part / light colour cycles through the rainbow
 --   FxFlicker  light brightness / beam flickers (fire, electricity)
 --   FxBob      model floats up and down and turns (pantry roll pop-ups)
+--   FxSway     tree / bush leaves sway gently about the plant's base (attribute
+--              SwayPivot; World/WorldModels), only near the camera
 -- Changes are local to this client; the server's values are untouched.
 
 local CollectionService = game:GetService("CollectionService")
@@ -16,6 +18,9 @@ local spin: { [BasePart]: boolean } = {}
 local rainbow: { [Instance]: number } = {} -- instance -> hue offset
 local flicker: { [Instance]: number } = {} -- light -> base brightness (beams: 0)
 local bob: { [Model]: { origin: CFrame, t0: number } } = {}
+local sway: { [BasePart]: { base: CFrame, pivot: Vector3, phase: number } } = {}
+local SWAY_RANGE = 220 -- studs from the camera
+local SWAY_ANGLE = math.rad(2.2)
 
 local function track(tag: string, add: (Instance) -> (), remove: (Instance) -> ())
 	for _, inst in CollectionService:GetTagged(tag) do
@@ -51,6 +56,15 @@ function WorldFX.Mount()
 		bob[inst :: any] = nil
 	end)
 
+	track("FxSway", function(inst)
+		local pivot = inst:GetAttribute("SwayPivot")
+		if inst:IsA("BasePart") and typeof(pivot) == "Vector3" then
+			sway[inst] = { base = inst.CFrame, pivot = pivot, phase = (pivot.X * 0.13 + pivot.Z * 0.07) % 6.28 }
+		end
+	end, function(inst)
+		sway[inst :: any] = nil
+	end)
+
 	local elapsed = 0
 	RunService.RenderStepped:Connect(function(dt)
 		elapsed += dt
@@ -83,6 +97,17 @@ function WorldFX.Mount()
 				inst.Enabled = math.random() < 0.55
 				inst.CurveSize0 = (math.random() - 0.5) * 6
 				inst.CurveSize1 = (math.random() - 0.5) * 6
+			end
+		end
+		local camera = workspace.CurrentCamera
+		local eye = if camera then camera.CFrame.Position else Vector3.zero
+		for part, info in sway do
+			if part.Parent == nil then
+				sway[part] = nil
+			elseif (info.pivot - eye).Magnitude < SWAY_RANGE then
+				local a = math.sin(elapsed * 1.3 + info.phase) * SWAY_ANGLE
+				local around = CFrame.new(info.pivot) * CFrame.Angles(a, 0, a * 0.6)
+				part.CFrame = around * CFrame.new(-info.pivot) * info.base
 			end
 		end
 		for model, info in bob do

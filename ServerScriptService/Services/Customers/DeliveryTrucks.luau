@@ -100,7 +100,7 @@ local function runTruck(plot: Model): number
 	local front = Config.Building.FrontZ
 	local street = local3(0, 0, 1) - local3(0, 0, 0) -- the plot's +Z in world space
 	local bayRoad = local3(T.BayX, 0, front)
-	local xEnd = Config.StreetLength / 2 - 6
+	local xEnd = Vehicles.EndX
 	local fromX = if math.random() < 0.5 then -xEnd else xEnd
 	local dir = if bayRoad.X > fromX then 1 else -1 -- travel direction along the road
 	local past = Vector3.new(bayRoad.X + dir * 14, roadY, roadZ)
@@ -117,10 +117,8 @@ local function runTruck(plot: Model): number
 
 	local cakes, total = 0, 0
 	if truck.Parent and alive() and owner then
-		local door = truck:FindFirstChild("BackDoor") :: Model?
-		if door then
-			door:PivotTo(door:GetPivot() + Vector3.new(0, 4.6, 0)) -- roll the door up
-		end
+		Vehicles.SetRearDoor(truck, true) -- roll the door up
+		Vehicles.Sleep(0.7, alive)
 		local capacity = T.Capacity + PlotStats.Get(owner).TruckCapacity
 		local dockDoor = local3(T.BayX, 2.6, T.DockZ + 0.6)
 		local truckBack = local3(T.BayX, 3.2, DockBuilders.StopZ() + 1.5)
@@ -146,11 +144,9 @@ local function runTruck(plot: Model): number
 			Remotes.Get("Notify"):FireClient(owner, `🚚 A delivery truck bought {cakes} cakes for ${pay}!`)
 			total = pay
 		end
-		if door then
-			Vehicles.Sleep(0.6, alive)
-			door:PivotTo(door:GetPivot() - Vector3.new(0, 4.6, 0))
-		end
 		Vehicles.Sleep(0.6, alive)
+		Vehicles.SetRearDoor(truck, false)
+		Vehicles.Sleep(0.8, alive)
 	end
 	-- Pull out and carry on along the road into the far tunnel.
 	Vehicles.Glide(truck, CFrame.lookAt(mouth, mouth + street), T.ReverseSpeed * 1.5)

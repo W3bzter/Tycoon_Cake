@@ -76,4 +76,22 @@ Config.Prompts = {
 	RefreshInterval = 0.2, -- seconds between rule checks
 }
 
+
+-- Map scenery from the Blender world models (World/Scenery, World/MapBounds).
+-- Distances are studs outside the map's walls (MapBounds.Edges).
+Config.Scenery = {
+	Seed = 11, -- same layout on every server
+	MountainOut = 72, -- first mountain row (mountains are ~148 wide)
+	BackRowOut = 80, -- the taller row behind it
+	MountainStep = 95, -- spacing along the walls
+	MountainHeight = { Min = 80, Max = 110 },
+	HillOut = 24, -- hills in front of the mountains
+	HillStep = 55,
+	HillHeight = { Min = 12, Max = 21 },
+	OutsideBelt = 44, -- trees from the walls out to here
+	OutsideTreesPer1000 = 1.4, -- trees per 1000 square studs outside
+	InsideTrees = 70, -- trees and bushes on the free grass inside the walls
+	BushShare = 0.3,
+}
+
 return Config

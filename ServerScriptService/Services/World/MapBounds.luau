@@ -1,9 +1,10 @@
 --!strict
--- Encloses the map: rocky terrain cliffs all round (Rock / Slate / Basalt, with
--- boulders along the top), a dark sealed tunnel where the road meets each end,
--- tall invisible walls just inside the cliffs, a ground slab under everything,
--- and a fall safety net that puts anyone below the world back on their plot.
--- Sizes come from Config (street length, plot rows, building/annex depth).
+-- Encloses the map: cartoon mountains and hills all round (World/Scenery, the
+-- Blender world models) with trees, or rocky terrain cliffs when the mountain
+-- models are not imported; a dark sealed tunnel where the road meets each end
+-- (a concrete portal into the mountain), tall invisible walls just inside, a
+-- ground slab under everything, and a fall safety net that puts anyone below
+-- the world back on their plot. Sizes come from Config (street, plots, Scenery).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -12,6 +13,8 @@ local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Co
 
 local Services = script:FindFirstAncestor("Services") :: Folder
 local PlotManager = require(Services.Core.PlotManager)
+local Scenery = require(Services.World.Scenery)
+local WorldModels = require(Services.World.WorldModels)
 local Style = require(Services.World.Style)
 
 local P = Style.Palette
@@ -117,24 +120,79 @@ local function buildTunnel(side: number, xEdge: number, parent: Instance)
 	model.Parent = parent
 end
 
+-- With the Blender mountains there is no rock to carve: a concrete portal box
+-- runs from the arch into the mountain that sits over each tunnel.
+local function buildPortal(side: number, xEdge: number, parent: Instance)
+	local zMid = (ROAD_MIN + ROAD_MAX) / 2
+	local depth = CLIFF_THICK - 4
+	local x = side * (xEdge + 2 + depth / 2)
+	local color = Color3.fromRGB(165, 155, 160)
+	local model = Instance.new("Model")
+	model.Name = if side > 0 then "PortalEast" else "PortalWest"
+	for _, z in { ROAD_MIN - 3.5, ROAD_MAX + 3.5 } do
+		part({ Name = "PortalWall", Size = Vector3.new(depth, TUNNEL_H + 6, 4), CFrame = CFrame.new(x, (TUNNEL_H + 6) / 2, z), Color = color, Material = Enum.Material.Concrete, Parent = model })
+	end
+	part({ Name = "PortalRoof", Size = Vector3.new(depth, 4, TUNNEL_W + 11), CFrame = CFrame.new(x, TUNNEL_H + 2, zMid), Color = color, Material = Enum.Material.Concrete, Parent = model })
+	model.Parent = parent
+end
+
+-- Grass that isn't taken by the street, a plot, its drive-thru lane or a tunnel
+-- approach (where Scenery may put trees).
+local function freeGround(x: number, z: number, xEdge: number): boolean
+	if z > -16 and z < 46 then -- sidewalks and road
+		return false
+	end
+	if math.abs(z - (ROAD_MIN + ROAD_MAX) / 2) < 36 and math.abs(x) > xEdge - 60 then
+		return false -- tunnel approaches and portals
+	end
+	local rows = { Config.PlotRowZ }
+	if (Config.PlotRows or 1) > 1 then
+		table.insert(rows, Config.PlotRowZB)
+	end
+	for i = 1, Config.PlotCount do
+		local px = (i - (Config.PlotCount + 1) / 2) * Config.PlotSpacing
+		for _, pz in rows do
+			if math.abs(x - px) < Config.PlotSize.X / 2 + 16 and math.abs(z - pz) < Config.PlotSize.Z / 2 + 4 then
+				return false
+			end
+		end
+	end
+	return true
+end
+
 local function invisibleWall(name: string, cf: CFrame, size: Vector3, parent: Instance)
 	part({ Name = name, Size = size, CFrame = cf, Transparency = 1, CanCollide = true, CanQuery = false, CanTouch = false, CastShadow = false, Parent = parent })
 end
 
 function MapBounds.Init()
+	WorldModels.Report()
 	local xEdge, zMin, zMax = MapBounds.Edges()
 	local folder = Instance.new("Folder")
 	folder.Name = "MapBounds"
 
-	-- Ground under everything (in case the place has no big Baseplate).
-	if not workspace:FindFirstChild("Baseplate") then
-		part({ Name = "Ground", Size = Vector3.new(xEdge * 2 + CLIFF_THICK * 4, 4, zMax - zMin + CLIFF_THICK * 4), CFrame = CFrame.new(0, -2, (zMin + zMax) / 2), Color = P.Grass, Material = Enum.Material.Grass, Parent = folder })
-	end
+	-- Ground under everything, out to the mountains (a hair below a Baseplate's top).
+	local reach = Config.Scenery.MountainOut + Config.Scenery.BackRowOut + 120
+	part({ Name = "Ground", Size = Vector3.new(xEdge * 2 + reach * 2, 4, zMax - zMin + reach * 2), CFrame = CFrame.new(0, -2.05, (zMin + zMax) / 2), Color = P.Grass, Material = Enum.Material.Grass, Parent = folder })
 
-	buildCliffs(xEdge, zMin, zMax)
+	-- Mountains and hills (Blender models), else rocky terrain cliffs.
+	local zRoad = (ROAD_MIN + ROAD_MAX) / 2
+	local function tunnelMouth(x: number, z: number): boolean
+		return math.abs(x) > xEdge - 20 and math.abs(z - zRoad) < 48
+	end
+	local anchors = { Vector3.new(-(xEdge + 70), 0, zRoad), Vector3.new(xEdge + 70, 0, zRoad) }
+	local mountains = Scenery.Ring(xEdge, zMin, zMax, folder, tunnelMouth, anchors)
+	if not mountains then
+		buildCliffs(xEdge, zMin, zMax)
+	end
 	for _, side in { -1, 1 } do
 		buildTunnel(side, xEdge, folder)
+		if mountains then
+			buildPortal(side, xEdge, folder)
+		end
 	end
+	Scenery.Forest(xEdge, zMin, zMax, folder, function(x, z)
+		return freeGround(x, z, xEdge)
+	end)
 
 	-- Invisible walls just inside the cliffs (they also close the tunnel mouths).
 	local h, y = 400, 200

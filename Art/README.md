@@ -89,7 +89,7 @@ and moving parts of every model are in `World/world.json`.
 (Import 3D, rename to the file name, drag in, Ctrl+S). Turn them by
 `Config.Skins.ImportYaw` (180) like the item models.
 
-**Using them in code (for whoever wires them up):** clone
+**Wired in** by `ServerScriptService/Services/World/WorldModels.luau` (+ `Scenery`, `LaneBuilders`, `DockBuilders`, `Customers/Vehicles`); every use keeps its block version when a model is missing. How it works: clone
 `ServerStorage.Assets.World.<Name>`, colour each MeshPart by its role name
 (`Body` = the vehicle's random paint colour, `Cargo` = pink, `Tire` = charcoal,
 `Hub`/`Metal` = steel, `Glass`/`Window` = glass, `Light`/`Bulb` = neon butter,

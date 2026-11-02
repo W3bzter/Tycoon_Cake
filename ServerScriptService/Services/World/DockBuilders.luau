@@ -12,6 +12,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
 local Services = script:FindFirstAncestor("Services") :: Folder
 local Style = require(Services.World.Style)
+local WorldModels = require(Services.World.WorldModels)
 
 local P = Style.Palette
 local DockBuilders: { [string]: (floor: CFrame, item: Model) -> () } = {}
@@ -80,6 +81,20 @@ DockBuilders.LoadingDock = function(floor, item)
 	CollectionService:AddTag(bulb, "NightLight")
 	CollectionService:AddTag(light, "NightLight")
 	sign("DockSign", Vector3.new(width - 3, 1.6, 0.3), at(x, shedH - 0.3, dz - 0.05) * CFrame.new(0, 1.6, 0), P.White, "📦 LOADING DOCK", P.Cocoa, item)
+
+	-- Pallets of boxed cakes waiting either side of the dock (the Blender
+	-- PalletOfCakes when imported, else stacked boxes on a wooden pallet).
+	for i, side in { -1, 1 } do
+		local px, pz = x + side * (half + 3), dz + 3
+		local yaw = CFrame.Angles(0, math.rad(side * 8), 0)
+		if not WorldModels.Place("PalletOfCakes", at(px, 0, pz) * yaw, item) then
+			Style.Part({ Name = "Pallet", Size = Vector3.new(4, 0.6, 4), CFrame = at(px, 0.3, pz) * yaw, Color = Color3.fromRGB(190, 135, 95), Material = Enum.Material.Wood, Parent = item })
+			for k = 0, 2 do
+				local box = Style.RoundedBox("CakeBox", Vector3.new(1.7, 1.2, 1.7), at(px + (k % 2 - 0.5) * 1.8, 1.2 + math.floor(k / 2) * 1.25, pz + (if k == 2 then 0 else 0.8)) * yaw, Color3.fromRGB(225, 185, 135), item, 0.2)
+				Style.Part({ Name = "Ribbon", Size = Vector3.new(1.75, 1.25, 0.25), CFrame = box.CFrame, Color = if (i + k) % 2 == 0 then P.HotPink else P.Mint, Parent = box })
+			end
+		end
+	end
 
 	-- The painted bay (flat, walk-over) and its reserved footprint.
 	local bayLen = front - (dz + 1.6)

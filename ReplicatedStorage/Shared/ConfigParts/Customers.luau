@@ -43,6 +43,8 @@ Config.DriveThru = {
 	PayMult = 1.15, -- drive-thru customers pay a little extra
 	LaneX = 66, -- lane centre, beside the plot (plot edge at 60)
 	WindowZ = 30, -- where cars stop at the kiosk
+	MenuZ = 46, -- the menu board, where cars stop to order first
+	MenuStop = 1.4, -- seconds ordering at the menu board
 	EndZ = 9, -- turnaround pad
 }
 
