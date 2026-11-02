@@ -1,0 +1,393 @@
+{
+ "Car": {
+  "Size": [
+   4.68,
+   3.675,
+   7.865
+  ],
+  "Centre": [
+   0.0,
+   1.838,
+   0.013
+  ],
+  "Front": "-Z",
+  "Roles": [
+   "Body",
+   "Dark",
+   "Glass",
+   "Hub",
+   "Light",
+   "Metal",
+   "TailLight",
+   "Tire",
+   "Trim"
+  ],
+  "Moving": [
+   "Wheel*",
+   "Hub*"
+  ],
+  "Faces": 2734
+ },
+ "DeliveryTruck": {
+  "Size": [
+   6.688,
+   8.2,
+   14.205
+  ],
+  "Centre": [
+   0.0,
+   4.1,
+   -0.053
+  ],
+  "Front": "-Z",
+  "Roles": [
+   "Accent",
+   "Body",
+   "Cargo",
+   "Dark",
+   "Door",
+   "Glass",
+   "Hub",
+   "Light",
+   "Metal",
+   "TailLight",
+   "Tire",
+   "Trim"
+  ],
+  "Moving": [
+   "Wheel*",
+   "Hub*",
+   "RearDoor"
+  ],
+  "Faces": 4732
+ },
+ "RoundTree": {
+  "Size": [
+   8.191,
+   11.6,
+   8.314
+  ],
+  "Centre": [
+   0.486,
+   5.8,
+   -0.167
+  ],
+  "Front": "+Z",
+  "Roles": [
+   "Leaves",
+   "LeavesDark",
+   "Trunk"
+  ],
+  "Moving": [
+   "Leaves",
+   "LeavesDark"
+  ],
+  "Faces": 348
+ },
+ "PineTree": {
+  "Size": [
+   5.6,
+   10.65,
+   5.6
+  ],
+  "Centre": [
+   0.0,
+   5.325,
+   -0.0
+  ],
+  "Front": "+Z",
+  "Roles": [
+   "Leaves",
+   "LeavesDark",
+   "Trunk"
+  ],
+  "Moving": [
+   "Leaves",
+   "LeavesDark"
+  ],
+  "Faces": 153
+ },
+ "Bush": {
+  "Size": [
+   3.844,
+   2.7,
+   2.489
+  ],
+  "Centre": [
+   0.028,
+   1.05,
+   -0.036
+  ],
+  "Front": "+Z",
+  "Roles": [
+   "Flower",
+   "Leaves",
+   "LeavesDark"
+  ],
+  "Moving": [
+   "Leaves",
+   "LeavesDark",
+   "Flowers"
+  ],
+  "Faces": 140
+ },
+ "MountainA": {
+  "Size": [
+   147.721,
+   101.0,
+   145.477
+  ],
+  "Centre": [
+   0.0,
+   50.5,
+   -2.262
+  ],
+  "Front": "+Z",
+  "Roles": [
+   "Grass",
+   "Rock",
+   "RockDark",
+   "Snow"
+  ],
+  "Moving": [],
+  "Faces": 236
+ },
+ "MountainB": {
+  "Size": [
+   147.721,
+   86.0,
+   145.477
+  ],
+  "Centre": [
+   0.0,
+   43.0,
+   -2.262
+  ],
+  "Front": "+Z",
+  "Roles": [
+   "Grass",
+   "Rock",
+   "RockDark",
+   "Snow"
+  ],
+  "Moving": [],
+  "Faces": 261
+ },
+ "Hill": {
+  "Size": [
+   57.063,
+   21.0,
+   60.0
+  ],
+  "Centre": [
+   0.0,
+   0.0,
+   -0.0
+  ],
+  "Front": "+Z",
+  "Roles": [
+   "Grass",
+   "LeavesDark"
+  ],
+  "Moving": [],
+  "Faces": 200
+ },
+ "StreetLamp": {
+  "Size": [
+   1.6,
+   11.05,
+   3.981
+  ],
+  "Centre": [
+   0.0,
+   5.525,
+   1.338
+  ],
+  "Front": "+Z",
+  "Roles": [
+   "Accent",
+   "Bulb",
+   "Dark",
+   "Trim"
+  ],
+  "Moving": [
+   "Bulb"
+  ],
+  "Faces": 564
+ },
+ "DriveThruKiosk": {
+  "Size": [
+   5.527,
+   10.525,
+   7.8
+  ],
+  "Centre": [
+   1.064,
+   5.262,
+   -0.0
+  ],
+  "Front": "+X",
+  "Roles": [
+   "Accent",
+   "Body",
+   "Bulb",
+   "Cargo",
+   "Glass",
+   "SignBoard",
+   "TailLight",
+   "Trim",
+   "Window"
+  ],
+  "Moving": [
+   "Window",
+   "Bulb",
+   "SignBoard"
+  ],
+  "Faces": 1356
+ },
+ "MenuBoard": {
+  "Size": [
+   2.6,
+   6.298,
+   6.4
+  ],
+  "Centre": [
+   0.854,
+   3.149,
+   0.6
+  ],
+  "Front": "+X",
+  "Roles": [
+   "Accent",
+   "Bulb",
+   "Dark",
+   "SignBoard"
+  ],
+  "Moving": [
+   "Bulb",
+   "SignBoard"
+  ],
+  "Faces": 320
+ },
+ "PalletOfCakes": {
+  "Size": [
+   4.0,
+   3.676,
+   4.0
+  ],
+  "Centre": [
+   0.0,
+   1.833,
+   -0.0
+  ],
+  "Front": "+Z",
+  "Roles": [
+   "Cardboard",
+   "LightWood",
+   "Ribbon",
+   "Wood"
+  ],
+  "Moving": [],
+  "Faces": 1780
+ },
+ "TrafficCone": {
+  "Size": [
+   1.6,
+   2.6,
+   1.6
+  ],
+  "Centre": [
+   0.0,
+   1.3,
+   -0.0
+  ],
+  "Front": "+Z",
+  "Roles": [
+   "Cone",
+   "Dark",
+   "Trim"
+  ],
+  "Moving": [],
+  "Faces": 102
+ },
+ "FireHydrant": {
+  "Size": [
+   1.7,
+   2.9,
+   1.45
+  ],
+  "Centre": [
+   0.0,
+   1.45,
+   0.075
+  ],
+  "Front": "+Z",
+  "Roles": [
+   "Metal",
+   "TailLight"
+  ],
+  "Moving": [],
+  "Faces": 402
+ },
+ "Bench": {
+  "Size": [
+   6.0,
+   3.6,
+   2.15
+  ],
+  "Centre": [
+   0.0,
+   1.8,
+   -0.2
+  ],
+  "Front": "+Z",
+  "Roles": [
+   "Dark",
+   "Wood"
+  ],
+  "Moving": [],
+  "Faces": 594
+ },
+ "TrashCan": {
+  "Size": [
+   2.0,
+   3.175,
+   2.0
+  ],
+  "Centre": [
+   0.0,
+   1.587,
+   -0.0
+  ],
+  "Front": "+Z",
+  "Roles": [
+   "Accent",
+   "Dark",
+   "Trim"
+  ],
+  "Moving": [],
+  "Faces": 348
+ },
+ "Mailbox": {
+  "Size": [
+   1.39,
+   3.9,
+   2.0
+  ],
+  "Centre": [
+   0.045,
+   1.95,
+   -0.0
+  ],
+  "Front": "+Z",
+  "Roles": [
+   "Accent",
+   "Dark",
+   "TailLight"
+  ],
+  "Moving": [
+   "Flag"
+  ],
+  "Faces": 162
+ }
+}
