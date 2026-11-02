@@ -51,6 +51,12 @@ BuildCatalog.List = {
 	{ Id = "TurboBaker", Name = "Turbo Baker", Icon = "⚡", Kind = "AutoBaker", Category = "Kitchen", Price = 25000, Requires = { "AutoBaker", "FasterOvens2" }, UpgradeOf = "AutoBaker", Description = "Upgrades an Auto-Baker: bakes faster." },
 	{ Id = "GoldenBaker", Name = "Golden Baker", Icon = "🌟", Kind = "AutoBaker", Category = "Kitchen", Price = 120000, Requires = { "TurboBaker", "BakeryExpansion2" }, UpgradeOf = "TurboBaker", Description = "Upgrades a Turbo Baker: the fastest." },
 	{ Id = "CakeRack", Name = "Cake Rack", Icon = "🗄️", Kind = "CakeRack", Category = "Kitchen", Price = 3000, Requires = { "AutoBaker" }, Max = 1, Description = "Holds 9 extra cakes from your Auto-Bakers and refills empty counters. More racks: Shop › Storage." },
+	-- Kitchen props (Kind "Decor": just for looks, move them anywhere)
+	{ Id = "PrepCounter", Name = "Prep Counter", Icon = "🔪", Kind = "Decor", Category = "Kitchen", Price = 80, Requires = { "Walls" }, Max = 6, Description = "A steel-legged worktop with a rolling pin and dough." },
+	{ Id = "Sink", Name = "Kitchen Sink", Icon = "🚰", Kind = "Decor", Category = "Kitchen", Price = 120, Requires = { "Walls" }, Max = 3, Description = "Every bakery needs somewhere to wash up." },
+	{ Id = "Fridge", Name = "Fridge", Icon = "🧊", Kind = "Decor", Category = "Kitchen", Price = 200, Requires = { "Walls" }, Max = 3, Description = "A big friendly fridge with magnets." },
+	{ Id = "BreadShelf", Name = "Bread Shelf", Icon = "🥖", Kind = "Decor", Category = "Kitchen", Price = 350, Requires = { "Walls" }, Max = 4, Description = "Baskets of loaves and buns." },
+	{ Id = "CoffeeMachine", Name = "Coffee Cart", Icon = "☕", Kind = "Decor", Category = "Kitchen", Price = 900, Requires = { "Awning" }, Max = 2, Description = "A pink espresso machine on a cart." },
 	-- Decor
 	{ Id = "PottedPlant", Name = "Potted Plant", Icon = "🌷", Kind = "Decor", Category = "Decor", Price = 25, Requires = { "Walls" }, Max = 12, Unlocks = { [1] = "Plants" }, Description = "A cheerful plant." },
 	{ Id = "Rug", Name = "Cosy Rug", Icon = "🟪", Kind = "Decor", Category = "Decor", Price = 60, Requires = { "Walls" }, Max = 6, Description = "A soft round rug." },
@@ -59,6 +65,18 @@ BuildCatalog.List = {
 	{ Id = "StreetSign", Name = "Street Sign", Icon = "🪧", Kind = "Decor", Category = "Decor", Price = 1100, Requires = { "Awning" }, Max = 1, Effects = { CustomerRate = 0.85 }, Description = "Customers come 15% more often." },
 	{ Id = "RadioAd", Name = "Radio Ad", Icon = "📻", Kind = "Decor", Category = "Decor", Price = 10000, Requires = { "StreetSign" }, Max = 1, Effects = { CustomerRate = 0.8 }, Description = "Customers come 20% more often." },
 	{ Id = "CupcakeStatue", Name = "Cupcake Statue", Icon = "🧁", Kind = "Decor", Category = "Decor", Price = 5000, Requires = { "SecondFloor" }, Max = 2, Description = "A giant cupcake. Very important." },
+	{ Id = "MenuBoard", Name = "Menu Board", Icon = "📋", Kind = "Decor", Category = "Decor", Price = 40, Requires = { "Walls" }, Max = 4, Description = "A chalkboard with today's treats." },
+	{ Id = "RunnerRug", Name = "Runner Rug", Icon = "🟥", Kind = "Decor", Category = "Decor", Price = 70, Requires = { "Walls" }, Max = 6, Description = "A long striped rug." },
+	{ Id = "Bench", Name = "Bench", Icon = "🪑", Kind = "Decor", Category = "Decor", Price = 90, Requires = { "Walls" }, Max = 8, Description = "A wooden bench for the patio." },
+	{ Id = "FloorLamp", Name = "Floor Lamp", Icon = "💡", Kind = "Decor", Category = "Decor", Price = 120, Requires = { "Walls" }, Max = 10, Description = "Glows warmly at night." },
+	{ Id = "BigPlant", Name = "Big Plant", Icon = "🌴", Kind = "Decor", Category = "Decor", Price = 180, Requires = { "Walls" }, Max = 8, Description = "A tall leafy plant in a big pot." },
+	{ Id = "CakeStand", Name = "Cake Stand", Icon = "🎂", Kind = "Decor", Category = "Decor", Price = 300, Requires = { "Walls" }, Max = 4, Description = "A show cake under a glass dome." },
+	{ Id = "Bookshelf", Name = "Bookshelf", Icon = "📚", Kind = "Decor", Category = "Decor", Price = 450, Requires = { "Awning" }, Max = 4, Description = "Recipe books in every colour." },
+	{ Id = "Sofa", Name = "Comfy Sofa", Icon = "🛋️", Kind = "Decor", Category = "Decor", Price = 800, Requires = { "Awning" }, Max = 4, Description = "A lilac sofa with cushions." },
+	{ Id = "FlowerCart", Name = "Flower Cart", Icon = "💐", Kind = "Decor", Category = "Decor", Price = 1200, Requires = { "Awning" }, Max = 2, Description = "A cart full of flowers for the patio." },
+	{ Id = "CupcakeSign", Name = "Cupcake Sign", Icon = "🧁", Kind = "Decor", Category = "Decor", Price = 2500, Requires = { "BakeryExpansion1" }, Max = 2, Description = "A giant cupcake that lights up at night." },
+	{ Id = "Piano", Name = "Piano", Icon = "🎹", Kind = "Decor", Category = "Decor", Price = 4000, Requires = { "BakeryExpansion1" }, Max = 1, Description = "For a little background music." },
+	{ Id = "Fountain", Name = "Fountain", Icon = "⛲", Kind = "Decor", Category = "Decor", Price = 8000, Requires = { "BakeryExpansion2" }, Max = 2, Description = "A sparkling fountain for the patio." },
 	{ Id = "CakeCharm", Name = "Cake Charm (+15%)", Icon = "🍀", Kind = "Decor", Category = "Decor", Price = 30, Currency = "Gems", Requires = { "DisplayCounter2" }, Max = 1, Effects = { SalePrice = 1.15 }, Description = "A lucky charm: +15% cake prices while owned." },
 } :: { Entry }
 

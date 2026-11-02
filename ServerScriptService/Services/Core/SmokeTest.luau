@@ -131,6 +131,16 @@ function SmokeTest.Run(player: Player, withAnomalies: boolean?): string
 		return nil
 	end)
 	local plot = PlotManager.GetPlot(player) :: Model
+	step("starter furniture", function()
+		local data = DataManager.Get(player)
+		assert(data.Build.StarterGiven, "starter not given")
+		local placed, stored = #plot.Placed:GetChildren(), 0
+		for _, n in data.Build.Owned do
+			stored += n
+		end
+		assert(placed + stored == #Config.Build.Starter, `{placed} placed + {stored} stored, expected {#Config.Build.Starter}`)
+		return `{placed} placed, {stored} in inventory`
+	end)
 	step("buy and place everything", function()
 		return buyEverything(player, plot)
 	end)

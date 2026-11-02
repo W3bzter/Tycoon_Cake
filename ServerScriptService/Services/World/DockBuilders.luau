@@ -20,7 +20,7 @@ local DockBuilders: { [string]: (floor: CFrame, item: Model) -> () } = {}
 local function sign(name: string, size: Vector3, cf: CFrame, color: Color3, text: string, textColor: Color3, parent: Instance)
 	local board = Style.RoundedBox(name, size, cf, color, parent, math.min(0.4, size.Z / 2))
 	local gui = Instance.new("SurfaceGui")
-	gui.Face = Enum.NormalId.Front
+	gui.Face = Enum.NormalId.Back -- +Z: the street side
 	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
 	gui.PixelsPerStud = 40
 	gui.LightInfluence = 0

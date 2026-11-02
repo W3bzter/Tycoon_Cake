@@ -24,7 +24,7 @@ export type PlayerData = {
 	Rebirths: number,
 	Achievements: { [string]: number },
 	Broken: { [string]: number },
-	Build: { Owned: { [string]: number }, Placed: { [string]: any }, NextUid: number, Migrated: boolean, MigratedShop: boolean, MigratedAutoBakers: boolean, LegacyOvens: number },
+	Build: { Owned: { [string]: number }, Placed: { [string]: any }, NextUid: number, Migrated: boolean, MigratedShop: boolean, MigratedAutoBakers: boolean, StarterGiven: boolean, LegacyOvens: number },
 }
 
 local TEMPLATE: PlayerData = {
@@ -64,7 +64,7 @@ local TEMPLATE: PlayerData = {
 	Achievements = {}, -- id -> os.time() unlocked
 	Broken = {}, -- machine id -> repair cost (Cash); re-applied on join
 	-- Build mode: unplaced items (id -> count), placed items (uid -> {Id, GX, GZ, Rot}).
-	Build = { Owned = {}, Placed = {}, NextUid = 1, Migrated = false, MigratedShop = false, MigratedAutoBakers = false, LegacyOvens = 0 },
+	Build = { Owned = {}, Placed = {}, NextUid = 1, Migrated = false, MigratedShop = false, MigratedAutoBakers = false, StarterGiven = false, LegacyOvens = 0 },
 }
 
 return {

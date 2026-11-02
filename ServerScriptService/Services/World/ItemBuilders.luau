@@ -12,6 +12,7 @@ local Recipes = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("R
 local Services = script:FindFirstAncestor("Services") :: Folder
 local Assets = require(Services.World.Assets)
 local DockBuilders = require(Services.World.DockBuilders)
+local ShellDetails = require(Services.World.ShellDetails)
 local Style = require(Services.World.Style)
 
 local P = Style.Palette
@@ -120,7 +121,10 @@ end
 ItemBuilders.Walls = function(floor, item)
 	perStage(item, function(stage, halfX, backZ)
 		buildShell(floor, stage, halfX, backZ)
+		ShellDetails.Facade(floor, stage, halfX, backZ)
+		ShellDetails.Roof(floor, stage, halfX, backZ)
 	end)
+	ShellDetails.Mat(floor, item)
 	local topY = 10
 
 	-- Shop sign above the door.

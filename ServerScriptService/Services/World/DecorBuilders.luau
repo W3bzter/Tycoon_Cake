@@ -67,4 +67,77 @@ DecorBuilders.CakeCharm = function(floor, item)
 	sparkle.Parent = charm
 end
 
+
+-- Kitchen props (no machine: pure looks) ------------------------------------------
+
+DecorBuilders.Fridge = function(floor, item)
+	Style.RoundedBox("Body", Vector3.new(4, 8, 3), at(floor, 0, 4, 0), P.White, item, 0.6)
+	Style.Part({ Name = "DoorGap", Size = Vector3.new(3.8, 0.12, 0.1), CFrame = at(floor, 0, 5.4, 1.52), Color = P.Steel, Parent = item })
+	for _, y in { 3.4, 6.6 } do
+		Style.RoundedBox("Handle", Vector3.new(0.3, 1.6, 0.3), at(floor, 1.4, y, 1.65), P.Steel, item, 0.12)
+	end
+	Style.Ball("Magnet", 0.6, at(floor, -0.8, 6.8, 1.55), P.HotPink, item)
+	Style.Ball("Magnet", 0.5, at(floor, -0.2, 7.2, 1.55), P.Sky, item)
+	Style.RoundedBox("Note", Vector3.new(1, 1.2, 0.05), at(floor, -0.6, 3.6, 1.53), P.Butter, item, 0.05)
+end
+
+DecorBuilders.Sink = function(floor, item)
+	Style.RoundedBox("Cabinet", Vector3.new(6, 3.4, 3), at(floor, 0, 1.7, 0), P.Mint, item, 0.4)
+	Style.Trim("Top", Vector3.new(6.4, 0.4, 3.2), at(floor, 0, 3.6, 0), P.White, item)
+	Style.Part({ Name = "Basin", Size = Vector3.new(3, 0.3, 2), CFrame = at(floor, 0, 3.72, 0.1), Color = P.Steel, Parent = item })
+	Style.Cylinder("Tap", 1.4, 0.3, at(floor, 0, 4.5, -1.1), P.Steel, item)
+	Style.Part({ Name = "Spout", Size = Vector3.new(0.3, 0.3, 1.2), CFrame = at(floor, 0, 5.1, -0.6), Color = P.Steel, Parent = item })
+	for _, x in { -1.5, 1.5 } do
+		Style.Part({ Name = "DoorLine", Size = Vector3.new(0.1, 2.6, 0.05), CFrame = at(floor, x * 0.02, 1.7, 1.52), Color = P.DeepMint, Parent = item })
+		Style.Ball("Knob", 0.35, at(floor, x * 0.4, 2.4, 1.6), P.White, item)
+	end
+end
+
+DecorBuilders.PrepCounter = function(floor, item)
+	Style.Trim("Top", Vector3.new(8, 0.6, 3.4), at(floor, 0, 3.4, 0), P.Cream, item)
+	for _, x in { -3.4, 3.4 } do
+		for _, z in { -1.2, 1.2 } do
+			Style.Cylinder("Leg", 3.1, 0.4, at(floor, x, 1.55, z), P.Steel, item)
+		end
+	end
+	Style.Part({ Name = "Shelf", Size = Vector3.new(7.4, 0.3, 2.8), CFrame = at(floor, 0, 0.9, 0), Color = P.Steel, Parent = item })
+	Style.Cylinder("RollingPin", 3, 0.5, at(floor, -1.5, 3.95, 0.3) * CFrame.Angles(0, 0, math.rad(90)), P.Peach, item)
+	Style.Cylinder("Bowl", 0.9, 1.8, at(floor, 2, 4.15, -0.2), P.Sky, item)
+	Style.Ball("Dough", 1.2, at(floor, 0.4, 3.95, -0.4), P.Vanilla, item)
+end
+
+DecorBuilders.CoffeeMachine = function(floor, item)
+	Style.RoundedBox("Cart", Vector3.new(4, 3, 3), at(floor, 0, 1.5, 0), P.Cocoa, item, 0.4)
+	Style.RoundedBox("Machine", Vector3.new(3, 2.6, 2.2), at(floor, 0, 4.3, -0.2), P.HotPink, item, 0.5)
+	Style.Part({ Name = "Spout", Size = Vector3.new(0.4, 0.6, 0.4), CFrame = at(floor, 0, 3.7, 1), Color = P.Charcoal, Parent = item })
+	Style.Cylinder("Cup", 0.6, 0.6, at(floor, 0, 3.3, 1), P.White, item)
+	Style.Ball("Light", 0.35, at(floor, 1, 5, 0.92), P.Mint, item).Material = Enum.Material.Neon
+	for _, x in { -1.2, 1.2 } do
+		Style.Cylinder("Mug", 0.6, 0.6, at(floor, x, 3.3, 1), if x < 0 then P.Butter else P.Sky, item)
+	end
+end
+
+DecorBuilders.BreadShelf = function(floor, item)
+	Style.RoundedBox("Frame", Vector3.new(6, 6, 2), at(floor, 0, 3, -0.4), P.Cocoa, item, 0.3)
+	for i, y in { 1.4, 3.4, 5.2 } do
+		Style.Part({ Name = "Shelf", Size = Vector3.new(5.6, 0.25, 2), CFrame = at(floor, 0, y - 0.4, 0.2), Color = P.Peach, Parent = item })
+		for k = -1, 1 do
+			Style.RoundedBox("Basket", Vector3.new(1.5, 0.6, 1.3), at(floor, k * 1.8, y - 0.05, 0.3), P.Butter, item, 0.3)
+			if (i + k) % 2 == 0 then
+				Style.RoundedBox("Loaf", Vector3.new(1.3, 0.6, 0.9), at(floor, k * 1.8, y + 0.35, 0.3), Color3.fromRGB(205, 140, 80), item, 0.35)
+			else
+				Style.Ball("Bun", 0.8, at(floor, k * 1.8, y + 0.35, 0.3), Color3.fromRGB(220, 160, 95), item)
+			end
+		end
+	end
+end
+
+DecorBuilders.RunnerRug = function(floor, item)
+	Style.RoundedBox("Rug", Vector3.new(4, 0.1, 10), at(floor, 0, 0.05, 0), P.HotPink, item, 0.6).CanCollide = false
+	Style.RoundedBox("Stripe", Vector3.new(2.6, 0.12, 8.6), at(floor, 0, 0.07, 0), P.Cream, item, 0.4).CanCollide = false
+	for _, z in { -3, 0, 3 } do
+		Style.Ball("Dot", 0.8, at(floor, 0, 0.05, z), P.Mint, item).CanCollide = false
+	end
+end
+
 return DecorBuilders

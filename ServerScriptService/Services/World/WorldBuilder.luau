@@ -26,7 +26,7 @@ local function setPartVisible(p: BasePart, visible: boolean)
 	p.Transparency = if visible then p:GetAttribute("OrigTransparency") :: number else 1
 	p.CanCollide = if visible then p:GetAttribute("OrigCanCollide") :: boolean else false
 	p.CanTouch = visible
-	p.CanQuery = visible
+	p.CanQuery = visible and p:GetAttribute("OrigCanQuery") ~= false -- roofs are never clickable
 end
 
 function WorldBuilder.SetVisible(root: Instance, visible: boolean)

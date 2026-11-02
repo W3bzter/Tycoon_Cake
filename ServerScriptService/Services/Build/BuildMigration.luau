@@ -10,10 +10,17 @@
 --   CakeCharm -> inventory
 -- Second pass (PlayerData.Build.MigratedShop), when the floor buttons went away:
 --   Pantry (IngredientCrate), Street Sign, Radio Ad -> placed at their old spots
+-- Then the Auto-Bakers pass and the free starter furniture (see below).
 -- Phase 4 (one oven with racks): each old extra oven (Build.LegacyOvens, from
 --   Oven2/Oven3) becomes a free Oven Rack upgrade (OvenRack2, OvenRack3).
 
 local Services = script:FindFirstAncestor("Services") :: Folder
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local BuildCatalog = require(Shared:WaitForChild("BuildCatalog"))
+local Config = require(Shared:WaitForChild("Config"))
+
 local BuildModels = require(Services.Build.BuildModels)
 local BuildService = require(Services.Build.BuildService)
 local DataManager = require(Services.Core.DataManager)
@@ -89,13 +96,39 @@ local function migrateAutoBakers(player: Player, data: any, b: any)
 	end
 end
 
-local function migrate(player: Player, plot: Model)
+-- Free starter furniture (Config.Build.Starter), once per save (Build.StarterGiven):
+-- placed where it fits, else into the build inventory. Each counts as bought
+-- (its id and first-purchase unlock are granted, like BuildService.Buy).
+local function giveStarter(player: Player, plot: Model, b: any)
+	if b.StarterGiven then
+		return
+	end
+	b.StarterGiven = true
+	for _, s in Config.Build.Starter do
+		local entry = BuildCatalog.Find(s.Id)
+		if entry then
+			local gx, gz = math.floor(s.X / Config.Build.Grid + 0.5), math.floor(s.Z / Config.Build.Grid + 0.5)
+			if BuildService.CanPlace(player, plot, s.Id, gx, gz, 0) then
+				local uid = tostring(b.NextUid)
+				b.NextUid += 1
+				b.Placed[uid] = { Id = s.Id, GX = gx, GZ = gz, Rot = 0 }
+			else
+				b.Owned[s.Id] = (b.Owned[s.Id] or 0) + 1
+			end
+			DataManager.Unlock(player, s.Id)
+			if entry.Unlocks and entry.Unlocks[1] then
+				DataManager.Unlock(player, entry.Unlocks[1])
+			end
+		end
+	end
+end
+
+local function migrateLegacy(player: Player, plot: Model)
 	local data = DataManager.Get(player)
 	local b = data and data.Build
 	if not data or not b then
 		return
 	end
-	migrateAutoBakers(player, data, b)
 	if b.Migrated and b.MigratedShop and (b.LegacyOvens or 0) == 0 then
 		return
 	end
@@ -157,6 +190,19 @@ local function migrate(player: Player, plot: Model)
 		b.Owned.CakeCharm = (b.Owned.CakeCharm or 0) + 1
 	end
 	convertLegacyOvens(player, b)
+end
+
+-- Every pass, oldest first; the starter furniture comes last so the legacy pass
+-- never mistakes its unlocks for old purchases.
+local function migrate(player: Player, plot: Model)
+	local data = DataManager.Get(player)
+	local b = data and data.Build
+	if not data or not b then
+		return
+	end
+	migrateAutoBakers(player, data, b)
+	migrateLegacy(player, plot)
+	giveStarter(player, plot, b)
 end
 
 function BuildMigration.Init()

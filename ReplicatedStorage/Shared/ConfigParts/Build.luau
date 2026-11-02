@@ -49,6 +49,20 @@ Config.Build = {
 	Reserved = {
 		{ Name = "Entrance", X0 = -B.DoorHalf, X1 = B.DoorHalf, Z0 = B.FacadeZ - 10, Z1 = B.FrontZ },
 	},
+	-- Free furniture every new bakery starts with (Build/BuildMigration, once per
+	-- save: Build.StarterGiven). Normal placed items: move or store them freely.
+	-- X/Z = plot-local studs of the item centre, inside the first-stage walls or
+	-- on the patio. A spot that's taken puts the item in the build inventory.
+	Starter = {
+		{ Id = "MenuBoard", X = 14, Z = 41 },
+		{ Id = "Bench", X = -20, Z = 46 },
+		{ Id = "PottedPlant", X = -26, Z = 56 },
+		{ Id = "PottedPlant", X = 26, Z = 56 },
+		{ Id = "FloorLamp", X = -24, Z = 31 },
+		{ Id = "CakeStand", X = 14, Z = 30 },
+		{ Id = "RunnerRug", X = 0, Z = 18 },
+		{ Id = "BreadShelf", X = 20, Z = -8 },
+	},
 }
 
 return Config

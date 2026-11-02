@@ -18,6 +18,7 @@ local Config = require(Shared:WaitForChild("Config"))
 
 local Services = script:FindFirstAncestor("Services") :: Folder
 local DecorBuilders = require(Services.World.DecorBuilders)
+local DecorBuilders2 = require(Services.World.DecorBuilders2)
 local ItemBuilders = require(Services.World.ItemBuilders)
 local MachineBuilders = require(Services.World.MachineBuilders)
 local Skins = require(Services.World.Skins)
@@ -32,6 +33,8 @@ local function runBuilders(id: string, model: Model)
 	if id == "BigMixer" then
 		ItemBuilders.Mixer(floor, model)
 		ItemBuilders.BigMixer(floor, model)
+	elseif DecorBuilders2[id] then
+		DecorBuilders2[id](floor, model)
 	elseif DecorBuilders[id] then
 		DecorBuilders[id](floor, model)
 	elseif MachineBuilders[id] then
