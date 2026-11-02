@@ -2,7 +2,7 @@
 -- Encloses the map: cartoon mountains and hills all round (World/Scenery, the
 -- Blender world models) with trees, or rocky terrain cliffs when the mountain
 -- models are not imported; a dark sealed tunnel where the road meets each end
--- (a concrete portal into the mountain), tall invisible walls just inside, a
+-- (a grassy ridge into the mountain), tall invisible walls just inside, a
 -- ground slab under everything, and a fall safety net that puts anyone below
 -- the world back on their plot. Sizes come from Config (street, plots, Scenery).
 
@@ -112,7 +112,10 @@ local function buildTunnel(side: number, xEdge: number, parent: Instance)
 		light.Brightness = 1.4
 		light.Parent = lamp
 	end
-	-- Darkness: layered black veils getting thicker, then a pitch-black back wall.
+	-- Darkness: a solid black mouth just inside the arch (whatever is behind it,
+	-- like a mountain's skirt, never shows; vehicles appear out of it), then
+	-- layered veils and a pitch-black back wall for the terrain-cliff version.
+	part({ Name = "Mouth", Size = Vector3.new(0.4, TUNNEL_H + 1, TUNNEL_W), CFrame = CFrame.new(side * (xEdge + 3), (TUNNEL_H + 1) / 2, zMid), Color = Color3.new(0, 0, 0), CanCollide = false, CanQuery = false, CastShadow = false, Parent = model })
 	for i, alpha in { 0.75, 0.5, 0.25 } do
 		part({ Name = "Gloom", Size = Vector3.new(0.2, TUNNEL_H, TUNNEL_W), CFrame = CFrame.new(side * (xEdge + i * 7), TUNNEL_H / 2, zMid), Color = Color3.new(0, 0, 0), Transparency = alpha, CanCollide = false, CanQuery = false, CastShadow = false, Parent = model })
 	end
@@ -120,19 +123,37 @@ local function buildTunnel(side: number, xEdge: number, parent: Instance)
 	model.Parent = parent
 end
 
--- With the Blender mountains there is no rock to carve: a concrete portal box
--- runs from the arch into the mountain that sits over each tunnel.
+-- With the Blender mountains there is no rock to carve: the road runs into a
+-- grassy ridge (a spur of the mountain behind it) from the stone arch back to
+-- the mountain's rock face, Config.Scenery.PortalDepth long. Concrete inner
+-- walls, a grass roof and grass slopes down both sides.
 local function buildPortal(side: number, xEdge: number, parent: Instance)
 	local zMid = (ROAD_MIN + ROAD_MAX) / 2
-	local depth = CLIFF_THICK - 4
+	local depth = Config.Scenery.PortalDepth
 	local x = side * (xEdge + 2 + depth / 2)
-	local color = Color3.fromRGB(165, 155, 160)
+	local wallH = TUNNEL_H + 6
+	local concrete = Color3.fromRGB(165, 155, 160)
 	local model = Instance.new("Model")
 	model.Name = if side > 0 then "PortalEast" else "PortalWest"
 	for _, z in { ROAD_MIN - 3.5, ROAD_MAX + 3.5 } do
-		part({ Name = "PortalWall", Size = Vector3.new(depth, TUNNEL_H + 6, 4), CFrame = CFrame.new(x, (TUNNEL_H + 6) / 2, z), Color = color, Material = Enum.Material.Concrete, Parent = model })
+		part({ Name = "PortalWall", Size = Vector3.new(depth, wallH, 4), CFrame = CFrame.new(x, wallH / 2, z), Color = concrete, Material = Enum.Material.Concrete, Parent = model })
 	end
-	part({ Name = "PortalRoof", Size = Vector3.new(depth, 4, TUNNEL_W + 11), CFrame = CFrame.new(x, TUNNEL_H + 2, zMid), Color = color, Material = Enum.Material.Concrete, Parent = model })
+	local roofW = TUNNEL_W + 11
+	part({ Name = "PortalRoof", Size = Vector3.new(depth, 5, roofW), CFrame = CFrame.new(x, TUNNEL_H + 3.5, zMid), Color = P.Grass, Material = Enum.Material.Grass, Parent = model })
+	-- Slopes: a wedge on each side, high against the walls, down to the ground.
+	local slope = 20
+	for _, s in { 1, -1 } do
+		local wedge = Instance.new("WedgePart")
+		wedge.Name = "PortalSlope"
+		wedge.Anchored = true
+		wedge.Size = Vector3.new(depth, wallH, slope)
+		-- A wedge is tall at its +Z end: turn it so the tall end faces the road.
+		wedge.CFrame = CFrame.new(x, wallH / 2, zMid + s * (roofW / 2 + slope / 2)) * CFrame.Angles(0, if s > 0 then math.pi else 0, 0)
+		wedge.Color = P.Grass
+		wedge.Material = Enum.Material.Grass
+		wedge.CastShadow = false
+		wedge.Parent = model
+	end
 	model.Parent = parent
 end
 
@@ -180,7 +201,9 @@ function MapBounds.Init()
 		return math.abs(x) > xEdge - 20 and math.abs(z - zRoad) < 48
 	end
 	local anchors = { Vector3.new(-(xEdge + 70), 0, zRoad), Vector3.new(xEdge + 70, 0, zRoad) }
-	local mountains = Scenery.Ring(xEdge, zMin, zMax, folder, tunnelMouth, anchors)
+	-- No mountain (or its grass skirt) may cover the street, out to the tunnel mouths.
+	local street = { { X0 = -(xEdge + 3), X1 = xEdge + 3, Z0 = -16, Z1 = 46 } }
+	local mountains = Scenery.Ring(xEdge, zMin, zMax, folder, tunnelMouth, anchors, street)
 	if not mountains then
 		buildCliffs(xEdge, zMin, zMax)
 	end

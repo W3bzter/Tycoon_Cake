@@ -88,6 +88,7 @@ Config.Scenery = {
 	HillOut = 24, -- hills in front of the mountains
 	HillStep = 55,
 	HillHeight = { Min = 12, Max = 21 },
+	PortalDepth = 80, -- grassy ridge from each tunnel arch back into the mountain's rock
 	OutsideBelt = 44, -- trees from the walls out to here
 	OutsideTreesPer1000 = 1.4, -- trees per 1000 square studs outside
 	InsideTrees = 70, -- trees and bushes on the free grass inside the walls

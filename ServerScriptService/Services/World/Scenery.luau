@@ -55,10 +55,54 @@ local function bush(cf: CFrame, parent: Instance, scale: number)
 	end
 end
 
+export type Rect = { X0: number, X1: number, Z0: number, Z1: number }
+
+-- World-space bounds of every part in `model`.
+local function bounds(model: Model): (Vector3, Vector3)
+	local lo, hi = Vector3.one * math.huge, -Vector3.one * math.huge
+	for _, d in model:GetDescendants() do
+		if d:IsA("BasePart") then
+			local h = d.Size / 2
+			for _, sx in { -1, 1 } do
+				for _, sy in { -1, 1 } do
+					for _, sz in { -1, 1 } do
+						local c = d.CFrame * Vector3.new(sx * h.X, sy * h.Y, sz * h.Z)
+						lo, hi = lo:Min(c), hi:Max(c)
+					end
+				end
+			end
+		end
+	end
+	return lo, hi
+end
+
+-- Moves `model` along `outward` until its footprint is off every rect in `keepOff`
+-- (a mountain's grass skirt reaches far: it must never lie on the road).
+local function pushOff(model: Model, outward: Vector3, keepOff: { Rect })
+	for _ = 1, 4 do
+		local lo, hi = bounds(model)
+		local move = 0
+		for _, r in keepOff do
+			if lo.X < r.X1 and hi.X > r.X0 and lo.Z < r.Z1 and hi.Z > r.Z0 then
+				local need = if outward.X > 0.5 then r.X1 - lo.X
+					elseif outward.X < -0.5 then hi.X - r.X0
+					elseif outward.Z > 0.5 then r.Z1 - lo.Z
+					else hi.Z - r.Z0
+				move = math.max(move, need + 1)
+			end
+		end
+		if move <= 0 then
+			return
+		end
+		model:PivotTo(model:GetPivot() + outward * move)
+	end
+end
+
 -- Mountains (two staggered rows) and hills round the rectangle xEdge / zMin..zMax.
 -- `keepClear(x, z)` = true where no hill may stand (the tunnel mouths); `anchors`
--- = extra mountains (one over each tunnel, so the road runs into it).
-function Scenery.Ring(xEdge: number, zMin: number, zMax: number, parent: Instance, keepClear: (number, number) -> boolean, anchors: { Vector3 }): boolean
+-- = extra mountains (one over each tunnel, so the road runs into it); `keepOff`
+-- = rects no mountain may cover (the street, up to the tunnel mouths).
+function Scenery.Ring(xEdge: number, zMin: number, zMax: number, parent: Instance, keepClear: (number, number) -> boolean, anchors: { Vector3 }, keepOff: { Rect }): boolean
 	if not WorldModels.Has("MountainA") then
 		return false
 	end
@@ -87,7 +131,10 @@ function Scenery.Ring(xEdge: number, zMin: number, zMax: number, parent: Instanc
 		local name = if rng:NextNumber() < 0.5 then "MountainA" else "MountainB"
 		-- Front (+Z) towards the map, so the grassy side faces the players.
 		local cf = CFrame.lookAt(Vector3.new(x, 0, z), Vector3.new(x, 0, z) + outward) * CFrame.Angles(0, rng:NextNumber(-0.4, 0.4), 0)
-		WorldModels.Place(name, cf, model, { Height = height, Shadows = false })
+		local placed = WorldModels.Place(name, cf, model, { Height = height, Shadows = false })
+		if placed then
+			pushOff(placed, outward, keepOff)
+		end
 	end
 	outline(S.MountainOut, S.MountainStep, function(x, z, outward)
 		mountain(x, z, rng:NextNumber(S.MountainHeight.Min, S.MountainHeight.Max), outward)
